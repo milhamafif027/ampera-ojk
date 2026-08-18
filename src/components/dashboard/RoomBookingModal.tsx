@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, CheckCircle2, AlertCircle, RefreshCw, Loader2 } from "lucide-react";
+import { X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Room, Agenda } from "@/types";
 
 export interface RoomBookingModalProps {
@@ -322,7 +322,7 @@ export default function RoomBookingModal({
             <button
               onClick={onClose}
               disabled={isSubmitting}
-              className="p-2 hover:bg-white/20 rounded-full transition-colors bg-white/10 cursor-pointer disabled:opacity-50"
+              className="p-2 hover:bg-white/20 rounded-full transition-colors bg-white/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <X size={18} />
             </button>
@@ -618,8 +618,10 @@ export default function RoomBookingModal({
             {isViewMode ? (
               <button
                 onClick={onClose}
-                className="px-6 py-2.5 rounded-xl font-bold text-white bg-[#9f1521] hover:bg-[#7a1019] text-xs transition-colors cursor-pointer"
+                disabled={isSubmitting}
+                className="px-6 py-2.5 rounded-xl font-bold text-white bg-[#9f1521] hover:bg-[#7a1019] text-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
+                {isSubmitting && <Loader2 size={14} className="animate-spin" />}
                 Tutup
               </button>
             ) : (
@@ -628,24 +630,30 @@ export default function RoomBookingModal({
                   <button
                     onClick={() => setStep(1)}
                     disabled={isSubmitting}
-                    className="px-6 py-2.5 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 text-xs cursor-pointer disabled:opacity-50"
+                    className="px-6 py-2.5 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
+                    {isSubmitting && (
+                      <Loader2 size={14} className="animate-spin" />
+                    )}
                     Kembali
                   </button>
                 )}
                 {step === 1 ? (
                   <button
                     onClick={() => setStep(2)}
-                    disabled={!isStep1Valid}
-                    className="px-8 py-2.5 bg-[#9f1521] text-white font-bold rounded-xl text-xs disabled:opacity-50 cursor-pointer"
+                    disabled={!isStep1Valid || isSubmitting}
+                    className="px-8 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white font-bold rounded-xl text-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2 transition-all"
                   >
+                    {isSubmitting && (
+                      <Loader2 size={14} className="animate-spin" />
+                    )}
                     Selanjutnya
                   </button>
                 ) : (
                   <button
                     onClick={handleSubmit}
                     disabled={!isStep2Valid || isSubmitting || hasConflict}
-                    className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs disabled:opacity-50 cursor-pointer flex items-center gap-2"
+                    className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2 transition-all"
                   >
                     {isSubmitting && (
                       <Loader2 size={14} className="animate-spin" />

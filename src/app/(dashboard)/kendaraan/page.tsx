@@ -1,17 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import {
-  Car,
-  Users,
-  Plus,
-  CheckCircle2,
-  Clock,
-  Calendar,
-  X,
-  RefreshCw,
-} from "lucide-react";
+import { Car, Plus, CheckCircle2, Calendar, X, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
+import VehicleCard from "@/components/dashboard/VehicleCard";
+import VehicleBookingModal from "@/components/dashboard/VehicleBookingModal";
 
 interface Vehicle {
   id: string | number;
@@ -32,6 +25,7 @@ interface VehicleBooking {
   status: "Pending" | "Disetujui" | "Selesai" | string;
   passengers?: string | number;
   notes?: string;
+  userId?: string | number;
 }
 
 interface LocalUser {
@@ -52,7 +46,7 @@ export default function KendaraanPage() {
   // State Modal Peminjaman
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // State Modal Tambah Kendaraan (Khusus Admin) - Tanpa Driver
+  // State Modal Tambah Kendaraan (Khusus Admin)
   const [isAddVehicleModalOpen, setIsAddVehicleModalOpen] = useState(false);
   const [newVehicleData, setNewVehicleData] = useState({
     name: "",
@@ -66,7 +60,8 @@ export default function KendaraanPage() {
     isOpen: boolean;
     bookingId: string | null;
     vehicleName: string;
-  }>({ isOpen: false, bookingId: null, vehicleName: "" });
+    userId?: string | number;
+  }>({ isOpen: false, bookingId: null, vehicleName: "", userId: undefined });
 
   const [approvalForm, setApprovalForm] = useState({
     totalPassengers: "1",
@@ -130,6 +125,7 @@ export default function KendaraanPage() {
               status: b.status || "Pending",
               passengers: b.total_passengers || b.passengers || "-",
               notes: b.approval_notes || b.notes || "-",
+              userId: b.user_id || b.userId,
             }),
           );
           setBookings(mappedBookings);
@@ -149,7 +145,13 @@ export default function KendaraanPage() {
       const storedUser = localStorage.getItem("local_user");
       if (storedUser) {
         try {
-          setUser(JSON.parse(storedUser));
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+          setFormData((prev) => ({
+            ...prev,
+            borrower: parsedUser.name || "", // <--- Bagian ini yang membuat "Tamu Eksternal OJK" muncul
+            dept: parsedUser.dept || "",
+          }));
         } catch (err) {
           console.error("Gagal membaca session user:", err);
         }
@@ -159,9 +161,33 @@ export default function KendaraanPage() {
     initData();
   }, [fetchVehicleData]);
 
+  // ---> TAMBAHAN: Kalkulasi Status Dinamis berdasarkan Jadwal Booking <---
+  const vehiclesWithStatus = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+
+    return vehicles.map((v) => {
+      const isBooked = bookings.some(
+        (b) =>
+          b.vehicleName === v.name &&
+          b.status === "Disetujui" &&
+          today >= b.startDate &&
+          today <= b.endDate,
+      );
+
+      return {
+        ...v,
+        status:
+          v.status === "Perawatan"
+            ? "Perawatan"
+            : isBooked
+              ? "Terpakai"
+              : "Tersedia",
+      };
+    });
+  }, [vehicles, bookings]);
+
   const isAdmin = user?.role === "admin";
 
-  // Identifikasi apakah user saat ini merupakan role eksternal
   const isExternalUser = useMemo(() => {
     if (!user) return false;
     const roleLower = (user.role || "").toLowerCase();
@@ -175,7 +201,6 @@ export default function KendaraanPage() {
     );
   }, [user]);
 
-  // Saring data peminjaman: jika eksternal, hanya tampilkan data milik peminjam tersebut
   const filteredBookings = useMemo(() => {
     if (!bookings) return [];
     if (isExternalUser && user) {
@@ -189,24 +214,15 @@ export default function KendaraanPage() {
   }, [bookings, isExternalUser, user]);
 
   const handleOpenModal = (vehicle?: Vehicle) => {
-    if (vehicle) {
-      setFormData((prev) => ({
-        ...prev,
-        vehicleName: vehicle.name,
-        borrower: user?.name || prev.borrower,
-        dept: user?.dept || prev.dept,
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        borrower: user?.name || prev.borrower,
-        dept: user?.dept || prev.dept,
-      }));
-    }
+    setFormData((prev) => ({
+      ...prev,
+      vehicleName: vehicle ? vehicle.name : "",
+      borrower: "",
+      dept: "",
+    }));
     setIsModalOpen(true);
   };
 
-  // Handler Submit Form Peminjaman oleh User/Admin
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -225,6 +241,7 @@ export default function KendaraanPage() {
           tanggal_selesai: formData.endDate,
           keperluan: formData.purpose,
           status: isAdminUser ? "Disetujui" : "Pending",
+          user_id: user?.id || null,
         }),
       });
 
@@ -232,12 +249,31 @@ export default function KendaraanPage() {
         throw new Error("Gagal menyimpan pengajuan peminjaman");
       }
 
+      // Kirim Notifikasi otomatis ke sistem
+      try {
+        await fetch("/api/notifikasi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: user?.id || 1,
+            title: isAdminUser
+              ? "Peminjaman Kendaraan Disetujui"
+              : "Pengajuan Kendaraan Baru",
+            type: "vehicle",
+            status: isAdminUser ? "Disetujui" : "Pending",
+            info: `Kendaraan: ${formData.vehicleName} (${formData.destination}) oleh ${formData.borrower}`,
+          }),
+        });
+      } catch (notifErr) {
+        console.error("Gagal mengirim notifikasi:", notifErr);
+      }
+
       setIsModalOpen(false);
       setFormData({
         vehicleName: "",
         destination: "",
-        borrower: "",
-        dept: "",
+        borrower: user?.name || "",
+        dept: user?.dept || "",
         startDate: "",
         endDate: "",
         purpose: "",
@@ -256,7 +292,6 @@ export default function KendaraanPage() {
     }
   };
 
-  // Handler Submit Tambah Kendaraan Baru oleh Admin (Tanpa Driver)
   const handleAddVehicleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -293,15 +328,16 @@ export default function KendaraanPage() {
     }
   };
 
-  // Handler Buka Modal Persetujuan Admin
   const handleOpenApprovalModal = (
     bookingId: string | number,
     vehicleName: string,
+    targetUserId?: string | number,
   ) => {
     setApprovalModal({
       isOpen: true,
       bookingId: String(bookingId),
       vehicleName,
+      userId: targetUserId,
     });
     setApprovalForm({
       totalPassengers: "1",
@@ -309,7 +345,6 @@ export default function KendaraanPage() {
     });
   };
 
-  // Handler Konfirmasi Persetujuan Admin (Kirim ke API)
   const handleConfirmApproval = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!approvalModal.bookingId) return;
@@ -330,7 +365,31 @@ export default function KendaraanPage() {
 
       if (!res.ok) throw new Error("Gagal menyetujui peminjaman kendaraan");
 
-      setApprovalModal({ isOpen: false, bookingId: null, vehicleName: "" });
+      // Kirim Notifikasi bahwa booking disetujui kepada pemohon
+      if (approvalModal.userId) {
+        try {
+          await fetch("/api/notifikasi", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_id: approvalModal.userId,
+              title: "Peminjaman Kendaraan Disetujui",
+              type: "vehicle",
+              status: "Disetujui",
+              info: `Pengajuan ${approvalModal.vehicleName} telah disetujui. Catatan: ${approvalForm.notes}`,
+            }),
+          });
+        } catch (notifErr) {
+          console.error("Gagal mengirim notifikasi approval:", notifErr);
+        }
+      }
+
+      setApprovalModal({
+        isOpen: false,
+        bookingId: null,
+        vehicleName: "",
+        userId: undefined,
+      });
       setSuccessMessage(
         "Peminjaman kendaraan berhasil diverifikasi dan disetujui.",
       );
@@ -391,55 +450,14 @@ export default function KendaraanPage() {
         </div>
       </div>
 
-      {/* KATALOG ARMADA KENDARAAN (TANPA DRIVER) */}
+      {/* KATALOG ARMADA KENDARAAN (Menggunakan vehiclesWithStatus) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {vehicles.map((vehicle) => (
-          <div
+        {vehiclesWithStatus.map((vehicle) => (
+          <VehicleCard
             key={vehicle.id}
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-4"
-          >
-            <div className="space-y-3">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    {vehicle.plateNumber}
-                  </span>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-base leading-snug">
-                    {vehicle.name}
-                  </h3>
-                </div>
-
-                <span
-                  className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border shrink-0 flex items-center gap-1 ${
-                    vehicle.status === "Tersedia"
-                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400"
-                      : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400"
-                  }`}
-                >
-                  {vehicle.status === "Tersedia" ? (
-                    <CheckCircle2 size={12} />
-                  ) : (
-                    <Clock size={12} />
-                  )}
-                  {vehicle.status.toUpperCase()}
-                </span>
-              </div>
-
-              <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400 font-medium">
-                <p className="flex items-center gap-1.5">
-                  <Users size={14} className="text-slate-400" />{" "}
-                  {vehicle.capacity}
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => handleOpenModal(vehicle)}
-              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer"
-            >
-              Pesan Unit Ini
-            </button>
-          </div>
+            vehicle={vehicle}
+            onOpenModal={handleOpenModal}
+          />
         ))}
       </div>
 
@@ -509,7 +527,11 @@ export default function KendaraanPage() {
                         {b.status === "Pending" ? (
                           <button
                             onClick={() =>
-                              handleOpenApprovalModal(b.id, b.vehicleName)
+                              handleOpenApprovalModal(
+                                b.id,
+                                b.vehicleName,
+                                b.userId,
+                              )
                             }
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-sm transition-colors cursor-pointer"
                           >
@@ -534,7 +556,7 @@ export default function KendaraanPage() {
         )}
       </div>
 
-      {/* MODAL TAMBAH KENDARAAN BARU (KHUSUS ADMIN - TANPA DRIVER) */}
+      {/* MODAL TAMBAH KENDARAAN BARU (KHUSUS ADMIN) */}
       {isAddVehicleModalOpen && isAdmin && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
@@ -548,7 +570,8 @@ export default function KendaraanPage() {
               </h3>
               <button
                 onClick={() => setIsAddVehicleModalOpen(false)}
-                className="p-1 hover:bg-white/20 rounded-full cursor-pointer"
+                disabled={isSubmitting}
+                className="p-1 hover:bg-white/20 rounded-full cursor-pointer disabled:opacity-50"
               >
                 <X size={18} />
               </button>
@@ -571,7 +594,8 @@ export default function KendaraanPage() {
                       name: e.target.value,
                     })
                   }
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
+                  disabled={isSubmitting}
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none disabled:opacity-50"
                   placeholder="Contoh: Toyota Fortuner VRZ"
                   required
                 />
@@ -591,7 +615,8 @@ export default function KendaraanPage() {
                         plate_number: e.target.value,
                       })
                     }
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
+                    disabled={isSubmitting}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none disabled:opacity-50"
                     placeholder="Contoh: BG 1025 OJK"
                     required
                   />
@@ -609,7 +634,8 @@ export default function KendaraanPage() {
                         type: e.target.value,
                       })
                     }
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
+                    disabled={isSubmitting}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none disabled:opacity-50"
                     placeholder="Contoh: 7 Penumpang"
                     required
                   />
@@ -628,7 +654,8 @@ export default function KendaraanPage() {
                       status: e.target.value,
                     })
                   }
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none cursor-pointer"
+                  disabled={isSubmitting}
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none cursor-pointer disabled:opacity-50"
                 >
                   <option value="Tersedia">Tersedia</option>
                   <option value="Terpakai">Terpakai</option>
@@ -639,14 +666,15 @@ export default function KendaraanPage() {
                 <button
                   type="button"
                   onClick={() => setIsAddVehicleModalOpen(false)}
-                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold cursor-pointer"
+                  disabled={isSubmitting}
+                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold cursor-pointer disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 cursor-pointer"
+                  className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 cursor-pointer disabled:opacity-50"
                 >
                   {isSubmitting ? "Menyimpan..." : "Simpan Kendaraan"}
                 </button>
@@ -679,9 +707,11 @@ export default function KendaraanPage() {
                     isOpen: false,
                     bookingId: null,
                     vehicleName: "",
+                    userId: undefined,
                   })
                 }
-                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full cursor-pointer"
+                disabled={isSubmittingApproval}
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full cursor-pointer disabled:opacity-50"
               >
                 <X size={18} />
               </button>
@@ -717,7 +747,8 @@ export default function KendaraanPage() {
                       totalPassengers: e.target.value,
                     })
                   }
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-medium"
+                  disabled={isSubmittingApproval}
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-medium disabled:opacity-50"
                   placeholder="Contoh: 4"
                   required
                 />
@@ -733,7 +764,8 @@ export default function KendaraanPage() {
                   onChange={(e) =>
                     setApprovalForm({ ...approvalForm, notes: e.target.value })
                   }
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-medium resize-none"
+                  disabled={isSubmittingApproval}
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-medium resize-none disabled:opacity-50"
                   placeholder="Contoh: Harap berkumpul di lobi 15 menit sebelum keberangkatan."
                 />
               </div>
@@ -746,16 +778,18 @@ export default function KendaraanPage() {
                       isOpen: false,
                       bookingId: null,
                       vehicleName: "",
+                      userId: undefined,
                     })
                   }
-                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold cursor-pointer"
+                  disabled={isSubmittingApproval}
+                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold cursor-pointer disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingApproval}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors shadow-sm cursor-pointer"
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors shadow-sm cursor-pointer disabled:opacity-50"
                 >
                   {isSubmittingApproval
                     ? "Menyimpan..."
@@ -795,148 +829,15 @@ export default function KendaraanPage() {
       )}
 
       {/* MODAL RESERVASI KENDARAAN */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl flex flex-col"
-          >
-            <div className="px-6 py-5 bg-[#9f1521] text-white flex justify-between items-center">
-              <h3 className="font-bold text-base">Form Peminjaman Kendaraan</h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-1 hover:bg-white/20 rounded-full cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form
-              onSubmit={handleSubmit}
-              className="p-6 space-y-4 text-xs font-medium text-slate-800 dark:text-slate-100"
-            >
-              <div>
-                <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
-                  Pilih Kendaraan
-                </label>
-                <select
-                  value={formData.vehicleName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, vehicleName: e.target.value })
-                  }
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none cursor-pointer"
-                  required
-                >
-                  <option value="">-- Pilih Kendaraan --</option>
-                  {vehicles.map((v) => (
-                    <option key={v.id} value={v.name}>
-                      {v.name} ({v.plateNumber})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
-                    Nama Peminjam
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.borrower}
-                    onChange={(e) =>
-                      setFormData({ ...formData, borrower: e.target.value })
-                    }
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
-                    placeholder="Nama Lengkap"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
-                    Satker
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.dept}
-                    onChange={(e) =>
-                      setFormData({ ...formData, dept: e.target.value })
-                    }
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
-                    placeholder="Satker"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
-                  Kota / Lokasi Tujuan
-                </label>
-                <input
-                  type="text"
-                  value={formData.destination}
-                  onChange={(e) =>
-                    setFormData({ ...formData, destination: e.target.value })
-                  }
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
-                  placeholder="Contoh: Kabupaten Lahat"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
-                    Tanggal Berangkat
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.startDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, startDate: e.target.value })
-                    }
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
-                    Tanggal Kembali
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.endDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, endDate: e.target.value })
-                    }
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="pt-3 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-6 py-2.5 bg-[#9f1521] text-white rounded-xl font-bold hover:bg-[#7a1019] cursor-pointer"
-                >
-                  {isSubmitting ? "Mengirim..." : "Kirim Pengajuan"}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
+      <VehicleBookingModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleSubmit}
+        vehicles={vehicles}
+        formData={formData}
+        setFormData={setFormData}
+        isSubmitting={isSubmitting}
+      />
     </motion.div>
   );
 }

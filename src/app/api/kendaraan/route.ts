@@ -38,7 +38,7 @@ export async function GET() {
   }
 }
 
-// 2. PUT: Menangani penambahan kendaraan baru & persetujuan booking (Hanya 1 fungsi PUT)
+// 2. PUT: Menangani penambahan kendaraan baru & persetujuan booking
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
@@ -74,7 +74,7 @@ export async function PUT(request: Request) {
       });
     }
 
-    // Aksi untuk menyetujui peminjaman kendaraan & menyimpan jumlah penumpang serta catatan
+    // Aksi untuk menyetujui peminjaman kendaraan
     if (action === "approve_booking") {
       const query = `
         UPDATE vehicle_bookings 
@@ -116,9 +116,9 @@ export async function POST(request: Request) {
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
       const name = formData.get("name") as string;
-      const plate = formData.get("plate") as string;
+      const plate = formData.get("plate_number") as string;
       const type = formData.get("type") as string;
-      const driver = formData.get("driver") as string;
+      const driver = formData.get("driver_name") as string;
       const status = (formData.get("status") as string) || "Tersedia";
       const file = formData.get("image") as File | null;
 
@@ -133,7 +133,7 @@ export async function POST(request: Request) {
       }
 
       const query = `
-        INSERT INTO kendaraan (name, plate, type, driver, status, img) 
+        INSERT INTO kendaraan (name, plate_number, type, driver_name, status, img) 
         VALUES (?, ?, ?, ?, ?, ?)
       `;
 
@@ -161,11 +161,12 @@ export async function POST(request: Request) {
         tanggal_mulai,
         tanggal_selesai,
         status,
+        user_id, // Ditangkap dari frontend
       } = body;
 
       const query = `
-        INSERT INTO vehicle_bookings (vehicle_name, destination, borrower, dept, start_date, end_date, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO vehicle_bookings (vehicle_name, destination, borrower, dept, start_date, end_date, status, user_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       await db.query(query, [
@@ -176,6 +177,7 @@ export async function POST(request: Request) {
         tanggal_mulai,
         tanggal_selesai,
         status || "Pending",
+        user_id || null, // Disimpan ke database
       ]);
 
       return NextResponse.json({

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LogOut,
@@ -181,9 +182,11 @@ export default function DashboardLayout({
               }`}
             >
               <div className="relative w-10 h-10 rounded-2xl overflow-hidden shrink-0 shadow-md bg-white flex items-center justify-center border border-slate-100">
-                <img
+                <Image
                   src="/icon.png"
                   alt="Logo OJK"
+                  width={40}
+                  height={40}
                   className="w-full h-full object-cover"
                 />
               </div>
