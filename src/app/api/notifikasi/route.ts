@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { RowDataPacket } from "mysql2";
 
 // 1. GET: Mengambil daftar notifikasi berdasarkan user atau admin
 export async function GET(req: Request) {
@@ -12,9 +13,10 @@ export async function GET(req: Request) {
       "SELECT id, user_id, title, type, status, info, is_read, created_at FROM notifikasi";
     let params: any[] = [];
 
+    // Jika bukan admin dan userId valid, filter berdasarkan user_id
     if (
       role &&
-      role !== "admin" &&
+      role.toLowerCase() !== "admin" &&
       userId &&
       userId !== "undefined" &&
       userId !== "null"
@@ -23,25 +25,26 @@ export async function GET(req: Request) {
       params = [userId];
     }
 
-    query += " ORDER BY created_at DESC";
+    query += " ORDER BY created_at DESC LIMIT 50";
 
-    const [rows] = await db.query(query, params);
+    const [rows] = await db.query<RowDataPacket[]>(query, params);
     return NextResponse.json({ success: true, data: rows });
   } catch (error: any) {
     console.error("API GET NOTIFIKASI ERROR:", error.message);
+    // Mengembalikan array kosong dengan status 200 agar frontend tidak crash / gagal fetch
     return NextResponse.json({ success: true, data: [] }, { status: 200 });
   }
 }
 
-// 2. POST: Membuat notifikasi baru (Misal: saat booking kendaraan / ruangan / approval)
+// 2. POST: Membuat notifikasi baru
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { user_id, title, type, status, info } = body;
 
-    if (!user_id || !title) {
+    if (!title) {
       return NextResponse.json(
-        { success: false, message: "user_id dan title wajib diisi" },
+        { success: false, message: "Title wajib diisi" },
         { status: 400 },
       );
     }
@@ -52,7 +55,7 @@ export async function POST(req: Request) {
     `;
 
     await db.query(query, [
-      user_id,
+      user_id || null, // Jika user_id kosong, simpan sebagai null (untuk notifikasi global/admin)
       title,
       type || "info",
       status || "Pending",
@@ -93,8 +96,7 @@ export async function PUT(req: Request) {
 
     if (
       role &&
-      role !== "admin" &&
-      role !== "Admin" &&
+      role.toLowerCase() !== "admin" &&
       userId &&
       userId !== "undefined" &&
       userId !== "null"
