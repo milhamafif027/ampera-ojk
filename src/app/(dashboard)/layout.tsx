@@ -38,7 +38,7 @@ export default function DashboardLayout({
   const [isHovered, setIsHovered] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
-  // State baru untuk indikator loading logout
+  // State untuk indikator loading logout
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // State & Ref untuk Dropdown Notifikasi
@@ -65,7 +65,7 @@ export default function DashboardLayout({
     checkUserSession();
   }, [router]);
 
-  // Fungsi Fetch Data Notifikasi dari Database MySQL menggunakan useCallback
+  // Fungsi Fetch Data Notifikasi dari Database MySQL
   const fetchNotifications = useCallback(async (currentUserData: LocalUser) => {
     try {
       const res = await fetch(
@@ -99,6 +99,8 @@ export default function DashboardLayout({
     }
   }, []);
 
+  // Panggil fetchNotifications saat user sudah siap
+  // Panggil fetchNotifications saat user sudah siap
   useEffect(() => {
     if (!user) return;
 
@@ -151,7 +153,6 @@ export default function DashboardLayout({
   const handleConfirmLogout = () => {
     setIsLoggingOut(true);
 
-    // Berikan jeda sejenak (simulate loading/smooth transition)
     setTimeout(() => {
       localStorage.removeItem("local_user");
       setIsLoggingOut(false);
@@ -340,7 +341,7 @@ export default function DashboardLayout({
               {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
-            {/* KOMPONEN NOTIFIKASI YANG TERHUBUNG KE DATABASE */}
+            {/* KOMPONEN NOTIFIKASI */}
             <NotificationDropdown
               isOpen={isNotifOpen}
               setIsOpen={setIsNotifOpen}

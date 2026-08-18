@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Room, Agenda, StatusPengajuan } from "@/types";
 import { getSmartStatus } from "@/lib/utils";
 import RoomBookingModal from "@/components/dashboard/RoomBookingModal";
+import RoomCard from "@/components/dashboard/RoomCard";
 import {
   Building2,
   Plus,
@@ -15,9 +16,6 @@ import {
   Trash2,
   CheckCircle2,
   AlertCircle,
-  Pencil,
-  Users,
-  Info,
   Loader2,
 } from "lucide-react";
 
@@ -36,9 +34,7 @@ export default function RuanganPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // State loading khusus saat submit form modal ruangan
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [selectedRoomForBooking, setSelectedRoomForBooking] =
     useState<Room | null>(null);
@@ -61,7 +57,6 @@ export default function RuanganPage() {
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
-
       const [resRooms, resAgendas] = await Promise.all([
         fetch("/api/ruangan"),
         fetch("/api/agendas"),
@@ -304,11 +299,24 @@ export default function RuanganPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* CSS Inline untuk optimasi content-visibility card */}
       <style jsx>{`
         .optimize-card-render {
           content-visibility: auto;
-          contain-intrinsic-size: 0 350px;
+          contain-intrinsic-size: 0 380px;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(159, 21, 33, 0.25);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(159, 21, 33, 0.6);
         }
       `}</style>
 
@@ -416,7 +424,7 @@ export default function RuanganPage() {
         />
       </div>
 
-      {/* SECTION 1: RUANGAN PERTEMUAN / BALLROOM */}
+      {/* SECTION 1: RUANGAN PERTEMUAN */}
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
           <h2 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
@@ -427,90 +435,18 @@ export default function RuanganPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {conferenceRooms.length > 0 ? (
-            conferenceRooms.map((room: any) => {
-              const liveStatus = getRoomLiveStatus(room.name);
-              const mainImg =
-                room.imgs && room.imgs.length > 0
-                  ? room.imgs[0]
-                  : "/uploads/placeholder.webp";
-
-              return (
-                <div
-                  key={room.id}
-                  className="optimize-card-render bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm flex flex-col transition-all hover:shadow-md"
-                >
-                  <div className="h-44 w-full overflow-hidden bg-slate-100 dark:bg-slate-800 relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={mainImg}
-                      alt={room.name}
-                      width={400}
-                      height={176}
-                      loading="lazy"
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-3 right-3 flex gap-1.5">
-                      {liveStatus.isUsed ? (
-                        <span className="px-2.5 py-1 bg-amber-500 text-white text-[10px] font-bold rounded-full shadow-md">
-                          Sedang Digunakan
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded-full shadow-md">
-                          Tersedia
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="p-5 flex flex-col flex-grow space-y-3">
-                    <div className="flex justify-between items-start gap-2">
-                      <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                        {room.name}
-                      </h3>
-
-                      {isAdmin && (
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={() => handleOpenEditModal(room)}
-                            className="p-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 hover:text-amber-600 text-slate-600 dark:text-slate-300 rounded-lg transition-colors cursor-pointer"
-                            title="Edit Ruangan"
-                          >
-                            <Pencil size={13} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-                      <Users size={13} className="text-[#9f1521]" /> Kapasitas:{" "}
-                      <strong className="text-slate-700 dark:text-slate-200">
-                        {room.capacity}
-                      </strong>
-                    </p>
-
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-start gap-1.5 leading-relaxed">
-                      <Info
-                        size={13}
-                        className="text-slate-400 shrink-0 mt-0.5"
-                      />
-                      <span>{room.description}</span>
-                    </p>
-
-                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between mt-auto">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Ruang Pertemuan
-                      </span>
-                      <button
-                        onClick={() => handleOpenBooking(room)}
-                        className="px-3 py-1.5 bg-[#9f1521]/10 hover:bg-[#9f1521] text-[#9f1521] hover:text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
-                      >
-                        Pesan Ruangan
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
+            conferenceRooms.map((room: any) => (
+              <div key={room.id} className="optimize-card-render">
+                <RoomCard
+                  room={room}
+                  isAdmin={isAdmin}
+                  user={user}
+                  getRoomLiveStatus={getRoomLiveStatus}
+                  handleOpenBooking={handleOpenBooking}
+                  handleOpenEditModal={handleOpenEditModal}
+                />
+              </div>
+            ))
           ) : (
             <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
               {isLoading
@@ -532,90 +468,18 @@ export default function RuanganPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {meetingRooms.length > 0 ? (
-            meetingRooms.map((room: any) => {
-              const liveStatus = getRoomLiveStatus(room.name);
-              const mainImg =
-                room.imgs && room.imgs.length > 0
-                  ? room.imgs[0]
-                  : "/uploads/placeholder.webp";
-
-              return (
-                <div
-                  key={room.id}
-                  className="optimize-card-render bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm flex flex-col transition-all hover:shadow-md"
-                >
-                  <div className="h-44 w-full overflow-hidden bg-slate-100 dark:bg-slate-800 relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={mainImg}
-                      alt={room.name}
-                      width={400}
-                      height={176}
-                      loading="lazy"
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-3 right-3 flex gap-1.5">
-                      {liveStatus.isUsed ? (
-                        <span className="px-2.5 py-1 bg-amber-500 text-white text-[10px] font-bold rounded-full shadow-md">
-                          Sedang Digunakan
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded-full shadow-md">
-                          Tersedia
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="p-5 flex flex-col flex-grow space-y-3">
-                    <div className="flex justify-between items-start gap-2">
-                      <h3 className="font-bold text-slate-900 dark:text-white text-sm">
-                        {room.name}
-                      </h3>
-
-                      {isAdmin && (
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={() => handleOpenEditModal(room)}
-                            className="p-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 hover:text-amber-600 text-slate-600 dark:text-slate-300 rounded-lg transition-colors cursor-pointer"
-                            title="Edit Ruangan"
-                          >
-                            <Pencil size={13} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-                      <Users size={13} className="text-[#9f1521]" /> Kapasitas:{" "}
-                      <strong className="text-slate-700 dark:text-slate-200">
-                        {room.capacity}
-                      </strong>
-                    </p>
-
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-start gap-1.5 leading-relaxed">
-                      <Info
-                        size={13}
-                        className="text-slate-400 shrink-0 mt-0.5"
-                      />
-                      <span>{room.description}</span>
-                    </p>
-
-                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between mt-auto">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Ruang Rapat
-                      </span>
-                      <button
-                        onClick={() => handleOpenBooking(room)}
-                        className="px-3 py-1.5 bg-[#9f1521]/10 hover:bg-[#9f1521] text-[#9f1521] hover:text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
-                      >
-                        Pesan Ruangan
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
+            meetingRooms.map((room: any) => (
+              <div key={room.id} className="optimize-card-render">
+                <RoomCard
+                  room={room}
+                  isAdmin={isAdmin}
+                  user={user}
+                  getRoomLiveStatus={getRoomLiveStatus}
+                  handleOpenBooking={handleOpenBooking}
+                  handleOpenEditModal={handleOpenEditModal}
+                />
+              </div>
+            ))
           ) : (
             <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
               {isLoading
@@ -626,7 +490,7 @@ export default function RuanganPage() {
         </div>
       </div>
 
-      {/* MODAL TAMBAH / EDIT DATA RUANGAN DENGAN VALIDASI MAKSIMAL BERAT FILE (MAX 2 MB) */}
+      {/* MODAL TAMBAH / EDIT DATA RUANGAN */}
       {isEditModalOpen && editingRoom && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-5">
@@ -753,7 +617,7 @@ export default function RuanganPage() {
                         const files = e.target.files;
                         if (!files || files.length === 0) return;
 
-                        const MAX_SIZE_MB = 2; // Batas maksimal file 2 MB
+                        const MAX_SIZE_MB = 2;
                         const validFiles: File[] = [];
                         let hasErrorSize = false;
 

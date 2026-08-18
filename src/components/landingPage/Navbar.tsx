@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { LogIn, Menu, X } from "lucide-react";
-import { motion, AnimatePresence, Variants } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -38,14 +38,19 @@ export default function Navbar() {
             : "max-w-full bg-white/90 backdrop-blur-md border-b border-slate-200/80 rounded-none py-4"
         }`}
       >
-        {/* Logo & Identitas Portal */}
+        {/* Logo & Identitas Portal (Menggunakan icon.png) */}
         <Link href="/" className="flex items-center gap-3 group">
           <motion.div
             whileHover={{ scale: 1.08, rotate: 3 }}
             whileTap={{ scale: 0.95 }}
-            className="relative w-9 h-9 bg-[#9f1521] rounded-xl flex items-center justify-center text-white font-black text-xs shadow-md"
+            className="relative w-10 h-10 rounded-xl overflow-hidden shadow-md bg-white flex items-center justify-center border border-slate-100 shrink-0"
           >
-            OJK
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/icon.png"
+              alt="Logo OJK"
+              className="w-full h-full object-cover"
+            />
           </motion.div>
           <div>
             <h1 className="font-bold text-sm text-slate-900 leading-tight group-hover:text-[#9f1521] transition-colors">

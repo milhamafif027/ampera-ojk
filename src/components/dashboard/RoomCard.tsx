@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, Variants } from "framer-motion";
-import { Clock, CheckCircle2, Edit3 } from "lucide-react";
+import { Pencil, Info, Users } from "lucide-react";
 import { Room } from "@/types";
 
 interface LocalUser {
@@ -20,7 +20,7 @@ interface RoomCardProps {
   getRoomLiveStatus: (name: string) => any;
   handleOpenBooking: (room: Room) => void;
   handleOpenEditModal: (room: any) => void;
-  cardVariants: Variants;
+  cardVariants?: Variants;
 }
 
 export default function RoomCard({
@@ -35,9 +35,9 @@ export default function RoomCard({
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const liveStatus = getRoomLiveStatus(room.name);
   const roomDesc =
-    (room as any).description || "Perlengkapan: Proyektor | Sound System";
+    (room as any).description || "Perlengkapan: Proyektor | Sound System | AC";
+  const roomType = (room as any).type || "rapat";
 
-  // Ambil gambar murni dari data room (disaring agar tidak ada nilai kosong)
   const roomImages: string[] =
     (room as any).imgs && Array.isArray((room as any).imgs)
       ? (room as any).imgs.filter(Boolean)
@@ -54,14 +54,11 @@ export default function RoomCard({
     }
   };
 
-  return (
-    <motion.div
-      variants={cardVariants}
-      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between transition-all hover:shadow-md max-w-sm w-full mx-auto"
-    >
+  const cardContent = (
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm flex flex-col justify-between transition-all hover:shadow-md w-full">
       <div>
         {/* Banner Galeri Foto Bisa Di-scroll Horizontal */}
-        <div className="relative h-36 w-full bg-slate-950 group overflow-hidden">
+        <div className="relative h-40 w-full bg-slate-950 group overflow-hidden">
           <div
             onScroll={handleScroll}
             className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scroll-smooth custom-scrollbar"
@@ -76,22 +73,24 @@ export default function RoomCard({
                 <img
                   src={imgUrl}
                   alt={`${room.name} - ${idx + 1}`}
-                  className="w-full h-full object-cover opacity-90"
+                  className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex flex-col justify-end p-3">
-                  <h3 className="text-white font-black text-xs tracking-wide truncate">
-                    {room.name}
-                  </h3>
-                </div>
               </div>
             ))}
           </div>
 
-          <span className="absolute top-2.5 right-2.5 z-10 px-2 py-0.5 bg-slate-900/80 text-white rounded-full text-[10px] font-extrabold border border-white/20">
-            {room.capacity}
-          </span>
+          <div className="absolute top-3 right-3 z-10 flex gap-1.5">
+            {liveStatus.isUsed ? (
+              <span className="px-2.5 py-1 bg-amber-500 text-white text-[10px] font-bold rounded-full shadow-md">
+                Sedang Digunakan
+              </span>
+            ) : (
+              <span className="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded-full shadow-md">
+                Tersedia
+              </span>
+            )}
+          </div>
 
-          {/* Indikator Titik Slider (Dots) hanya muncul jika foto lebih dari 1 */}
           {roomImages.length > 1 && (
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-full">
               {roomImages.map((_, idx) => (
@@ -109,63 +108,58 @@ export default function RoomCard({
         </div>
 
         {/* Informasi Isi Card */}
-        <div className="p-3.5 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span
-              className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold border flex items-center gap-1 ${
-                liveStatus.isUsed
-                  ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400"
-                  : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400"
-              }`}
-            >
-              {liveStatus.isUsed ? (
-                <Clock size={11} />
-              ) : (
-                <CheckCircle2 size={11} />
-              )}
-              {liveStatus.isUsed ? "TERPAKAI" : "TERSEDIA"}
-            </span>
+        <div className="p-5 flex flex-col space-y-3">
+          <div className="flex justify-between items-start gap-2">
+            <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+              {room.name}
+            </h3>
 
             {isAdmin && (
-              <button
-                onClick={() => handleOpenEditModal(room)}
-                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
-              >
-                <Edit3 size={11} /> Edit
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => handleOpenEditModal(room)}
+                  className="p-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 hover:text-amber-600 text-slate-600 dark:text-slate-300 rounded-lg transition-colors cursor-pointer"
+                  title="Edit Ruangan"
+                >
+                  <Pencil size={13} />
+                </button>
+              </div>
             )}
           </div>
 
-          <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium line-clamp-2 leading-snug">
-            {roomDesc}
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
+            <Users size={13} className="text-[#9f1521]" /> Kapasitas:{" "}
+            <strong className="text-slate-700 dark:text-slate-200">
+              {room.capacity}
+            </strong>
           </p>
 
-          {liveStatus.isUsed && liveStatus.agenda && (
-            <div className="p-2 bg-rose-50/60 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 rounded-xl space-y-0.5">
-              <p className="text-[9px] font-bold text-rose-800 dark:text-rose-300 uppercase">
-                Sedang Berlangsung:
-              </p>
-              <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate">
-                {liveStatus.agenda.title}
-              </p>
-              <p className="text-[9px] text-slate-500 font-medium">
-                {liveStatus.agenda.time}{" "}
-                {user?.role !== "eksternal" && `• ${liveStatus.agenda.pic}`}
-              </p>
-            </div>
-          )}
+          {/* Kotak Deskripsi dengan Tinggi Tetap & Area Scroll Internal */}
+          <div className="h-[45px] overflow-y-auto custom-scrollbar pr-1 text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-start gap-1.5 leading-relaxed">
+            <Info size={13} className="text-slate-400 shrink-0 mt-0.5" />
+            <span>{roomDesc}</span>
+          </div>
         </div>
       </div>
 
       {/* Tombol Reservasi Bawah */}
-      <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800">
+      <div className="p-4 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 mt-auto">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          {roomType === "pertemuan" ? "Ruang Pertemuan" : "Ruang Rapat"}
+        </span>
         <button
           onClick={() => handleOpenBooking(room)}
-          className="w-full py-2 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer"
+          className="px-3 py-1.5 bg-[#9f1521]/10 hover:bg-[#9f1521] text-[#9f1521] hover:text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
         >
-          Reservasi Ruangan
+          Pesan Ruangan
         </button>
       </div>
-    </motion.div>
+    </div>
   );
+
+  if (cardVariants) {
+    return <motion.div variants={cardVariants}>{cardContent}</motion.div>;
+  }
+
+  return cardContent;
 }
