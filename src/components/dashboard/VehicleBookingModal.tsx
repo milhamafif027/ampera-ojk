@@ -10,6 +10,7 @@ interface Vehicle {
   plateNumber: string;
   capacity: string;
   status: string;
+  category?: string; // <--- Ditambahkan agar mengenali kategori kendaraan
 }
 
 interface VehicleBookingModalProps {
@@ -40,6 +41,11 @@ export default function VehicleBookingModal({
   isSubmitting,
 }: VehicleBookingModalProps) {
   if (!isOpen) return null;
+
+  // Filter kendaraan: Sembunyikan kendaraan khusus pimpinan dari pilihan form peminjaman
+  const availableVehiclesForBooking = vehicles.filter(
+    (v) => v.category !== "Khusus Pimpinan",
+  );
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
@@ -77,7 +83,7 @@ export default function VehicleBookingModal({
               required
             >
               <option value="">-- Pilih Kendaraan --</option>
-              {vehicles.map((v) => (
+              {availableVehiclesForBooking.map((v) => (
                 <option key={v.id} value={v.name}>
                   {v.name} ({v.plateNumber})
                 </option>

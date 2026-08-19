@@ -73,6 +73,9 @@ export default function RoomCard({
                 <img
                   src={imgUrl}
                   alt={`${room.name} - ${idx + 1}`}
+                  width={600}
+                  height={160}
+                  loading="lazy"
                   className="w-full h-full object-cover"
                 />
               </div>

@@ -12,6 +12,7 @@ interface Vehicle {
   plateNumber: string;
   capacity: string;
   status: "Tersedia" | "Terpakai" | "Perawatan" | string;
+  category?: "Khusus Pimpinan" | "Operasional" | string;
 }
 
 interface VehicleBooking {
@@ -43,16 +44,25 @@ export default function KendaraanPage() {
   const [bookings, setBookings] = useState<VehicleBooking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // State untuk Filter Jenis Kendaraan (Semua / Mobil / Sepeda Motor)
+  const [filterType, setFilterType] = useState<
+    "Semua" | "Mobil" | "Sepeda Motor"
+  >("Semua");
+
   // State Modal Peminjaman
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // State Modal Tambah Kendaraan (Khusus Admin)
+  // State Modal Tambah/Edit Kendaraan (Khusus Admin)
   const [isAddVehicleModalOpen, setIsAddVehicleModalOpen] = useState(false);
+  const [editingVehicleId, setEditingVehicleId] = useState<
+    string | number | null
+  >(null);
   const [newVehicleData, setNewVehicleData] = useState({
     name: "",
     plate_number: "",
     type: "7 Penumpang",
     status: "Tersedia",
+    category: "Operasional",
   });
 
   // State Modal Persetujuan Admin (Approval Modal)
@@ -100,6 +110,7 @@ export default function KendaraanPage() {
             plateNumber: v.plate_number || v.no_plat || "BG OJK",
             capacity: v.type || v.kapasitas || "7 Penumpang",
             status: v.status || "Tersedia",
+            category: v.category || "Operasional",
           }));
           setVehicles(mappedVehicles);
         }
@@ -149,7 +160,7 @@ export default function KendaraanPage() {
           setUser(parsedUser);
           setFormData((prev) => ({
             ...prev,
-            borrower: parsedUser.name || "", // <--- Bagian ini yang membuat "Tamu Eksternal OJK" muncul
+            borrower: parsedUser.name || "",
             dept: parsedUser.dept || "",
           }));
         } catch (err) {
@@ -161,11 +172,12 @@ export default function KendaraanPage() {
     initData();
   }, [fetchVehicleData]);
 
-  // ---> TAMBAHAN: Kalkulasi Status Dinamis berdasarkan Jadwal Booking <---
-  const vehiclesWithStatus = useMemo(() => {
+  // Kalkulasi Status Dinamis & Filter Jenis Kendaraan (Mobil / Motor)
+  const filteredVehicles = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
 
-    return vehicles.map((v) => {
+    // 1. Hitung status ketersediaan berdasarkan jadwal booking aktif
+    let list = vehicles.map((v) => {
       const isBooked = bookings.some(
         (b) =>
           b.vehicleName === v.name &&
@@ -184,7 +196,23 @@ export default function KendaraanPage() {
               : "Tersedia",
       };
     });
-  }, [vehicles, bookings]);
+
+    // 2. Filter berdasarkan tab jenis kendaraan (Semua / Mobil / Sepeda Motor)
+    if (filterType !== "Semua") {
+      list = list.filter((v) => {
+        const isMotorcycle =
+          v.capacity.toLowerCase().includes("motor") ||
+          v.name.toLowerCase().includes("stylo") ||
+          v.name.toLowerCase().includes("cb 150");
+
+        if (filterType === "Sepeda Motor") return isMotorcycle;
+        if (filterType === "Mobil") return !isMotorcycle;
+        return true;
+      });
+    }
+
+    return list;
+  }, [vehicles, bookings, filterType]);
 
   const isAdmin = user?.role === "admin";
 
@@ -214,13 +242,84 @@ export default function KendaraanPage() {
   }, [bookings, isExternalUser, user]);
 
   const handleOpenModal = (vehicle?: Vehicle) => {
+    if (vehicle?.category === "Khusus Pimpinan") {
+      alert("Maaf, kendaraan ini khusus untuk operasional pimpinan.");
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       vehicleName: vehicle ? vehicle.name : "",
-      borrower: "",
-      dept: "",
+      borrower: user?.name || "",
+      dept: user?.dept || "",
     }));
     setIsModalOpen(true);
+  };
+
+  const handleOpenAddModal = () => {
+    setEditingVehicleId(null);
+    setNewVehicleData({
+      name: "",
+      plate_number: "",
+      type: "7 Penumpang",
+      status: "Tersedia",
+      category: "Operasional",
+    });
+    setIsAddVehicleModalOpen(true);
+  };
+
+  const handleOpenEditModal = (vehicle: Vehicle) => {
+    setEditingVehicleId(vehicle.id);
+    setNewVehicleData({
+      name: vehicle.name,
+      plate_number: vehicle.plateNumber,
+      type: vehicle.capacity,
+      status: vehicle.status,
+      category: vehicle.category || "Operasional",
+    });
+    setIsAddVehicleModalOpen(true);
+  };
+
+  const handleAddOrUpdateVehicleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const method = editingVehicleId ? "PUT" : "POST";
+      const payload = editingVehicleId
+        ? { action: "update_vehicle", id: editingVehicleId, ...newVehicleData }
+        : { action: "add_vehicle", ...newVehicleData };
+
+      const res = await fetch("/api/kendaraan", {
+        method: method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error("Gagal menyimpan data kendaraan");
+
+      setIsAddVehicleModalOpen(false);
+      setEditingVehicleId(null);
+      setNewVehicleData({
+        name: "",
+        plate_number: "",
+        type: "7 Penumpang",
+        status: "Tersedia",
+        category: "Operasional",
+      });
+
+      setSuccessMessage(
+        editingVehicleId
+          ? "Data kendaraan berhasil diperbarui."
+          : "Armada kendaraan baru telah berhasil disimpan ke database.",
+      );
+      setShowSuccessModal(true);
+      fetchVehicleData();
+    } catch (error) {
+      console.error(error);
+      alert("Gagal menyimpan data kendaraan.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -249,7 +348,6 @@ export default function KendaraanPage() {
         throw new Error("Gagal menyimpan pengajuan peminjaman");
       }
 
-      // Kirim Notifikasi otomatis ke sistem
       try {
         await fetch("/api/notifikasi", {
           method: "POST",
@@ -292,42 +390,6 @@ export default function KendaraanPage() {
     }
   };
 
-  const handleAddVehicleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      const res = await fetch("/api/kendaraan", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "add_vehicle",
-          ...newVehicleData,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Gagal menambah kendaraan baru");
-
-      setIsAddVehicleModalOpen(false);
-      setNewVehicleData({
-        name: "",
-        plate_number: "",
-        type: "7 Penumpang",
-        status: "Tersedia",
-      });
-
-      setSuccessMessage(
-        "Armada kendaraan baru telah berhasil disimpan ke database.",
-      );
-      setShowSuccessModal(true);
-      fetchVehicleData();
-    } catch (error) {
-      console.error(error);
-      alert("Gagal menambah kendaraan baru.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleOpenApprovalModal = (
     bookingId: string | number,
     vehicleName: string,
@@ -365,7 +427,6 @@ export default function KendaraanPage() {
 
       if (!res.ok) throw new Error("Gagal menyetujui peminjaman kendaraan");
 
-      // Kirim Notifikasi bahwa booking disetujui kepada pemohon
       if (approvalModal.userId) {
         try {
           await fetch("/api/notifikasi", {
@@ -434,7 +495,7 @@ export default function KendaraanPage() {
 
           {isAdmin && (
             <button
-              onClick={() => setIsAddVehicleModalOpen(true)}
+              onClick={handleOpenAddModal}
               className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md cursor-pointer"
             >
               <Plus size={16} /> Tambah Kendaraan
@@ -450,14 +511,35 @@ export default function KendaraanPage() {
         </div>
       </div>
 
-      {/* KATALOG ARMADA KENDARAAN (Menggunakan vehiclesWithStatus) */}
+      {/* FILTER KATEGORI / JENIS KENDARAAN */}
+      <div className="flex bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm w-fit gap-1">
+        {(["Semua", "Mobil", "Sepeda Motor"] as const).map((type) => (
+          <button
+            key={type}
+            onClick={() => setFilterType(type)}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+              filterType === type
+                ? "bg-[#9f1521] text-white shadow-md shadow-rose-900/10"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            {type}
+          </button>
+        ))}
+      </div>
+
+      {/* KATALOG ARMADA KENDARAAN */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {vehiclesWithStatus.map((vehicle) => (
-          <VehicleCard
-            key={vehicle.id}
-            vehicle={vehicle}
-            onOpenModal={handleOpenModal}
-          />
+        {filteredVehicles.map((vehicle) => (
+          <div key={vehicle.id} className="optimize-card-render">
+            <VehicleCard
+              vehicle={vehicle}
+              isAdmin={isAdmin}
+              user={user}
+              onOpenModal={handleOpenModal}
+              onOpenEditModal={handleOpenEditModal}
+            />
+          </div>
         ))}
       </div>
 
@@ -556,7 +638,7 @@ export default function KendaraanPage() {
         )}
       </div>
 
-      {/* MODAL TAMBAH KENDARAAN BARU (KHUSUS ADMIN) */}
+      {/* MODAL TAMBAH / EDIT KENDARAAN (KHUSUS ADMIN) */}
       {isAddVehicleModalOpen && isAdmin && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
@@ -566,7 +648,9 @@ export default function KendaraanPage() {
           >
             <div className="px-6 py-5 bg-slate-900 text-white flex justify-between items-center">
               <h3 className="font-bold text-base">
-                Tambah Armada Kendaraan Baru
+                {editingVehicleId
+                  ? "Edit Data Kendaraan"
+                  : "Tambah Armada Kendaraan Baru"}
               </h3>
               <button
                 onClick={() => setIsAddVehicleModalOpen(false)}
@@ -578,7 +662,7 @@ export default function KendaraanPage() {
             </div>
 
             <form
-              onSubmit={handleAddVehicleSubmit}
+              onSubmit={handleAddOrUpdateVehicleSubmit}
               className="p-6 space-y-4 text-xs font-medium text-slate-800 dark:text-slate-100"
             >
               <div>
@@ -636,30 +720,53 @@ export default function KendaraanPage() {
                     }
                     disabled={isSubmitting}
                     className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none disabled:opacity-50"
-                    placeholder="Contoh: 7 Penumpang"
+                    placeholder="Contoh: 7 Penumpang / Sepeda Motor"
                     required
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
-                  Status Awal
-                </label>
-                <select
-                  value={newVehicleData.status}
-                  onChange={(e) =>
-                    setNewVehicleData({
-                      ...newVehicleData,
-                      status: e.target.value,
-                    })
-                  }
-                  disabled={isSubmitting}
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none cursor-pointer disabled:opacity-50"
-                >
-                  <option value="Tersedia">Tersedia</option>
-                  <option value="Terpakai">Terpakai</option>
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
+                    Status Kendaraan
+                  </label>
+                  <select
+                    value={newVehicleData.status}
+                    onChange={(e) =>
+                      setNewVehicleData({
+                        ...newVehicleData,
+                        status: e.target.value,
+                      })
+                    }
+                    disabled={isSubmitting}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none cursor-pointer disabled:opacity-50"
+                  >
+                    <option value="Tersedia">Tersedia</option>
+                    <option value="Terpakai">Terpakai</option>
+                    <option value="Perawatan">Perawatan</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
+                    Kategori Kendaraan
+                  </label>
+                  <select
+                    value={newVehicleData.category}
+                    onChange={(e) =>
+                      setNewVehicleData({
+                        ...newVehicleData,
+                        category: e.target.value,
+                      })
+                    }
+                    disabled={isSubmitting}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none cursor-pointer disabled:opacity-50"
+                  >
+                    <option value="Operasional">Operasional</option>
+                    <option value="Khusus Pimpinan">Khusus Pimpinan</option>
+                  </select>
+                </div>
               </div>
 
               <div className="pt-3 flex justify-end gap-2">
