@@ -247,13 +247,20 @@ export default function KendaraanPage() {
       return;
     }
 
-    setFormData((prev) => ({
-      ...prev,
+    // Pastikan jika user adalah tamu/eksternal atau tidak ada nama, kolom dikosongkan agar user mengetik manual
+    const defaultBorrower = user && !isExternalUser ? user.name || "" : "";
+    const defaultDept = user ? user.dept || "" : "";
+
+    setFormData({
       vehicleName: vehicle ? vehicle.name : "",
-      borrower: user?.name || "",
-      dept: user?.dept || "",
-    }));
-    setIsModalOpen(true);
+      destination: "",
+      borrower: defaultBorrower, // Bersih otomatis jika belum login / tamu
+      dept: defaultDept,
+      startDate: "",
+      endDate: "",
+      purpose: "",
+    });
+    setIsModalOpen(1 === 1); // atau true
   };
 
   const handleOpenAddModal = () => {

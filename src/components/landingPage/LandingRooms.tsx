@@ -80,8 +80,8 @@ export default function LandingRooms({
                 "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80";
 
               return (
-                <motion.div
-                  whileHover={{ scale: 1.01, y: -4 }}
+                // DIUBAH: Menggunakan div biasa tanpa motion.div & whileHover yang membebani scroll utama
+                <div
                   key={room.id}
                   className="group bg-slate-50/60 hover:bg-white border border-slate-200/90 hover:border-[#9f1521]/40 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col sm:flex-row"
                 >
@@ -90,6 +90,8 @@ export default function LandingRooms({
                     <img
                       src={roomThumb}
                       alt={room.name}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute top-3 left-3">
@@ -129,7 +131,7 @@ export default function LandingRooms({
                       </span>
                     </div>
                   </div>
-                </motion.div>
+                </div>
               );
             })
           ) : (

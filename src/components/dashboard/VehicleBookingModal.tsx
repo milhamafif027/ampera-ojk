@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { X } from "lucide-react";
+import React, { useEffect } from "react";
+import { X, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface Vehicle {
@@ -10,7 +10,7 @@ interface Vehicle {
   plateNumber: string;
   capacity: string;
   status: string;
-  category?: string; // <--- Ditambahkan agar mengenali kategori kendaraan
+  category?: string;
 }
 
 interface VehicleBookingModalProps {
@@ -40,6 +40,16 @@ export default function VehicleBookingModal({
   setFormData,
   isSubmitting,
 }: VehicleBookingModalProps) {
+  // ---> PENGAMAN: Otomatis kosongkan jika borrower bernilai "Tamu Eksternal OJK" <---
+  useEffect(() => {
+    if (isOpen && formData.borrower === "Tamu Eksternal OJK") {
+      setFormData((prev: any) => ({
+        ...prev,
+        borrower: "",
+      }));
+    }
+  }, [isOpen, formData.borrower, setFormData]);
+
   if (!isOpen) return null;
 
   // Filter kendaraan: Sembunyikan kendaraan khusus pimpinan dari pilihan form peminjaman
@@ -194,6 +204,7 @@ export default function VehicleBookingModal({
               disabled={isSubmitting}
               className="px-6 py-2.5 bg-[#9f1521] text-white rounded-xl font-bold hover:bg-[#7a1019] cursor-pointer disabled:opacity-50 flex items-center gap-2"
             >
+              {isSubmitting && <Loader2 size={14} className="animate-spin" />}
               {isSubmitting ? "Mengirim..." : "Kirim Pengajuan"}
             </button>
           </div>

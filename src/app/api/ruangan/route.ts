@@ -4,6 +4,34 @@ import { RowDataPacket, ResultSetHeader } from "mysql2";
 import fs from "fs";
 import path from "path";
 
+// Helper untuk menangani proses upload file gambar ruangan
+async function handleImageUploads(formData: FormData): Promise<string[]> {
+  const files = formData.getAll("images") as File[];
+  const savedImageUrls: string[] = [];
+
+  if (files && files.length > 0) {
+    const uploadDir = path.join(process.cwd(), "public/uploads/rooms");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    for (const file of files) {
+      if (file && typeof file === "object" && file.size > 0) {
+        const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        const filename = `${uniqueSuffix}-${file.name.replace(/\s+/g, "_")}`;
+        const filepath = path.join(uploadDir, filename);
+
+        fs.writeFileSync(filepath, buffer);
+        savedImageUrls.push(`/uploads/rooms/${filename}`);
+      }
+    }
+  }
+
+  return savedImageUrls;
+}
+
 // 1. GET: Ambil daftar ruangan
 export async function GET() {
   try {
@@ -34,38 +62,17 @@ export async function POST(req: Request) {
     const floor = formData.get("floor") || "Lantai 2";
     const status = formData.get("status") || "Tersedia";
 
-    const files = formData.getAll("images") as File[];
-    const savedImageUrls: string[] = [];
+    // Proses upload gambar menggunakan helper
+    const newImageUrls = await handleImageUploads(formData);
 
-    if (files && files.length > 0) {
-      const uploadDir = path.join(process.cwd(), "public/uploads/rooms");
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-
-      for (const file of files) {
-        if (file && typeof file === "object" && file.size > 0) {
-          const bytes = await file.arrayBuffer();
-          const buffer = Buffer.from(bytes);
-          const uniqueSuffix =
-            Date.now() + "-" + Math.round(Math.random() * 1e9);
-          const filename = `${uniqueSuffix}-${file.name.replace(/\s+/g, "_")}`;
-          const filepath = path.join(uploadDir, filename);
-
-          fs.writeFileSync(filepath, buffer);
-          savedImageUrls.push(`/uploads/rooms/${filename}`);
-        }
-      }
-    }
-
-    if (savedImageUrls.length === 0) {
+    if (newImageUrls.length === 0) {
       return NextResponse.json(
         { success: false, error: "Ruangan wajib memiliki minimal 1 foto." },
         { status: 400 },
       );
     }
 
-    const imgsJson = JSON.stringify(savedImageUrls);
+    const imgsJson = JSON.stringify(newImageUrls);
 
     const [result] = await db.query<ResultSetHeader>(
       "INSERT INTO ruangan (name, capacity, description, type, floor, status, imgs) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -91,8 +98,19 @@ export async function PUT(req: Request) {
   try {
     const formData = await req.formData();
     const id = formData.get("id");
-    const name = formData.get("name") || "";
 
+    // Validasi keberadaan ID untuk mencegah update data yang salah
+    if (!id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "ID ruangan diperlukan untuk melakukan update.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const name = formData.get("name") || "";
     const rawCapacity = formData.get("capacity") || "0";
     const capacity = parseInt(String(rawCapacity).replace(/\D/g, "")) || 0;
 
@@ -101,6 +119,7 @@ export async function PUT(req: Request) {
     const floor = formData.get("floor") || "Lantai 2";
     const status = formData.get("status") || "Tersedia";
 
+    // Ambil gambar lama yang dipertahankan dari frontend
     const existingImgsRaw = formData.get("existingImgs");
     let savedImageUrls: string[] = [];
     if (existingImgsRaw) {
@@ -111,27 +130,9 @@ export async function PUT(req: Request) {
       }
     }
 
-    const files = formData.getAll("images") as File[];
-    if (files && files.length > 0) {
-      const uploadDir = path.join(process.cwd(), "public/uploads/rooms");
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-
-      for (const file of files) {
-        if (file && typeof file === "object" && file.size > 0) {
-          const bytes = await file.arrayBuffer();
-          const buffer = Buffer.from(bytes);
-          const uniqueSuffix =
-            Date.now() + "-" + Math.round(Math.random() * 1e9);
-          const filename = `${uniqueSuffix}-${file.name.replace(/\s+/g, "_")}`;
-          const filepath = path.join(uploadDir, filename);
-
-          fs.writeFileSync(filepath, buffer);
-          savedImageUrls.push(`/uploads/rooms/${filename}`);
-        }
-      }
-    }
+    // Tambahkan gambar baru (jika ada yang di-upload)
+    const newImageUrls = await handleImageUploads(formData);
+    savedImageUrls = [...savedImageUrls, ...newImageUrls];
 
     if (savedImageUrls.length === 0) {
       return NextResponse.json(

@@ -300,10 +300,6 @@ export default function RuanganPage() {
   return (
     <div className="space-y-6 pb-12">
       <style jsx>{`
-        .optimize-card-render {
-          content-visibility: auto;
-          contain-intrinsic-size: 0 380px;
-        }
         .custom-scrollbar::-webkit-scrollbar {
           width: 5px;
           height: 5px;
@@ -436,16 +432,16 @@ export default function RuanganPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {conferenceRooms.length > 0 ? (
             conferenceRooms.map((room: any) => (
-              <div key={room.id} className="optimize-card-render">
-                <RoomCard
-                  room={room}
-                  isAdmin={isAdmin}
-                  user={user}
-                  getRoomLiveStatus={getRoomLiveStatus}
-                  handleOpenBooking={handleOpenBooking}
-                  handleOpenEditModal={handleOpenEditModal}
-                />
-              </div>
+              // DIUBAH: Menghapus kelas optimize-card-render agar browser merender langsung secara mulus tanpa layout shift
+              <RoomCard
+                key={room.id}
+                room={room}
+                isAdmin={isAdmin}
+                user={user}
+                getRoomLiveStatus={getRoomLiveStatus}
+                handleOpenBooking={handleOpenBooking}
+                handleOpenEditModal={handleOpenEditModal}
+              />
             ))
           ) : (
             <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
@@ -469,16 +465,16 @@ export default function RuanganPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {meetingRooms.length > 0 ? (
             meetingRooms.map((room: any) => (
-              <div key={room.id} className="optimize-card-render">
-                <RoomCard
-                  room={room}
-                  isAdmin={isAdmin}
-                  user={user}
-                  getRoomLiveStatus={getRoomLiveStatus}
-                  handleOpenBooking={handleOpenBooking}
-                  handleOpenEditModal={handleOpenEditModal}
-                />
-              </div>
+              // DIUBAH: Menghapus kelas optimize-card-render
+              <RoomCard
+                key={room.id}
+                room={room}
+                isAdmin={isAdmin}
+                user={user}
+                getRoomLiveStatus={getRoomLiveStatus}
+                handleOpenBooking={handleOpenBooking}
+                handleOpenEditModal={handleOpenEditModal}
+              />
             ))
           ) : (
             <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">

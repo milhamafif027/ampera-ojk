@@ -103,7 +103,6 @@ export default function KalenderPage() {
           })
           .filter((agenda: Agenda) => {
             if (!agenda.date) return false;
-            // Otomatis hilangkan agenda jika tanggalnya sudah lewat dari hari ini
             return agenda.date >= todayStr;
           });
 
@@ -118,7 +117,6 @@ export default function KalenderPage() {
             let endDate = item.end_date ? String(item.end_date) : "";
             if (endDate.includes("T")) endDate = endDate.split("T")[0];
 
-            // Otomatis hilangkan peminjaman kendaraan jika tanggal selesainya sudah lewat dari hari ini
             return endDate >= todayStr;
           })
           .map((item: any) => {
@@ -366,20 +364,36 @@ export default function KalenderPage() {
                   </div>
 
                   <div className="space-y-1 overflow-y-auto max-h-[80px] custom-scrollbar">
-                    {dayAgendas.map((a) => (
-                      <div
-                        key={`agenda-${a.id}`}
-                        className="p-1 rounded-lg text-[9px] font-bold truncate leading-tight bg-blue-100 text-blue-900 dark:bg-blue-900/60 dark:text-blue-200"
-                        title={`[Rapat] ${a.title} (${a.room})`}
-                      >
-                        🏛️ {a.time ? a.time.split(" - ")[0] : ""} • {a.title}
-                      </div>
-                    ))}
+                    {dayAgendas.map((a) => {
+                      // Penentuan warna shape agenda berdasarkan status
+                      let shapeColorClass =
+                        "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200"; // Disetujui (Hijau)
+                      if (a.smartStatus === "Sedang Berlangsung") {
+                        shapeColorClass =
+                          "bg-blue-100 text-blue-900 dark:bg-blue-900/60 dark:text-blue-200"; // Sedang Berlangsung (Biru)
+                      } else if (
+                        a.smartStatus === "Pending" ||
+                        a.status === "Pending"
+                      ) {
+                        shapeColorClass =
+                          "bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200"; // Pending (Orange/Amber)
+                      }
+
+                      return (
+                        <div
+                          key={`agenda-${a.id}`}
+                          className={`p-1 rounded-lg text-[9px] font-bold truncate leading-tight ${shapeColorClass}`}
+                          title={`[Rapat] ${a.title} (${a.room})`}
+                        >
+                          🏛️ {a.time ? a.time.split(" - ")[0] : ""} • {a.title}
+                        </div>
+                      );
+                    })}
 
                     {dayVehicles.map((v) => (
                       <div
                         key={`vehicle-${v.id}`}
-                        className="p-1 rounded-lg text-[9px] font-bold truncate leading-tight bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200"
+                        className="p-1 rounded-lg text-[9px] font-bold truncate leading-tight bg-purple-100 text-purple-900 dark:bg-purple-900/60 dark:text-purple-200"
                         title={`[Mobil Dinas] ${v.vehicleName} (${v.plateNumber})`}
                       >
                         🚗 {v.vehicleName}
@@ -432,59 +446,75 @@ export default function KalenderPage() {
                     <Building2 size={14} className="text-blue-600" /> Agenda
                     Ruang Rapat ({selectedDateModal.agendas.length})
                   </h4>
-                  {selectedDateModal.agendas.map((agenda) => (
-                    <div
-                      key={agenda.id}
-                      className="p-4 bg-blue-50/40 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-2xl space-y-2"
-                    >
-                      <div className="flex justify-between items-start gap-2">
-                        <h5 className="font-bold text-slate-900 dark:text-white text-sm">
-                          {agenda.title}
-                        </h5>
-                        <span
-                          className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-full border ${
-                            agenda.smartStatus === "Disetujui"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400"
-                              : agenda.smartStatus === "Sedang Berlangsung"
-                                ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400"
-                                : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400"
-                          }`}
-                        >
-                          {agenda.smartStatus}
-                        </span>
+                  {selectedDateModal.agendas.map((agenda) => {
+                    // Warna badge status di dalam modal detail
+                    let badgeColorClass =
+                      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400"; // Hijau (Disetujui)
+                    if (agenda.smartStatus === "Sedang Berlangsung") {
+                      badgeColorClass =
+                        "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400"; // Biru
+                    } else if (
+                      agenda.smartStatus === "Pending" ||
+                      agenda.status === "Pending"
+                    ) {
+                      badgeColorClass =
+                        "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400"; // Orange/Amber
+                    }
+
+                    return (
+                      <div
+                        key={agenda.id}
+                        className="p-4 bg-slate-50/50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-2xl space-y-2"
+                      >
+                        <div className="flex justify-between items-start gap-2">
+                          <h5 className="font-bold text-slate-900 dark:text-white text-sm">
+                            {agenda.title}
+                          </h5>
+                          <span
+                            className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-full border ${badgeColorClass}`}
+                          >
+                            {agenda.smartStatus}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-300 font-medium">
+                          <span className="flex items-center gap-1.5">
+                            <Clock
+                              size={14}
+                              className="text-[#9f1521] shrink-0"
+                            />{" "}
+                            {agenda.time}
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <Building2
+                              size={14}
+                              className="text-[#9f1521] shrink-0"
+                            />{" "}
+                            {agenda.room}
+                          </span>
+                          <span className="flex items-center gap-1.5 sm:col-span-2">
+                            <User
+                              size={14}
+                              className="text-[#9f1521] shrink-0"
+                            />{" "}
+                            PIC: {agenda.pic} ({agenda.dept || "OJK Sumsel"})
+                          </span>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-300 font-medium">
-                        <span className="flex items-center gap-1.5">
-                          <Clock size={14} className="text-blue-600 shrink-0" />{" "}
-                          {agenda.time}
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <Building2
-                            size={14}
-                            className="text-blue-600 shrink-0"
-                          />{" "}
-                          {agenda.room}
-                        </span>
-                        <span className="flex items-center gap-1.5 sm:col-span-2">
-                          <User size={14} className="text-blue-600 shrink-0" />{" "}
-                          PIC: {agenda.pic} ({agenda.dept || "OJK Sumsel"})
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
               {selectedDateModal.vehicles.length > 0 && (
                 <div className="space-y-2 pt-2">
                   <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Car size={14} className="text-amber-600" /> Armada
+                    <Car size={14} className="text-purple-600" /> Armada
                     Kendaraan Dipakai ({selectedDateModal.vehicles.length})
                   </h4>
                   {selectedDateModal.vehicles.map((v) => (
                     <div
                       key={v.id}
-                      className="p-4 bg-amber-50/40 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 rounded-2xl space-y-2"
+                      className="p-4 bg-purple-50/40 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 rounded-2xl space-y-2"
                     >
                       <div className="flex justify-between items-start gap-2">
                         <h5 className="font-bold text-slate-900 dark:text-white text-sm">
@@ -493,7 +523,7 @@ export default function KalenderPage() {
                             ({v.plateNumber})
                           </span>
                         </h5>
-                        <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400">
+                        <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full border bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400">
                           {v.status}
                         </span>
                       </div>
@@ -501,19 +531,22 @@ export default function KalenderPage() {
                         <span className="flex items-center gap-1.5">
                           <Clock
                             size={14}
-                            className="text-amber-600 shrink-0"
+                            className="text-purple-600 shrink-0"
                           />{" "}
                           Periode: {v.startDate} s.d. {v.endDate}
                         </span>
                         <span className="flex items-center gap-1.5">
                           <MapPin
                             size={14}
-                            className="text-amber-600 shrink-0"
+                            className="text-purple-600 shrink-0"
                           />{" "}
                           Tujuan: {v.destination}
                         </span>
                         <span className="flex items-center gap-1.5 sm:col-span-2">
-                          <User size={14} className="text-amber-600 shrink-0" />{" "}
+                          <User
+                            size={14}
+                            className="text-purple-600 shrink-0"
+                          />{" "}
                           Peminjaman: {v.borrower}
                         </span>
                       </div>

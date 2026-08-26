@@ -4,9 +4,9 @@ import { RowDataPacket } from "mysql2";
 
 export async function GET() {
   try {
-    // Mengambil data user dari tabel 'users' di MySQL
+    // Menambahkan 'password' ke dalam kolom yang dipilih dari database
     const [rows] = await db.query<RowDataPacket[]>(
-      "SELECT id, name, email, role, nip FROM users ORDER BY id ASC",
+      "SELECT id, name, email, role, nip, password FROM users ORDER BY id ASC",
     );
 
     return NextResponse.json({

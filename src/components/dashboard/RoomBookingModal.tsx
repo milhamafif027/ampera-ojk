@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Room, Agenda } from "@/types";
 
@@ -19,6 +19,59 @@ export interface RoomBookingModalProps {
   rooms?: Room[];
   onSuccess?: () => void;
 }
+
+// Helper untuk membaca Layout dari JSON database atau aturan default nama ruangan
+const getRoomLayouts = (room: any): string[] => {
+  if (!room) return ["Ruang Rapat"];
+
+  // 1. Coba baca dari kolom layout_config (jika ada di database)
+  if (room.layout_config) {
+    try {
+      const config =
+        typeof room.layout_config === "string"
+          ? JSON.parse(room.layout_config)
+          : room.layout_config;
+      const keys = Object.keys(config);
+      if (keys.length > 0) return keys;
+    } catch (e) {
+      console.error("Gagal parse layout_config:", e);
+    }
+  }
+
+  // 2. Fallback cerdas berdasarkan nama ruangan (jika layout_config kosong/belum ter-fetch)
+  const name = (room.name || "").trim().toLowerCase();
+  if (name.includes("ballroom")) {
+    return ["Theater", "Klasikal", "U-Shape", "Round Table"];
+  }
+  if (name.includes("komunal")) {
+    return ["Theater", "Klasikal", "U-Shape", "Round Table"];
+  }
+  if (name.includes("auditorium")) {
+    return ["Theater"];
+  }
+  return ["Ruang Rapat"];
+};
+
+// Helper untuk membaca Kapasitas spesifik per layout
+const getRoomCapacity = (room: any, layout: string): string | number => {
+  if (!room) return "-";
+
+  if (room.layout_config) {
+    try {
+      const config =
+        typeof room.layout_config === "string"
+          ? JSON.parse(room.layout_config)
+          : room.layout_config;
+      if (config[layout]) return `${config[layout]} Orang`;
+      const firstVal = Object.values(config)[0];
+      if (firstVal) return `${firstVal} Orang`;
+    } catch (e) {
+      // Abaikan error parse
+    }
+  }
+
+  return room.capacity ? `${room.capacity} Orang` : "-";
+};
 
 export default function RoomBookingModal({
   isOpen,
@@ -41,6 +94,7 @@ export default function RoomBookingModal({
     title: "",
     pic: "",
     dept: "",
+    phone: "",
     total_participants: "1",
     meeting_leader: "",
     room_id: "",
@@ -48,49 +102,81 @@ export default function RoomBookingModal({
     date: "",
     startTime: "08:00",
     endTime: "10:00",
-    layout: "U-Shape",
+    layout: "",
     notes: "",
   });
 
+  // Inisialisasi Data saat Modal Dibuka
   useEffect(() => {
-    const initModalForm = async () => {
-      await Promise.resolve();
-
-      if (isOpen) {
+    if (isOpen) {
+      const timer = setTimeout(() => {
         setShowSuccessPopup(false);
+
+        const activeRoom =
+          selectedRoom ||
+          (editData &&
+            rooms.find(
+              (r) => String(r.id) === String((editData as any).room_id),
+            )) ||
+          (rooms.length > 0 ? rooms[0] : null);
+
+        const validLayouts = getRoomLayouts(activeRoom);
+        const initialLayout =
+          (editData as any)?.layout &&
+          validLayouts.includes((editData as any).layout)
+            ? (editData as any).layout
+            : validLayouts[0];
 
         setFormData({
           title: editData?.title || "",
           pic: editData?.pic || "",
           dept: (editData as any)?.dept || "",
+          phone:
+            (editData as any)?.phone || (editData as any)?.phone_pemohon || "",
           total_participants: String(
             (editData as any)?.total_participants || "1",
           ),
           meeting_leader: (editData as any)?.meeting_leader || "",
-          room_id: selectedRoom?.id
-            ? String(selectedRoom.id)
-            : (editData as any)?.room_id
-              ? String((editData as any).room_id)
-              : "",
-          roomName:
-            selectedRoom?.name ||
-            (editData as any)?.room_name ||
-            editData?.room ||
-            "",
+          room_id: activeRoom ? String(activeRoom.id) : "",
+          roomName: activeRoom?.name || "",
           date: editData?.date || "",
           startTime: editData?.time?.split(" - ")[0] || "08:00",
           endTime:
             editData?.time?.split(" - ")[1]?.replace(" WIB", "") || "10:00",
-          layout: (editData as any)?.layout || "U-Shape",
+          layout: initialLayout,
           notes: (editData as any)?.notes || (editData as any)?.note || "",
         });
+
         setStep(1);
-      }
-    };
+      }, 0);
 
-    initModalForm();
-  }, [isOpen, selectedRoom, editData]);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, selectedRoom, editData, rooms]);
 
+  // Cari objek ruangan aktif
+  const currentRoom = useMemo(() => {
+    return (
+      rooms.find(
+        (r) =>
+          String(r.id) === String(formData.room_id) ||
+          r.name.trim().toLowerCase() ===
+            formData.roomName.trim().toLowerCase(),
+      ) || null
+    );
+  }, [rooms, formData.room_id, formData.roomName]);
+
+  // Daftar layout yang tersedia untuk ruangan aktif
+  const availableLayouts = useMemo(() => {
+    return getRoomLayouts(currentRoom);
+  }, [currentRoom]);
+
+  // Kapasitas spesifik untuk layout yang dipilih
+  const currentCapacityInfo = useMemo(() => {
+    return getRoomCapacity(currentRoom, formData.layout);
+  }, [currentRoom, formData.layout]);
+
+  // Cek jadwal bentrok
   useEffect(() => {
     const fetchBookingsForConflictCheck = async () => {
       if (!formData.date || !formData.roomName) return;
@@ -129,12 +215,16 @@ export default function RoomBookingModal({
     >,
   ) => {
     const { name, value } = e.target;
+
     if (name === "room_id") {
-      const foundRoom = rooms.find((r) => String(r.id) === value);
+      const selected = rooms.find((r) => String(r.id) === String(value));
+      const layouts = getRoomLayouts(selected);
+
       setFormData((prev) => ({
         ...prev,
         room_id: value,
-        roomName: foundRoom ? foundRoom.name : prev.roomName,
+        roomName: selected ? selected.name : prev.roomName,
+        layout: layouts[0],
       }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -147,10 +237,9 @@ export default function RoomBookingModal({
     return existingBookings.some((booking) => {
       const existingStart = booking.start_time;
       const existingEnd = booking.end_time;
-      const newStart = formData.startTime;
-      const newEnd = formData.endTime;
-
-      return newStart < existingEnd && newEnd > existingStart;
+      return (
+        formData.startTime < existingEnd && formData.endTime > existingStart
+      );
     });
   };
 
@@ -160,6 +249,7 @@ export default function RoomBookingModal({
     formData.title &&
     formData.pic &&
     formData.dept &&
+    formData.phone &&
     formData.total_participants &&
     formData.meeting_leader,
   );
@@ -207,6 +297,7 @@ export default function RoomBookingModal({
         title: formData.title,
         pic: formData.pic,
         dept: formData.dept,
+        phone: formData.phone,
         total_participants: Number(formData.total_participants) || 1,
         meeting_leader: formData.meeting_leader,
         room_id: formData.room_id ? Number(formData.room_id) : null,
@@ -227,43 +318,49 @@ export default function RoomBookingModal({
         body: JSON.stringify(payload),
       });
 
-      const responseText = await res.text();
-      let result: any = {};
+      if (!res.ok) throw new Error("Gagal menyimpan ke database server.");
 
-      try {
-        if (responseText) {
-          result = JSON.parse(responseText);
-        }
-      } catch (parseError) {
-        console.error("Gagal memparsing respons server ke JSON:", responseText);
+      // 1. Kirim notifikasi untuk Admin (masuk ke notifikasi_admin)
+      await fetch("/api/notifikasi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: "admin",
+          title: "Reservasi Diajukan",
+          type: "room",
+          status: finalStatus,
+          info: `Reservasi ${formData.roomName} oleh ${formData.pic} tanggal ${cleanDate} sedang diproses.`,
+        }),
+      });
+
+      // 2. Kirim notifikasi personal untuk User yang bersangkutan (jika login)
+      if (currentUser?.id) {
+        await fetch("/api/notifikasi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: currentUser.id,
+            role: currentUser.role || "eksternal",
+            title: "Pengajuan Diterima Sistem",
+            type: "room",
+            status: finalStatus,
+            info: `Pengajuan ruangan ${formData.roomName} Anda berhasil dikirim.`,
+          }),
+        });
       }
 
-      if (!res.ok) {
-        throw new Error(
-          result.message ||
-            result.error ||
-            `Terjadi kesalahan pada server (Status: ${res.status}).`,
-        );
-      }
-
+      // Tampilkan popup sukses tanpa langsung menutup modal induk secara prematur
       setShowSuccessPopup(true);
-      if (onSuccess) onSuccess();
     } catch (error: any) {
-      console.error("Booking Error:", error);
       setCustomAlert({
         isOpen: true,
         title: "Gagal!",
         message: error.message || "Terjadi kesalahan saat menghubungi server.",
         type: "error",
       });
+    } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleFinishSuccess = () => {
-    setShowSuccessPopup(false);
-    setIsSubmitting(false);
-    onClose();
   };
 
   const inputClassName =
@@ -282,9 +379,8 @@ export default function RoomBookingModal({
         }}
       />
 
-      {/* MODAL POP-UP KETIKA BERHASIL PESAN */}
       {showSuccessPopup ? (
-        <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[2rem] p-8 shadow-2xl flex flex-col items-center text-center space-y-4 animate-in zoom-in-95 duration-200 z-10">
+        <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[2rem] p-8 shadow-2xl flex flex-col items-center text-center space-y-4 z-10 animate-in zoom-in-95">
           <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mb-1">
             <CheckCircle2 size={36} />
           </div>
@@ -294,18 +390,21 @@ export default function RoomBookingModal({
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
               Pengajuan jadwal ruangan rapat Anda telah berhasil disimpan dan
-              tercatat di database sistem.
+              tercatat di database.
             </p>
           </div>
           <button
-            onClick={handleFinishSuccess}
+            onClick={() => {
+              setShowSuccessPopup(false);
+              if (onSuccess) onSuccess();
+              onClose();
+            }}
             className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold shadow-lg shadow-emerald-600/20 transition-all mt-2 cursor-pointer"
           >
             Selesai / Tutup
           </button>
         </div>
       ) : (
-        /* MODAL UTAMA FORMULIR */
         <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh] z-10">
           {/* Header Modal */}
           <div className="px-8 py-6 bg-gradient-to-br from-[#9f1521] to-[#7a1019] text-white flex justify-between items-start shrink-0">
@@ -322,7 +421,7 @@ export default function RoomBookingModal({
             <button
               onClick={onClose}
               disabled={isSubmitting}
-              className="p-2 hover:bg-white/20 rounded-full transition-colors bg-white/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 hover:bg-white/20 rounded-full transition-colors bg-white/10 cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -330,59 +429,7 @@ export default function RoomBookingModal({
 
           {/* Body Modal */}
           <div className="p-8 overflow-y-auto flex-1 space-y-4">
-            {isViewMode && (
-              <div className="space-y-4">
-                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#9f1521]">
-                    Informasi Agenda
-                  </span>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                    {editData.title}
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-300 pt-2 border-t border-slate-200 dark:border-slate-700">
-                    <p>
-                      <strong>Tanggal:</strong> {editData.date}
-                    </p>
-                    <p>
-                      <strong>Waktu:</strong> {editData.time}
-                    </p>
-                    <p>
-                      <strong>Ruangan:</strong> {editData.room}
-                    </p>
-                    <p>
-                      <strong>PIC:</strong> {editData.pic} (
-                      {editData.dept || "-"})
-                    </p>
-                    <p>
-                      <strong>Jumlah Peserta:</strong>{" "}
-                      {(editData as any).total_participants || "-"} Orang
-                    </p>
-                    <p>
-                      <strong>Pimpinan Rapat:</strong>{" "}
-                      {(editData as any).meeting_leader || "-"}
-                    </p>
-                  </div>
-                  <div className="pt-2 flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-slate-500">
-                      Status Pengajuan:
-                    </span>
-                    <span
-                      className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-full border ${
-                        editData.smartStatus === "Disetujui"
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400"
-                          : editData.smartStatus === "Sedang Berlangsung"
-                            ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400"
-                            : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400"
-                      }`}
-                    >
-                      {editData.smartStatus}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {!isViewMode && step === 1 && (
+            {step === 1 && (
               <>
                 <div>
                   <label className={labelClassName}>
@@ -426,6 +473,22 @@ export default function RoomBookingModal({
                   </div>
                 </div>
 
+                <div>
+                  <label className={labelClassName}>
+                    Nomor WhatsApp / HP Pemohon (Untuk Konfirmasi Status)
+                  </label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className={inputClassName}
+                    placeholder="Contoh: 081234567890"
+                    required
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className={labelClassName}>
@@ -462,10 +525,24 @@ export default function RoomBookingModal({
               </>
             )}
 
-            {!isViewMode && step === 2 && (
+            {step === 2 && (
               <>
                 <div>
-                  <label className={labelClassName}>Pilih Ruangan</label>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label
+                      className={labelClassName}
+                      style={{ marginBottom: 0 }}
+                    >
+                      Pilih Ruangan
+                    </label>
+                    {currentCapacityInfo !== "-" && (
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-900">
+                        Kapasitas Maksimal ({formData.layout}):{" "}
+                        {currentCapacityInfo}
+                      </span>
+                    )}
+                  </div>
+
                   {rooms.length > 0 ? (
                     <select
                       name="room_id"
@@ -478,7 +555,7 @@ export default function RoomBookingModal({
                       <option value="">-- Pilih Ruangan --</option>
                       {rooms.map((r) => (
                         <option key={r.id} value={r.id}>
-                          {r.name} (Kapasitas: {r.capacity || "-"})
+                          {r.name} - Kapasitas: {r.capacity || "-"} Orang
                         </option>
                       ))}
                     </select>
@@ -549,31 +626,8 @@ export default function RoomBookingModal({
                     <AlertCircle size={18} className="shrink-0" />
                     <span>
                       Ruangan sudah terisi/dipesan pada rentang jam tersebut di
-                      tanggal ini. Silakan pilih waktu lain.
+                      tanggal ini.
                     </span>
-                  </div>
-                )}
-
-                {existingBookings.length > 0 && !isCheckingConflict && (
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs space-y-1">
-                    <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      Jadwal Terisi pada Tanggal Ini:
-                    </span>
-                    <div className="space-y-1 max-h-24 overflow-y-auto">
-                      {existingBookings.map((b, idx) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-slate-100 dark:border-slate-700"
-                        >
-                          <span className="font-medium text-slate-800 dark:text-slate-200">
-                            {b.title}
-                          </span>
-                          <span className="text-rose-600 font-bold">
-                            {b.start_time} - {b.end_time} WIB
-                          </span>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 )}
 
@@ -588,10 +642,11 @@ export default function RoomBookingModal({
                     disabled={isSubmitting}
                     className={inputClassName}
                   >
-                    <option value="U-Shape">U-Shape</option>
-                    <option value="Classroom">Classroom</option>
-                    <option value="Theater">Theater</option>
-                    <option value="Round Table">Round Table</option>
+                    {availableLayouts.map((lay, idx) => (
+                      <option key={idx} value={lay}>
+                        {lay}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -615,53 +670,32 @@ export default function RoomBookingModal({
 
           {/* Footer Modal */}
           <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-slate-50 dark:bg-slate-900 shrink-0">
-            {isViewMode ? (
+            {step === 2 && (
               <button
-                onClick={onClose}
+                onClick={() => setStep(1)}
                 disabled={isSubmitting}
-                className="px-6 py-2.5 rounded-xl font-bold text-white bg-[#9f1521] hover:bg-[#7a1019] text-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-6 py-2.5 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 text-xs cursor-pointer"
               >
-                {isSubmitting && <Loader2 size={14} className="animate-spin" />}
-                Tutup
+                Kembali
+              </button>
+            )}
+            {step === 1 ? (
+              <button
+                onClick={() => setStep(2)}
+                disabled={!isStep1Valid || isSubmitting}
+                className="px-8 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white font-bold rounded-xl text-xs disabled:opacity-50 cursor-pointer"
+              >
+                Selanjutnya
               </button>
             ) : (
-              <>
-                {step === 2 && (
-                  <button
-                    onClick={() => setStep(1)}
-                    disabled={isSubmitting}
-                    className="px-6 py-2.5 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {isSubmitting && (
-                      <Loader2 size={14} className="animate-spin" />
-                    )}
-                    Kembali
-                  </button>
-                )}
-                {step === 1 ? (
-                  <button
-                    onClick={() => setStep(2)}
-                    disabled={!isStep1Valid || isSubmitting}
-                    className="px-8 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white font-bold rounded-xl text-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2 transition-all"
-                  >
-                    {isSubmitting && (
-                      <Loader2 size={14} className="animate-spin" />
-                    )}
-                    Selanjutnya
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSubmit}
-                    disabled={!isStep2Valid || isSubmitting || hasConflict}
-                    className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2 transition-all"
-                  >
-                    {isSubmitting && (
-                      <Loader2 size={14} className="animate-spin" />
-                    )}
-                    {isSubmitting ? "Mengirim Reservasi..." : "Kirim Reservasi"}
-                  </button>
-                )}
-              </>
+              <button
+                onClick={handleSubmit}
+                disabled={!isStep2Valid || isSubmitting || hasConflict}
+                className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs disabled:opacity-50 cursor-pointer flex items-center gap-2"
+              >
+                {isSubmitting && <Loader2 size={14} className="animate-spin" />}
+                {isSubmitting ? "Mengirim Reservasi..." : "Kirim Reservasi"}
+              </button>
             )}
           </div>
         </div>

@@ -50,6 +50,8 @@ export default function DashboardPage() {
     rejectReason: "",
   });
 
+  const [isExecutingAction, setIsExecutingAction] = useState(false);
+
   // State untuk Modal Detail Informasi Pengajuan Admin
   const [detailModal, setDetailModal] = useState<{
     isOpen: boolean;
@@ -82,10 +84,11 @@ export default function DashboardPage() {
             room: item.room_name || item.room || "Ruang Rapat OJK",
             pic: item.pic || "Pegawai OJK",
             dept: item.dept || "OJK Sumsel",
+            phone: item.phone || "",
             layout: item.layout || "-",
             status: item.status || "Pending",
-            total_participants: item.total_participants || 1, // Memuat data jumlah peserta
-            meeting_leader: item.meeting_leader || "-", // Memuat data pimpinan rapat
+            total_participants: item.total_participants || 1,
+            meeting_leader: item.meeting_leader || "-",
           };
 
           return {
@@ -157,7 +160,38 @@ export default function DashboardPage() {
   const totalPending = pendingAgendas.length;
   const totalRuanganTerpakai = new Set(agendas.map((a) => a.room)).size;
 
-  // 4. Buka Modal dengan Tipe Aksi (Approve atau Reject)
+  // 4. Helper untuk Membuka WhatsApp Otomatis
+  const sendWhatsAppNotification = (
+    agendaData: any,
+    status: "Disetujui" | "Ditolak",
+    reason?: string,
+  ) => {
+    if (!agendaData.phone) {
+      console.warn("Nomor WhatsApp pemohon tidak tersedia di database.");
+      return;
+    }
+
+    let cleanPhone = agendaData.phone.replace(/\D/g, "");
+    if (cleanPhone.startsWith("0")) {
+      cleanPhone = "62" + cleanPhone.slice(1);
+    }
+
+    const statusText = status === "Disetujui" ? "DISETUJUI ✅" : "DITOLAK ❌";
+    let message = `Halo ${agendaData.pic || "Bapak/Ibu"},
+
+Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${agendaData.title || "Agenda"}* pada tanggal ${agendaData.date || "-"} telah *${statusText}*.`;
+
+    if (status === "Ditolak" && reason) {
+      message += `\n\n📝 *Alasan Penolakan:* ${reason}`;
+    }
+
+    message += `\n\nTerima kasih.\n_Sistem Manajemen OJK Sumsel_`;
+
+    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, "_blank");
+  };
+
+  // Buka Modal dengan Tipe Aksi (Approve atau Reject)
   const openConfirmModal = (
     agendaId: string,
     title: string,
@@ -172,12 +206,14 @@ export default function DashboardPage() {
     });
   };
 
-  // Eksekusi API PUT untuk Menyetujui atau Menolak Reservasi
+  // Eksekusi API PUT untuk Menyetujui atau Menolak Reservasi + Kirim WA
   const handleExecuteAction = async () => {
     if (!confirmModal.agendaId || !confirmModal.actionType) return;
 
     try {
-      const selectedAgenda = agendas.find(
+      setIsExecutingAction(true);
+
+      const selectedAgenda: any = agendas.find(
         (a) => a.id === confirmModal.agendaId,
       );
       if (!selectedAgenda) return;
@@ -200,13 +236,21 @@ export default function DashboardPage() {
           start_time: startTime || "08:00",
           end_time: endTime || "10:00",
           pic: selectedAgenda.pic,
+          phone: selectedAgenda.phone,
           status: newStatus,
           notes: notesPayload,
         }),
       });
 
       if (res.ok) {
-        fetchAgendas();
+        // [OTOMATIS KIRIM NOTIFIKASI WHATSAPP]
+        sendWhatsAppNotification(
+          selectedAgenda,
+          newStatus,
+          confirmModal.rejectReason,
+        );
+
+        await fetchAgendas();
         setConfirmModal({
           isOpen: false,
           agendaId: null,
@@ -219,6 +263,8 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error("Error processing agenda status:", error);
+    } finally {
+      setIsExecutingAction(false);
     }
   };
 
@@ -589,7 +635,7 @@ export default function DashboardPage() {
                         </p>
                       </div>
 
-                      {/* TOMBOL AKSI: TAMBAH LIHAT DETAIL & PERSETUJUAN */}
+                      {/* TOMBOL AKSI */}
                       <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                         <button
                           onClick={() =>
@@ -633,7 +679,7 @@ export default function DashboardPage() {
         </motion.div>
       )}
 
-      {/* MODAL DETAIL INFORMASI LENGKAP PENGAJUAN (DENGAN JUMLAH PESERTA & PIMPINAN RAPAT) */}
+      {/* MODAL DETAIL INFORMASI LENGKAP PENGAJUAN */}
       {detailModal.isOpen && detailModal.data && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
@@ -641,7 +687,6 @@ export default function DashboardPage() {
             animate={{ scale: 1, opacity: 1 }}
             className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-lg w-full shadow-2xl space-y-5 overflow-hidden"
           >
-            {/* Header Modal */}
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
@@ -659,7 +704,6 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {/* Konten Detail Data */}
             <div className="space-y-3 max-h-[380px] overflow-y-auto custom-scrollbar pr-1 text-xs">
               <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-2.5 border border-slate-200/60 dark:border-slate-800">
                 <div className="flex justify-between items-center">
@@ -702,7 +746,6 @@ export default function DashboardPage() {
                     {detailModal.data.layout || "Standard"}
                   </strong>
                 </div>
-                {/* [TAMBAHAN] Jumlah Peserta & Pimpinan Rapat */}
                 <div className="flex justify-between items-center pt-2 border-t border-slate-200/40 dark:border-slate-700/50">
                   <span className="text-slate-400 font-medium">
                     Jumlah Peserta:
@@ -732,6 +775,14 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-400 font-medium">
+                    No. WhatsApp Pemohon:
+                  </span>
+                  <strong className="text-slate-900 dark:text-white font-mono">
+                    {detailModal.data.phone || "-"}
+                  </strong>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 font-medium">
                     Satuan Kerja (Satker):
                   </span>
                   <strong className="text-slate-900 dark:text-white">
@@ -749,7 +800,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Footer Aksi dalam Modal */}
             <div className="flex gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
@@ -823,7 +873,6 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            {/* Input Catatan Tambahan Jika Aksi Adalah Penolakan */}
             {confirmModal.actionType === "reject" && (
               <div className="text-left space-y-1 pt-1">
                 <label className="text-[10px] font-extrabold uppercase text-slate-500 block">
@@ -855,21 +904,28 @@ export default function DashboardPage() {
                     rejectReason: "",
                   })
                 }
-                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                disabled={isExecutingAction}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
               >
                 Batal
               </button>
               <button
                 onClick={handleExecuteAction}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-colors shadow-sm cursor-pointer ${
+                disabled={isExecutingAction}
+                className={`flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 ${
                   confirmModal.actionType === "approve"
                     ? "bg-emerald-600 hover:bg-emerald-700"
                     : "bg-rose-600 hover:bg-rose-700"
                 }`}
               >
-                {confirmModal.actionType === "approve"
-                  ? "Ya, Setujui"
-                  : "Ya, Tolak"}
+                {isExecutingAction && (
+                  <RefreshCw size={14} className="animate-spin" />
+                )}
+                {isExecutingAction
+                  ? "Memproses..."
+                  : confirmModal.actionType === "approve"
+                    ? "Ya, Setujui"
+                    : "Ya, Tolak"}
               </button>
             </div>
           </motion.div>

@@ -2,27 +2,38 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { RowDataPacket } from "mysql2";
 
-// 1. GET: Mengambil daftar notifikasi berdasarkan user atau admin
+// Helper untuk menentukan nama tabel berdasarkan role/user
+function getTableName(role?: string): string {
+  const cleanRole = role?.toLowerCase() || "";
+  if (cleanRole === "admin") return "notifikasi_admin";
+  if (cleanRole === "internal") return "notifikasi_internal";
+  return "notifikasi_eksternal"; // Default untuk eksternal/user biasa
+}
+
+// 1. GET: Mengambil daftar notifikasi berdasarkan tabel spesifik role
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("user_id");
-    const role = searchParams.get("role");
+    const role = searchParams.get("role") || "eksternal";
 
-    let query =
-      "SELECT id, user_id, title, type, status, info, is_read, created_at FROM notifikasi";
+    const tableName = getTableName(role);
+    let query = `SELECT id, ${role?.toLowerCase() === "admin" ? "'' AS user_id" : "user_id"}, title, type, status, info, is_read, created_at FROM ${tableName}`;
     let params: any[] = [];
 
-    // Jika bukan admin dan userId valid, filter berdasarkan user_id
-    if (
-      role &&
-      role.toLowerCase() !== "admin" &&
-      userId &&
-      userId !== "undefined" &&
-      userId !== "null"
-    ) {
-      query += " WHERE user_id = ?";
-      params = [userId];
+    // Jika bukan admin, filter berdasarkan user_id miliknya sendiri
+    if (role.toLowerCase() !== "admin") {
+      if (
+        userId &&
+        userId !== "undefined" &&
+        userId !== "null" &&
+        userId !== ""
+      ) {
+        query += " WHERE user_id = ?";
+        params = [userId];
+      } else {
+        query += " WHERE 1=0"; // Jika tidak ada user_id, jangan kembalikan data sembarangan
+      }
     }
 
     query += " ORDER BY created_at DESC LIMIT 50";
@@ -31,16 +42,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ success: true, data: rows });
   } catch (error: any) {
     console.error("API GET NOTIFIKASI ERROR:", error.message);
-    // Mengembalikan array kosong dengan status 200 agar frontend tidak crash / gagal fetch
-    return NextResponse.json({ success: true, data: [] }, { status: 200 });
+    return NextResponse.json({ success: false, data: [] }, { status: 500 });
   }
 }
 
-// 2. POST: Membuat notifikasi baru
+// 2. POST: Membuat notifikasi baru ke tabel yang bersangkutan
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { user_id, title, type, status, info } = body;
+    const { user_id, role, title, type, status, info } = body;
 
     if (!title) {
       return NextResponse.json(
@@ -49,22 +59,40 @@ export async function POST(req: Request) {
       );
     }
 
-    const query = `
-      INSERT INTO notifikasi (user_id, title, type, status, info, is_read, created_at)
-      VALUES (?, ?, ?, ?, ?, 0, NOW())
-    `;
+    const targetRole = role || "eksternal";
+    const tableName = getTableName(targetRole);
 
-    await db.query(query, [
-      user_id || null, // Jika user_id kosong, simpan sebagai null (untuk notifikasi global/admin)
-      title,
-      type || "info",
-      status || "Pending",
-      info || "",
-    ]);
+    if (targetRole.toLowerCase() === "admin") {
+      // Input ke tabel khusus admin (tanpa user_id)
+      const query = `
+        INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at)
+        VALUES (?, ?, ?, ?, 0, NOW())
+      `;
+      await db.query(query, [
+        title,
+        type || "room",
+        status || "Pending",
+        info || "",
+      ]);
+    } else {
+      // Input ke tabel internal/eksternal (dengan user_id)
+      const validUserId = Number(user_id) || 0;
+      const query = `
+        INSERT INTO ${tableName} (user_id, title, type, status, info, is_read, created_at)
+        VALUES (?, ?, ?, ?, ?, 0, NOW())
+      `;
+      await db.query(query, [
+        validUserId,
+        title,
+        type || "room",
+        status || "Pending",
+        info || "",
+      ]);
+    }
 
     return NextResponse.json({
       success: true,
-      message: "Notifikasi berhasil ditambahkan",
+      message: "Notifikasi berhasil ditambahkan ke tabel terpisah",
     });
   } catch (error: any) {
     console.error("API POST NOTIFIKASI ERROR:", error.message);
@@ -78,7 +106,7 @@ export async function POST(req: Request) {
   }
 }
 
-// 3. PUT: Menandai notifikasi telah dibaca (is_read = 1)
+// 3. PUT: Menandai notifikasi telah dibaca berdasarkan tabel role masing-masing
 export async function PUT(req: Request) {
   try {
     let body: any = {};
@@ -88,31 +116,57 @@ export async function PUT(req: Request) {
       body = {};
     }
 
-    const userId = body.user_id;
-    const role = body.role;
+    const { userId, role, notificationId, markAll } = body;
+    const targetRole = role || "eksternal";
+    const tableName = getTableName(targetRole);
 
-    let query = "UPDATE notifikasi SET is_read = 1";
-    let params: any[] = [];
+    // A. Tandai semua dibaca (Mark All) pada tabel role tersebut
+    if (markAll) {
+      let query = `UPDATE ${tableName} SET is_read = 1 WHERE is_read = 0`;
+      let params: any[] = [];
 
-    if (
-      role &&
-      role.toLowerCase() !== "admin" &&
-      userId &&
-      userId !== "undefined" &&
-      userId !== "null"
-    ) {
-      query += " WHERE user_id = ?";
-      params = [userId];
+      if (targetRole.toLowerCase() !== "admin") {
+        if (
+          userId &&
+          userId !== "undefined" &&
+          userId !== "null" &&
+          userId !== ""
+        ) {
+          query += " AND user_id = ?";
+          params = [userId];
+        } else {
+          query += " AND 1=0";
+        }
+      }
+
+      await db.query(query, params);
+
+      return NextResponse.json({
+        success: true,
+        message: `Semua notifikasi di ${tableName} berhasil ditandai dibaca.`,
+      });
     }
 
-    await db.query(query, params);
+    // B. Tandai satu notifikasi spesifik berdasarkan ID dan tabelnya
+    if (notificationId) {
+      await db.query(`UPDATE ${tableName} SET is_read = 1 WHERE id = ?`, [
+        notificationId,
+      ]);
+      return NextResponse.json({
+        success: true,
+        message: "Notifikasi spesifik ditandai dibaca.",
+      });
+    }
 
-    return NextResponse.json({
-      success: true,
-      message: "Semua notifikasi berhasil ditandai dibaca.",
-    });
+    return NextResponse.json(
+      { success: false, message: "Parameter tidak valid" },
+      { status: 400 },
+    );
   } catch (error: any) {
     console.error("API PUT NOTIFIKASI ERROR:", error.message);
-    return NextResponse.json({ success: true, message: "OK" }, { status: 200 });
+    return NextResponse.json(
+      { success: false, message: error.message },
+      { status: 500 },
+    );
   }
 }

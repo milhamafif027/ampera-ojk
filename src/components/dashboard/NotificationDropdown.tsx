@@ -63,7 +63,6 @@ export default function NotificationDropdown({
       const gain = ctx.createGain();
 
       osc.type = "sine";
-      // Nada lonceng ganda (dua frekuensi berurutan)
       osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
       osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
 
@@ -112,33 +111,35 @@ export default function NotificationDropdown({
 
   const handleMarkAllRead = async () => {
     try {
+      // Kirim payload dengan role dan userId agar API memperbarui tabel yang tepat
+      const payload = {
+        userId: currentUser?.id || null,
+        role: currentUser?.role || "eksternal",
+        markAll: true,
+      };
+
       const res = await fetch("/api/notifikasi", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: currentUser?.id,
-          role: currentUser?.role,
-        }),
+        body: JSON.stringify(payload),
       });
-      if (res.ok) {
+
+      const result = await res.json();
+      if (res.ok && result.success) {
         setHasUnread(false);
         if (onRefresh) onRefresh();
+      } else {
+        console.error("Gagal menandai semua dibaca:", result.message);
       }
     } catch (err) {
       console.error("Gagal memperbarui status baca:", err);
     }
   };
 
+  // Penyaringan berdasarkan tab aktif (Backend sudah memisahkan data sesuai role)
   const filteredNotifications = React.useMemo(() => {
     return [...notifications]
       .filter((notif) => {
-        if (
-          currentUser?.role !== "admin" &&
-          notif.user_id !== null &&
-          notif.user_id !== undefined
-        ) {
-          if (String(notif.user_id) !== String(currentUser?.id)) return false;
-        }
         if (activeFilter === "Disetujui") {
           const text = `${notif.title} ${notif.info}`.toLowerCase();
           return (
@@ -158,7 +159,7 @@ export default function NotificationDropdown({
         const timeB = new Date(b.created_at || b.date).getTime() || 0;
         return timeB - timeA;
       });
-  }, [notifications, activeFilter, currentUser]);
+  }, [notifications, activeFilter]);
 
   const activeNotifsCount = filteredNotifications.length;
 
@@ -167,7 +168,7 @@ export default function NotificationDropdown({
     (n) => Number(n.is_read) === 0 || n.is_read === false,
   ).length;
 
-  // [EFEK SUARA & ANIMASI WAW] Cek jika ada penambahan jumlah pesan belum dibaca baru
+  // [EFEK SUARA] Cek jika ada penambahan jumlah pesan belum dibaca baru
   useEffect(() => {
     if (unreadCount > prevCountRef.current && prevCountRef.current !== 0) {
       playNotificationSound();
@@ -188,7 +189,6 @@ export default function NotificationDropdown({
       >
         <Bell size={18} />
 
-        {/* BADGE ANGKA JUMLAH PESAN DI POJOK */}
         {unreadCount > 0 && (
           <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 px-1 items-center justify-center rounded-full bg-[#9f1521] text-white text-[10px] font-black shadow-md ring-2 ring-white dark:ring-slate-900 animate-bounce">
             {unreadCount > 9 ? "9+" : unreadCount}

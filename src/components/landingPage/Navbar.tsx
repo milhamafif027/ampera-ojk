@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { LogIn, Menu, X } from "lucide-react";
+import { LogIn, Loader2, Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Efek mendeteksi scroll untuk mengubah bentuk navbar
   useEffect(() => {
@@ -21,6 +22,10 @@ export default function Navbar() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  const handleLoginClick = () => {
+    setIsLoading(true);
+  };
 
   return (
     <motion.header
@@ -93,10 +98,15 @@ export default function Navbar() {
           >
             <Link
               href="/login"
+              onClick={handleLoginClick}
               className="inline-flex items-center gap-2 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-rose-900/10 hover:shadow-lg hover:shadow-rose-900/20"
             >
-              <LogIn className="w-3.5 h-3.5" />
-              Login Pegawai
+              {isLoading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <LogIn className="w-3.5 h-3.5" />
+              )}
+              {isLoading ? "Memproses..." : "Login Pegawai"}
             </Link>
           </motion.div>
 
@@ -156,11 +166,18 @@ export default function Navbar() {
             <div className="pt-2">
               <Link
                 href="/login"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleLoginClick();
+                }}
                 className="w-full inline-flex items-center justify-center gap-2 bg-[#9f1521] text-white text-xs font-bold px-5 py-3 rounded-xl shadow-md"
               >
-                <LogIn className="w-4 h-4" />
-                Login Pegawai
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <LogIn className="w-4 h-4" />
+                )}
+                {isLoading ? "Memproses..." : "Login Pegawai"}
               </Link>
             </div>
           </motion.div>
