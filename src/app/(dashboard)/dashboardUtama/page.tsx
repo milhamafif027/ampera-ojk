@@ -218,7 +218,12 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
       );
       if (!selectedAgenda) return;
 
-      const [startTime, endTime] = selectedAgenda.time.split(" - ");
+      const timeParts = selectedAgenda.time
+        ? selectedAgenda.time.split(" - ")
+        : [];
+      const startTime = timeParts[0] || "08:00";
+      const endTime = timeParts[1] || "10:00";
+
       const newStatus =
         confirmModal.actionType === "approve" ? "Disetujui" : "Ditolak";
       const notesPayload =
@@ -226,19 +231,32 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
           ? confirmModal.rejectReason
           : "Disetujui oleh Admin";
 
+      // Pengaman tanggal untuk mencegah format kosong atau error 1970
+      let safeDate = selectedAgenda.date;
+      if (
+        !safeDate ||
+        typeof safeDate !== "string" ||
+        safeDate.trim() === "" ||
+        safeDate.includes("1970")
+      ) {
+        safeDate = new Date().toISOString().split("T")[0];
+      }
+
       const res = await fetch("/api/agendas", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: confirmModal.agendaId,
-          title: selectedAgenda.title,
-          date: selectedAgenda.date,
-          start_time: startTime || "08:00",
-          end_time: endTime || "10:00",
-          pic: selectedAgenda.pic,
-          phone: selectedAgenda.phone,
+          title: selectedAgenda.title || "Agenda Rapat",
+          date: safeDate,
+          start_time: startTime.length >= 5 ? startTime : "08:00",
+          end_time: endTime.length >= 5 ? endTime : "10:00",
+          pic: selectedAgenda.pic || "Admin",
+          phone: selectedAgenda.phone || "",
           status: newStatus,
           notes: notesPayload,
+          total_participants: Number(selectedAgenda.total_participants) || 1,
+          meeting_leader: selectedAgenda.meeting_leader || "-",
         }),
       });
 
@@ -259,7 +277,10 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
           rejectReason: "",
         });
       } else {
-        alert("Gagal memproses status reservasi.");
+        const errData = await res.json();
+        alert(
+          `Gagal memproses status reservasi: ${errData.message || "Unknown error"}`,
+        );
       }
     } catch (error) {
       console.error("Error processing agenda status:", error);
