@@ -15,10 +15,7 @@ export async function GET(request: Request) {
     const dateParam = searchParams.get("date");
     const roomParam = searchParams.get("room");
 
-    const d = new Date();
-    const today = d.toISOString().split("T")[0];
-
-    await db.$executeRaw`DELETE FROM agendas WHERE date < ${today}::date`;
+    await db.$executeRaw`DELETE FROM agendas WHERE date < CURRENT_DATE`;
 
     if (dateParam && roomParam) {
       const rows = await db.$queryRaw`
@@ -186,7 +183,7 @@ export async function POST(request: Request) {
   }
 }
 
-// 3. PUT: Update status (Approve/Reject) murni tanpa menyentuh kolom tanggal
+// 3. PUT: Update status (Approve/Reject) aman untuk Vercel Serverless
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
@@ -213,7 +210,6 @@ export async function PUT(request: Request) {
 
     const agendaId = Number(id);
 
-    // Ambil user_id dari database jika tidak dikirim dari body
     if (!user_id) {
       try {
         const agendaRows: any = await db.$queryRaw`
@@ -282,7 +278,7 @@ export async function PUT(request: Request) {
 
     const participantsNum = parseInt(total_participants, 10) || 1;
 
-    // HATI-HATI: Pastikan kueri UPDATE di bawah ini TIDAK ADA variabel "date" sama sekali!
+    // UPDATE murni tanpa menyentuh kolom tanggal
     await db.$executeRaw`
       UPDATE agendas 
       SET title = ${String(title)}, 
@@ -298,8 +294,8 @@ export async function PUT(request: Request) {
     `;
 
     if (status === "Disetujui") {
-      const notifInfoUser = `Reservasi ${title} telah disetujui oleh admin.`;
-      const notifInfoAdmin = `Reservasi "${title}" oleh ${pic} telah DISETUJUI.`;
+      const notifInfoUser = `Reservasi ${title || "Agenda"} telah disetujui oleh admin.`;
+      const notifInfoAdmin = `Reservasi "${title || "Agenda"}" oleh ${pic || "Pemohon"} telah DISETUJUI.`;
 
       if (user_id) {
         const uIdNum = Number(user_id);
@@ -333,6 +329,31 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: true, message: "Agenda diperbarui" });
   } catch (error: any) {
     console.error("API PUT AGENDAS ERROR:", error);
+    return NextResponse.json(
+      { success: false, message: error.message || String(error) },
+      { status: 500 },
+    );
+  }
+}
+
+// 4. DELETE: Hapus agenda manual
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    if (!id) {
+      return NextResponse.json(
+        { success: false, message: "ID diperlukan." },
+        { status: 400 },
+      );
+    }
+    await db.$executeRaw`DELETE FROM agendas WHERE id = ${Number(id)}`;
+    return NextResponse.json({
+      success: true,
+      message: "Agenda berhasil dihapus",
+    });
+  } catch (error: any) {
+    console.error("API DELETE AGENDAS ERROR:", error);
     return NextResponse.json(
       { success: false, message: error.message || String(error) },
       { status: 500 },
