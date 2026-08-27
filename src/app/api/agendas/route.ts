@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 function getUserNotificationTable(role?: string): string {
   const cleanRole = role?.toLowerCase() || "";
   if (cleanRole === "internal") return "notifikasi_internal";
-  return "notifikasi_eksternal"; // Default untuk eksternal
+  return "notifikasi_eksternal";
 }
 
 // 1. GET: Ambil data agenda
@@ -183,7 +183,7 @@ export async function POST(request: Request) {
   }
 }
 
-// 3. PUT: Update status (Approve/Reject) aman untuk Vercel Serverless
+// 3. PUT: Update status murni pakai SQL raw tanpa menyentuh tanggal
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
@@ -336,7 +336,7 @@ export async function PUT(request: Request) {
   }
 }
 
-// 4. DELETE: Hapus agenda manual
+// 4. DELETE: Hapus agenda manual menggunakan SQL raw
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
