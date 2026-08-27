@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { RowDataPacket, ResultSetHeader } from "mysql2";
 import { writeFile } from "fs/promises";
 import path from "path";
 
 export async function GET() {
   try {
-    const [rows] = await db.query<RowDataPacket[]>(
-      "SELECT * FROM partners ORDER BY id ASC",
-    );
+    const rows = await db.$queryRaw`
+      SELECT * FROM partners ORDER BY id ASC
+    `;
     return NextResponse.json({ success: true, data: rows });
   } catch (error: any) {
     return NextResponse.json(
@@ -39,22 +38,15 @@ export async function POST(request: Request) {
       imagePath = `/uploads/${filename}`;
     }
 
-    const query = `
+    const starNum = Number(stars) || 4;
+
+    const result: any = await db.$queryRaw`
       INSERT INTO partners (name, stars, area, phone, address, description, img) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      VALUES (${name}, ${starNum}, ${area}, ${phone}, ${address || ""}, ${description || ""}, ${imagePath || ""})
+      RETURNING id
     `;
 
-    const [result] = await db.query<ResultSetHeader>(query, [
-      name,
-      Number(stars) || 4,
-      area,
-      phone,
-      address || "",
-      description || "",
-      imagePath || "",
-    ]);
-
-    return NextResponse.json({ success: true, insertId: result.insertId });
+    return NextResponse.json({ success: true, insertId: result[0]?.id });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, message: error.message },
@@ -76,15 +68,8 @@ export async function PUT(request: Request) {
     const description = formData.get("description") as string;
     const file = formData.get("image") as File | null;
 
-    let imageQueryPart = "";
-    const queryParams: any[] = [
-      name,
-      Number(stars) || 4,
-      area,
-      phone,
-      address || "",
-      description || "",
-    ];
+    const starNum = Number(stars) || 4;
+    const partnerId = Number(id);
 
     if (file && file.size > 0) {
       const bytes = await file.arrayBuffer();
@@ -92,20 +77,20 @@ export async function PUT(request: Request) {
       const filename = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
       const uploadDir = path.join(process.cwd(), "public/uploads");
       await writeFile(path.join(uploadDir, filename), buffer);
+      const imagePath = `/uploads/${filename}`;
 
-      imageQueryPart = ", img = ?";
-      queryParams.push(`/uploads/${filename}`);
+      await db.$executeRaw`
+        UPDATE partners 
+        SET name = ${name}, stars = ${starNum}, area = ${area}, phone = ${phone}, address = ${address || ""}, description = ${description || ""}, img = ${imagePath}
+        WHERE id = ${partnerId}
+      `;
+    } else {
+      await db.$executeRaw`
+        UPDATE partners 
+        SET name = ${name}, stars = ${starNum}, area = ${area}, phone = ${phone}, address = ${address || ""}, description = ${description || ""}
+        WHERE id = ${partnerId}
+      `;
     }
-
-    queryParams.push(id);
-
-    const query = `
-      UPDATE partners 
-      SET name = ?, stars = ?, area = ?, phone = ?, address = ?, description = ? ${imageQueryPart}
-      WHERE id = ?
-    `;
-
-    await db.query<ResultSetHeader>(query, queryParams);
 
     return NextResponse.json({
       success: true,
@@ -132,7 +117,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    await db.query("DELETE FROM partners WHERE id = ?", [id]);
+    await db.$executeRaw`DELETE FROM partners WHERE id = ${Number(id)}`;
 
     return NextResponse.json({
       success: true,

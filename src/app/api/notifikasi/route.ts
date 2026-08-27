@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { RowDataPacket } from "mysql2";
 
 // Helper untuk menentukan nama tabel berdasarkan role/user
 function getTableName(role?: string): string {
@@ -16,29 +15,48 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("user_id");
     const role = searchParams.get("role") || "eksternal";
+    const cleanRole = role.toLowerCase();
 
-    const tableName = getTableName(role);
-    let query = `SELECT id, ${role?.toLowerCase() === "admin" ? "'' AS user_id" : "user_id"}, title, type, status, info, is_read, created_at FROM ${tableName}`;
-    let params: any[] = [];
+    // Validasi nama tabel agar aman dari SQL Injection string interpolation
+    const tableName = getTableName(cleanRole);
 
-    // Jika bukan admin, filter berdasarkan user_id miliknya sendiri
-    if (role.toLowerCase() !== "admin") {
-      if (
-        userId &&
-        userId !== "undefined" &&
-        userId !== "null" &&
-        userId !== ""
-      ) {
-        query += " WHERE user_id = ?";
-        params = [userId];
+    let rows: any = [];
+
+    if (cleanRole === "admin") {
+      if (tableName === "notifikasi_admin") {
+        rows = await db.$queryRaw`
+          SELECT id, '' AS user_id, title, type, status, info, is_read, created_at 
+          FROM notifikasi_admin 
+          ORDER BY created_at DESC LIMIT 50
+        `;
+      }
+    } else {
+      const validUserId =
+        userId && userId !== "undefined" && userId !== "null" && userId !== ""
+          ? Number(userId)
+          : null;
+
+      if (!validUserId) {
+        return NextResponse.json({ success: true, data: [] });
+      }
+
+      if (tableName === "notifikasi_internal") {
+        rows = await db.$queryRaw`
+          SELECT id, user_id, title, type, status, info, is_read, created_at 
+          FROM notifikasi_internal 
+          WHERE user_id = ${validUserId} 
+          ORDER BY created_at DESC LIMIT 50
+        `;
       } else {
-        query += " WHERE 1=0"; // Jika tidak ada user_id, jangan kembalikan data sembarangan
+        rows = await db.$queryRaw`
+          SELECT id, user_id, title, type, status, info, is_read, created_at 
+          FROM notifikasi_eksternal 
+          WHERE user_id = ${validUserId} 
+          ORDER BY created_at DESC LIMIT 50
+        `;
       }
     }
 
-    query += " ORDER BY created_at DESC LIMIT 50";
-
-    const [rows] = await db.query<RowDataPacket[]>(query, params);
     return NextResponse.json({ success: true, data: rows });
   } catch (error: any) {
     console.error("API GET NOTIFIKASI ERROR:", error.message);
@@ -59,35 +77,26 @@ export async function POST(req: Request) {
       );
     }
 
-    const targetRole = role || "eksternal";
+    const targetRole = (role || "eksternal").toLowerCase();
     const tableName = getTableName(targetRole);
 
-    if (targetRole.toLowerCase() === "admin") {
-      // Input ke tabel khusus admin (tanpa user_id)
-      const query = `
+    if (tableName === "notifikasi_admin") {
+      await db.$executeRaw`
         INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at)
-        VALUES (?, ?, ?, ?, 0, NOW())
+        VALUES (${title}, ${type || "room"}, ${status || "Pending"}, ${info || ""}, 0, NOW())
       `;
-      await db.query(query, [
-        title,
-        type || "room",
-        status || "Pending",
-        info || "",
-      ]);
-    } else {
-      // Input ke tabel internal/eksternal (dengan user_id)
+    } else if (tableName === "notifikasi_internal") {
       const validUserId = Number(user_id) || 0;
-      const query = `
-        INSERT INTO ${tableName} (user_id, title, type, status, info, is_read, created_at)
-        VALUES (?, ?, ?, ?, ?, 0, NOW())
+      await db.$executeRaw`
+        INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at)
+        VALUES (${validUserId}, ${title}, ${type || "room"}, ${status || "Pending"}, ${info || ""}, 0, NOW())
       `;
-      await db.query(query, [
-        validUserId,
-        title,
-        type || "room",
-        status || "Pending",
-        info || "",
-      ]);
+    } else {
+      const validUserId = Number(user_id) || 0;
+      await db.$executeRaw`
+        INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at)
+        VALUES (${validUserId}, ${title}, ${type || "room"}, ${status || "Pending"}, ${info || ""}, 0, NOW())
+      `;
     }
 
     return NextResponse.json({
@@ -117,29 +126,41 @@ export async function PUT(req: Request) {
     }
 
     const { userId, role, notificationId, markAll } = body;
-    const targetRole = role || "eksternal";
+    const targetRole = (role || "eksternal").toLowerCase();
     const tableName = getTableName(targetRole);
 
     // A. Tandai semua dibaca (Mark All) pada tabel role tersebut
     if (markAll) {
-      let query = `UPDATE ${tableName} SET is_read = 1 WHERE is_read = 0`;
-      let params: any[] = [];
+      if (tableName === "notifikasi_admin") {
+        await db.$executeRaw`
+          UPDATE notifikasi_admin SET is_read = 1 WHERE is_read = 0
+        `;
+      } else {
+        const validUserId =
+          userId && userId !== "undefined" && userId !== "null" && userId !== ""
+            ? Number(userId)
+            : null;
 
-      if (targetRole.toLowerCase() !== "admin") {
-        if (
-          userId &&
-          userId !== "undefined" &&
-          userId !== "null" &&
-          userId !== ""
-        ) {
-          query += " AND user_id = ?";
-          params = [userId];
+        if (!validUserId) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: "User ID tidak valid untuk mark all.",
+            },
+            { status: 400 },
+          );
+        }
+
+        if (tableName === "notifikasi_internal") {
+          await db.$executeRaw`
+            UPDATE notifikasi_internal SET is_read = 1 WHERE is_read = 0 AND user_id = ${validUserId}
+          `;
         } else {
-          query += " AND 1=0";
+          await db.$executeRaw`
+            UPDATE notifikasi_eksternal SET is_read = 1 WHERE is_read = 0 AND user_id = ${validUserId}
+          `;
         }
       }
-
-      await db.query(query, params);
 
       return NextResponse.json({
         success: true,
@@ -149,9 +170,21 @@ export async function PUT(req: Request) {
 
     // B. Tandai satu notifikasi spesifik berdasarkan ID dan tabelnya
     if (notificationId) {
-      await db.query(`UPDATE ${tableName} SET is_read = 1 WHERE id = ?`, [
-        notificationId,
-      ]);
+      const idNum = Number(notificationId);
+      if (tableName === "notifikasi_admin") {
+        await db.$executeRaw`
+          UPDATE notifikasi_admin SET is_read = 1 WHERE id = ${idNum}
+        `;
+      } else if (tableName === "notifikasi_internal") {
+        await db.$executeRaw`
+          UPDATE notifikasi_internal SET is_read = 1 WHERE id = ${idNum}
+        `;
+      } else {
+        await db.$executeRaw`
+          UPDATE notifikasi_eksternal SET is_read = 1 WHERE id = ${idNum}
+        `;
+      }
+
       return NextResponse.json({
         success: true,
         message: "Notifikasi spesifik ditandai dibaca.",

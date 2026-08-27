@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { RowDataPacket, ResultSetHeader } from "mysql2";
 import fs from "fs";
 import path from "path";
 
@@ -35,9 +34,9 @@ async function handleImageUploads(formData: FormData): Promise<string[]> {
 // 1. GET: Ambil daftar ruangan
 export async function GET() {
   try {
-    const [rows] = await db.query<RowDataPacket[]>(
-      "SELECT * FROM ruangan ORDER BY id DESC",
-    );
+    const rows = await db.$queryRaw`
+      SELECT * FROM ruangan ORDER BY id DESC
+    `;
     return NextResponse.json({ success: true, data: rows });
   } catch (error: any) {
     console.error("GET Ruangan Error:", error);
@@ -52,15 +51,15 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
-    const name = formData.get("name") || "";
+    const name = String(formData.get("name") || "");
 
     const rawCapacity = formData.get("capacity") || "0";
     const capacity = parseInt(String(rawCapacity).replace(/\D/g, "")) || 0;
 
-    const description = formData.get("description") || "";
-    const type = formData.get("type") || "rapat";
-    const floor = formData.get("floor") || "Lantai 2";
-    const status = formData.get("status") || "Tersedia";
+    const description = String(formData.get("description") || "");
+    const type = String(formData.get("type") || "rapat");
+    const floor = String(formData.get("floor") || "Lantai 2");
+    const status = String(formData.get("status") || "Tersedia");
 
     // Proses upload gambar menggunakan helper
     const newImageUrls = await handleImageUploads(formData);
@@ -74,15 +73,16 @@ export async function POST(req: Request) {
 
     const imgsJson = JSON.stringify(newImageUrls);
 
-    const [result] = await db.query<ResultSetHeader>(
-      "INSERT INTO ruangan (name, capacity, description, type, floor, status, imgs) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [name, capacity, description, type, floor, status, imgsJson],
-    );
+    const result: any = await db.$queryRaw`
+      INSERT INTO ruangan (name, capacity, description, type, floor, status, imgs) 
+      VALUES (${name}, ${capacity}, ${description}, ${type}, ${floor}, ${status}, ${imgsJson})
+      RETURNING id
+    `;
 
     return NextResponse.json({
       success: true,
       message: "Berhasil menambahkan ruangan baru!",
-      insertId: result.insertId,
+      insertId: result[0]?.id,
     });
   } catch (error: any) {
     console.error("POST Ruangan Error:", error);
@@ -110,14 +110,15 @@ export async function PUT(req: Request) {
       );
     }
 
-    const name = formData.get("name") || "";
+    const roomId = Number(id);
+    const name = String(formData.get("name") || "");
     const rawCapacity = formData.get("capacity") || "0";
     const capacity = parseInt(String(rawCapacity).replace(/\D/g, "")) || 0;
 
-    const description = formData.get("description") || "";
-    const type = formData.get("type") || "rapat";
-    const floor = formData.get("floor") || "Lantai 2";
-    const status = formData.get("status") || "Tersedia";
+    const description = String(formData.get("description") || "");
+    const type = String(formData.get("type") || "rapat");
+    const floor = String(formData.get("floor") || "Lantai 2");
+    const status = String(formData.get("status") || "Tersedia");
 
     // Ambil gambar lama yang dipertahankan dari frontend
     const existingImgsRaw = formData.get("existingImgs");
@@ -143,10 +144,11 @@ export async function PUT(req: Request) {
 
     const imgsJson = JSON.stringify(savedImageUrls);
 
-    await db.query<ResultSetHeader>(
-      "UPDATE ruangan SET name = ?, capacity = ?, description = ?, type = ?, floor = ?, status = ?, imgs = ? WHERE id = ?",
-      [name, capacity, description, type, floor, status, imgsJson, id],
-    );
+    await db.$executeRaw`
+      UPDATE ruangan 
+      SET name = ${name}, capacity = ${capacity}, description = ${description}, type = ${type}, floor = ${floor}, status = ${status}, imgs = ${imgsJson} 
+      WHERE id = ${roomId}
+    `;
 
     return NextResponse.json({
       success: true,

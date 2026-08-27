@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { RowDataPacket } from "mysql2";
 
 export async function POST(request: Request) {
   try {
@@ -13,10 +12,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const [rows] = await db.query<RowDataPacket[]>(
-      "SELECT id, name, email, role, nip FROM users WHERE email = ? AND password = ?",
-      [email.trim(), password.trim()],
-    );
+    // Menggunakan $queryRaw dari Prisma untuk PostgreSQL
+    const rows: any = await db.$queryRaw`
+      SELECT id, name, email, role, nip FROM users 
+      WHERE email = ${email.trim()} AND password = ${password.trim()}
+    `;
 
     if (rows.length === 0) {
       return NextResponse.json(
@@ -29,10 +29,10 @@ export async function POST(request: Request) {
       success: true,
       user: rows[0],
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Login API Error:", error);
     return NextResponse.json(
-      { message: "Gagal terhubung ke database MySQL Laragon." },
+      { message: "Gagal terhubung ke database.", error: error.message },
       { status: 500 },
     );
   }

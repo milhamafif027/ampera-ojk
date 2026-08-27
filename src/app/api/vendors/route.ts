@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 // 1. GET: Mengambil daftar vendor berdasarkan kategori
 export async function GET(req: Request) {
@@ -8,17 +7,23 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const category = searchParams.get("category");
 
-    let query = "SELECT id, name, category, phone, address FROM vendors";
-    let params: any[] = [];
+    let rows: any = [];
 
     if (category && category !== "all") {
-      query += " WHERE category = ?";
-      params = [category];
+      rows = await db.$queryRaw`
+        SELECT id, name, category, phone, address 
+        FROM vendors 
+        WHERE category = ${category} 
+        ORDER BY name ASC
+      `;
+    } else {
+      rows = await db.$queryRaw`
+        SELECT id, name, category, phone, address 
+        FROM vendors 
+        ORDER BY name ASC
+      `;
     }
 
-    query += " ORDER BY name ASC";
-
-    const [rows] = await db.query<RowDataPacket[]>(query, params);
     return NextResponse.json({ success: true, data: rows });
   } catch (error: any) {
     console.error("API GET VENDORS ERROR:", error.message);
@@ -45,22 +50,16 @@ export async function POST(req: Request) {
       );
     }
 
-    const query = `
+    const result: any = await db.$queryRaw`
       INSERT INTO vendors (name, category, phone, address)
-      VALUES (?, ?, ?, ?)
+      VALUES (${name}, ${category}, ${phone}, ${address || null})
+      RETURNING id
     `;
-
-    const [result] = await db.query<ResultSetHeader>(query, [
-      name,
-      category,
-      phone,
-      address || null,
-    ]);
 
     return NextResponse.json({
       success: true,
       message: "Vendor berhasil ditambahkan",
-      id: result.insertId,
+      id: result[0]?.id,
     });
   } catch (error: any) {
     console.error("API POST VENDORS ERROR:", error.message);
@@ -87,19 +86,13 @@ export async function PUT(req: Request) {
       );
     }
 
-    const query = `
-      UPDATE vendors 
-      SET name = ?, category = ?, phone = ?, address = ?
-      WHERE id = ?
-    `;
+    const vendorId = Number(id);
 
-    await db.query<ResultSetHeader>(query, [
-      name,
-      category,
-      phone,
-      address || null,
-      id,
-    ]);
+    await db.$executeRaw`
+      UPDATE vendors 
+      SET name = ${name}, category = ${category}, phone = ${phone}, address = ${address || null}
+      WHERE id = ${vendorId}
+    `;
 
     return NextResponse.json({
       success: true,
@@ -127,8 +120,8 @@ export async function DELETE(req: Request) {
       );
     }
 
-    const query = "DELETE FROM vendors WHERE id = ?";
-    await db.query<ResultSetHeader>(query, [id]);
+    const vendorId = Number(id);
+    await db.$executeRaw`DELETE FROM vendors WHERE id = ${vendorId}`;
 
     return NextResponse.json({
       success: true,

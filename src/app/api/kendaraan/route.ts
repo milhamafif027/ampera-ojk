@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { RowDataPacket, ResultSetHeader } from "mysql2";
 import { writeFile } from "fs/promises";
 import path from "path";
 
@@ -14,15 +13,15 @@ function getUserNotificationTable(role?: string): string {
 // 1. GET: Mengambil data kendaraan & riwayat booking
 export async function GET() {
   try {
-    const [vehicles] = await db.query<RowDataPacket[]>(
-      "SELECT * FROM kendaraan ORDER BY id ASC",
-    );
+    const vehicles: any = await db.$queryRaw`
+      SELECT * FROM kendaraan ORDER BY id ASC
+    `;
 
     let bookings: any[] = [];
     try {
-      const [bookingRows] = await db.query<RowDataPacket[]>(
-        "SELECT * FROM vehicle_bookings ORDER BY id DESC",
-      );
+      const bookingRows: any = await db.$queryRaw`
+        SELECT * FROM vehicle_bookings ORDER BY id DESC
+      `;
       bookings = bookingRows;
     } catch (e) {
       bookings = [];
@@ -63,17 +62,10 @@ export async function PUT(request: Request) {
 
     // Aksi untuk menambah kendaraan baru (Admin)
     if (action === "add_vehicle") {
-      const query = `
+      await db.$executeRaw`
         INSERT INTO kendaraan (name, plate_number, type, driver_name, status)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (${name}, ${plate_number}, ${type}, ${driver_name}, ${status || "Tersedia"})
       `;
-      await db.query(query, [
-        name,
-        plate_number,
-        type,
-        driver_name,
-        status || "Tersedia",
-      ]);
 
       return NextResponse.json({
         success: true,
@@ -85,25 +77,16 @@ export async function PUT(request: Request) {
     if (action === "approve_booking") {
       const finalStatus = status || "Disetujui";
 
-      // Jika status Ditolak, kita bisa hapus atau update statusnya menjadi Ditolak
-      const query = `
+      await db.$executeRaw`
         UPDATE vehicle_bookings 
-        SET status = ?, total_passengers = ?, approval_notes = ?
-        WHERE id = ?
+        SET status = ${finalStatus}, total_passengers = ${total_passengers || 1}, approval_notes = ${approval_notes || ""}
+        WHERE id = ${Number(id)}
       `;
 
-      await db.query(query, [
-        finalStatus,
-        total_passengers || 1,
-        approval_notes || "",
-        id,
-      ]);
-
       // Ambil data detail booking untuk pengiriman notifikasi
-      const [bookingRows] = await db.query<RowDataPacket[]>(
-        "SELECT * FROM vehicle_bookings WHERE id = ?",
-        [id],
-      );
+      const bookingRows: any = await db.$queryRaw`
+        SELECT * FROM vehicle_bookings WHERE id = ${Number(id)}
+      `;
 
       if (bookingRows.length > 0) {
         const booking = bookingRows[0];
@@ -111,10 +94,9 @@ export async function PUT(request: Request) {
         // Dapatkan role user jika memiliki user_id
         let userRole = "eksternal";
         if (booking.user_id) {
-          const [userRows] = await db.query<RowDataPacket[]>(
-            "SELECT role FROM users WHERE id = ?",
-            [booking.user_id],
-          );
+          const userRows: any = await db.$queryRaw`
+            SELECT role FROM users WHERE id = ${Number(booking.user_id)}
+          `;
           if (userRows.length > 0) {
             userRole = userRows[0].role;
           }
@@ -134,19 +116,24 @@ export async function PUT(request: Request) {
 
         // 1. Kirim notifikasi ke user pemohon
         if (booking.user_id) {
-          await db.query(
-            `INSERT INTO ${targetTable} (user_id, title, type, status, info, is_read, created_at) 
-             VALUES (?, ?, 'vehicle', ?, ?, 0, NOW())`,
-            [booking.user_id, notifTitle, finalStatus, notifInfoUser],
-          );
+          if (targetTable === "notifikasi_internal") {
+            await db.$executeRaw`
+              INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
+              VALUES (${Number(booking.user_id)}, ${notifTitle}, 'vehicle', ${finalStatus}, ${notifInfoUser}, 0, NOW())
+            `;
+          } else {
+            await db.$executeRaw`
+              INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
+              VALUES (${Number(booking.user_id)}, ${notifTitle}, 'vehicle', ${finalStatus}, ${notifInfoUser}, 0, NOW())
+            `;
+          }
         }
 
         // 2. Kirim notifikasi ke Admin (notifikasi_admin)
-        await db.query(
-          `INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
-           VALUES (?, 'vehicle', ?, ?, 0, NOW())`,
-          [notifTitle, finalStatus, notifInfoAdmin],
-        );
+        await db.$executeRaw`
+          INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
+          VALUES (${notifTitle}, 'vehicle', ${finalStatus}, ${notifInfoAdmin}, 0, NOW())
+        `;
       }
 
       return NextResponse.json({
@@ -192,24 +179,16 @@ export async function POST(request: Request) {
         imagePath = `/uploads/${filename}`;
       }
 
-      const query = `
+      const result: any = await db.$queryRaw`
         INSERT INTO kendaraan (name, plate_number, type, driver_name, status, img) 
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (${name}, ${plate}, ${type}, ${driver}, ${status}, ${imagePath || ""})
+        RETURNING id
       `;
-
-      const [result] = await db.query<ResultSetHeader>(query, [
-        name,
-        plate,
-        type,
-        driver,
-        status,
-        imagePath || "",
-      ]);
 
       return NextResponse.json({
         success: true,
         message: "Kendaraan baru berhasil ditambahkan",
-        insertId: result.insertId,
+        insertId: result[0]?.id,
       });
     } else {
       const body = await request.json();
@@ -222,52 +201,34 @@ export async function POST(request: Request) {
         tanggal_selesai,
         status,
         user_id,
-        role, // Menerima role dari frontend ("admin", "internal", atau "eksternal")
+        role,
       } = body;
 
       const cleanRole = role?.toLowerCase() || "eksternal";
 
-      // ATURAN STATUS OTOMATIS:
-      // - Jika yang mengajukan adalah 'admin' atau 'internal', otomatis "Disetujui"
-      // - Jika 'eksternal', wajib "Pending" (menunggu verifikasi admin)
       const bookingStatus =
         status ||
         (cleanRole === "admin" || cleanRole === "internal"
           ? "Disetujui"
           : "Pending");
 
-      const query = `
+      await db.$executeRaw`
         INSERT INTO vehicle_bookings (vehicle_name, destination, borrower, dept, start_date, end_date, status, user_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (${nama_kendaraan}, ${tujuan}, ${peminjam}, ${satker}, ${tanggal_mulai}::date, ${tanggal_selesai}::date, ${bookingStatus}, ${user_id ? Number(user_id) : null})
       `;
 
-      await db.query(query, [
-        nama_kendaraan,
-        tujuan,
-        peminjam,
-        satker,
-        tanggal_mulai,
-        tanggal_selesai,
-        bookingStatus,
-        user_id || null,
-      ]);
-
-      // --- OTOMATISASI KIRIM NOTIFIKASI KE 3 TABEL TERPISAH ---
-
-      // 1. Kirim notifikasi ke Admin (notifikasi_admin)
+      // --- OTOMATISASI KIRIM NOTIFIKASI ---
       const adminNotifTitle =
         cleanRole === "eksternal"
           ? "Peminjaman Kendaraan Baru"
           : "Peminjaman Kendaraan Otomatis (Internal/Admin)";
       const adminNotifInfo = `Peminjaman ${nama_kendaraan} oleh ${peminjam} (${satker}) menuju ${tujuan} (${tanggal_mulai} s.d ${tanggal_selesai}). Status: ${bookingStatus}`;
 
-      await db.query(
-        `INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
-         VALUES (?, 'vehicle', ?, ?, 0, NOW())`,
-        [adminNotifTitle, bookingStatus, adminNotifInfo],
-      );
+      await db.$executeRaw`
+        INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
+        VALUES (${adminNotifTitle}, 'vehicle', ${bookingStatus}, ${adminNotifInfo}, 0, NOW())
+      `;
 
-      // 2. Kirim notifikasi personal ke User (jika user_id tersedia)
       if (user_id) {
         const targetTable = getUserNotificationTable(cleanRole);
         const userNotifTitle =
@@ -279,11 +240,17 @@ export async function POST(request: Request) {
             ? `Peminjaman kendaraan ${nama_kendaraan} Anda berhasil dan langsung disetujui.`
             : `Pengajuan peminjaman kendaraan ${nama_kendaraan} Anda berhasil dikirim dan menunggu verifikasi Admin.`;
 
-        await db.query(
-          `INSERT INTO ${targetTable} (user_id, title, type, status, info, is_read, created_at) 
-           VALUES (?, ?, 'vehicle', ?, ?, 0, NOW())`,
-          [user_id, userNotifTitle, bookingStatus, userNotifInfo],
-        );
+        if (targetTable === "notifikasi_internal") {
+          await db.$executeRaw`
+            INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
+            VALUES (${Number(user_id)}, ${userNotifTitle}, 'vehicle', ${bookingStatus}, ${userNotifInfo}, 0, NOW())
+          `;
+        } else {
+          await db.$executeRaw`
+            INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
+            VALUES (${Number(user_id)}, ${userNotifTitle}, 'vehicle', ${bookingStatus}, ${userNotifInfo}, 0, NOW())
+          `;
+        }
       }
 
       return NextResponse.json({

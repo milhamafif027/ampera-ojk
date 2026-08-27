@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 // Helper untuk menentukan tabel notifikasi user berdasarkan role
 function getUserNotificationTable(role?: string): string {
@@ -19,31 +18,54 @@ export async function GET(request: Request) {
     const d = new Date();
     const today = d.toISOString().split("T")[0];
 
-    // Hapus data yang tanggalnya sudah lewat
-    await db.query("DELETE FROM agendas WHERE date < ?", [today]);
+    // Hapus data yang tanggalnya sudah lewat menggunakan $executeRaw
+    await db.$executeRaw`DELETE FROM agendas WHERE date < ${today}::date`;
 
-    let query = `
-      SELECT id, title, pic, dept, phone, room_id, room_name, 
-             DATE_FORMAT(date, '%Y-%m-%d') AS date, 
-             start_time, end_time, layout, notes, status, user_id,
-             total_participants, meeting_leader
-      FROM agendas WHERE 1=1
-    `;
-    const queryParams: any[] = [];
-
-    if (dateParam) {
-      query += " AND date = ?";
-      queryParams.push(dateParam);
+    // Ambil data menggunakan $queryRaw
+    if (dateParam && roomParam) {
+      const rows = await db.$queryRaw`
+        SELECT id, title, pic, dept, phone, room_id, room_name, 
+               TO_CHAR(date, 'YYYY-MM-DD') AS date, 
+               start_time, end_time, layout, notes, status, user_id,
+               total_participants, meeting_leader
+        FROM agendas 
+        WHERE date = ${dateParam}::date AND room_name = ${roomParam}
+        ORDER BY date ASC, start_time ASC
+      `;
+      return NextResponse.json({ success: true, data: rows });
+    } else if (dateParam) {
+      const rows = await db.$queryRaw`
+        SELECT id, title, pic, dept, phone, room_id, room_name, 
+               TO_CHAR(date, 'YYYY-MM-DD') AS date, 
+               start_time, end_time, layout, notes, status, user_id,
+               total_participants, meeting_leader
+        FROM agendas 
+        WHERE date = ${dateParam}::date
+        ORDER BY date ASC, start_time ASC
+      `;
+      return NextResponse.json({ success: true, data: rows });
+    } else if (roomParam) {
+      const rows = await db.$queryRaw`
+        SELECT id, title, pic, dept, phone, room_id, room_name, 
+               TO_CHAR(date, 'YYYY-MM-DD') AS date, 
+               start_time, end_time, layout, notes, status, user_id,
+               total_participants, meeting_leader
+        FROM agendas 
+        WHERE room_name = ${roomParam}
+        ORDER BY date ASC, start_time ASC
+      `;
+      return NextResponse.json({ success: true, data: rows });
+    } else {
+      const rows = await db.$queryRaw`
+        SELECT id, title, pic, dept, phone, room_id, room_name, 
+               TO_CHAR(date, 'YYYY-MM-DD') AS date, 
+               start_time, end_time, layout, notes, status, user_id,
+               total_participants, meeting_leader
+        FROM agendas 
+        ORDER BY date ASC, start_time ASC
+      `;
+      return NextResponse.json({ success: true, data: rows });
     }
-    if (roomParam) {
-      query += " AND room_name = ?";
-      queryParams.push(roomParam);
-    }
-
-    query += " ORDER BY date ASC, start_time ASC";
-    const [rows] = await db.query<RowDataPacket[]>(query, queryParams);
-
-    return NextResponse.json({ success: true, data: rows });
   } catch (error: any) {
     console.error("API GET AGENDAS ERROR:", error.message);
     return NextResponse.json(
@@ -72,37 +94,24 @@ export async function POST(request: Request) {
       layout,
       notes,
       user_id,
-      role, // Menerima role dari frontend ("admin", "internal", atau "eksternal")
+      role,
     } = body;
 
     const cleanRole = role?.toLowerCase() || "eksternal";
 
-    // ATURAN STATUS:
-    // - Jika Admin atau Internal, otomatis "Disetujui" (selama tidak bentrok)
-    // - Jika Eksternal, wajib "Pending" (menunggu verifikasi admin)
     const finalStatus =
       cleanRole === "admin" || cleanRole === "internal"
         ? "Disetujui"
         : "Pending";
 
-    // Proteksi Bentrok Jadwal
-    const [conflicts] = await db.query<RowDataPacket[]>(
-      `
+    // Proteksi Bentrok Jadwal menggunakan $queryRaw
+    const conflicts: any = await db.$queryRaw`
       SELECT id FROM agendas 
-      WHERE room_name = ? AND date = ? AND status != 'Ditolak'
-      AND ((start_time < ? AND end_time > ?) OR (start_time >= ? AND start_time < ?) OR (end_time > ? AND end_time <= ?))
-    `,
-      [
-        room_name,
-        date,
-        end_time,
-        start_time,
-        start_time,
-        end_time,
-        start_time,
-        end_time,
-      ],
-    );
+      WHERE room_name = ${room_name} AND date = ${date}::date AND status != 'Ditolak'
+      AND ((start_time < ${end_time} AND end_time > ${start_time}) 
+        OR (start_time >= ${start_time} AND start_time < ${end_time}) 
+        OR (end_time > ${start_time} AND end_time <= ${end_time}))
+    `;
 
     if (conflicts.length > 0) {
       return NextResponse.json(
@@ -115,45 +124,28 @@ export async function POST(request: Request) {
       );
     }
 
-    const [result] = await db.query<ResultSetHeader>(
-      `INSERT INTO agendas 
+    // Insert Agenda menggunakan $queryRaw untuk mengambil id yang baru dibuat (RETURNING id)
+    const result: any = await db.$queryRaw`
+      INSERT INTO agendas 
       (title, pic, dept, phone, total_participants, meeting_leader, room_id, room_name, date, start_time, end_time, layout, notes, status, user_id) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        title,
-        pic,
-        dept,
-        phone || null,
-        total_participants || 1,
-        meeting_leader || "-",
-        room_id || null,
-        room_name,
-        date,
-        start_time,
-        end_time,
-        layout,
-        notes || "",
-        finalStatus,
-        user_id || null,
-      ],
-    );
+      VALUES (${title}, ${pic}, ${dept}, ${phone || null}, ${total_participants || 1}, ${meeting_leader || "-"}, ${room_id ? Number(room_id) : null}, ${room_name}, ${date}::date, ${start_time}, ${end_time}, ${layout}, ${notes || ""}, ${finalStatus}, ${user_id ? Number(user_id) : null})
+      RETURNING id
+    `;
 
-    // --- INTEGRASI 3 TABEL NOTIFIKASI ---
+    const insertedId = result[0]?.id;
 
-    // 1. Kirim notifikasi ke tabel khusus Admin (notifikasi_admin)
+    // --- INTEGRASI NOTIFIKASI ---
     const adminNotifTitle =
       cleanRole === "eksternal"
         ? "Pengajuan Ruangan Baru"
         : "Reservasi Otomatis (Internal/Admin)";
     const adminNotifInfo = `Ruangan ${room_name} dipesan oleh ${pic} (${dept}) untuk tanggal ${date} (${start_time} - ${end_time}). Status: ${finalStatus}`;
 
-    await db.query(
-      `INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
-       VALUES (?, 'room', ?, ?, 0, NOW())`,
-      [adminNotifTitle, finalStatus, adminNotifInfo],
-    );
+    await db.$executeRaw`
+      INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
+      VALUES (${adminNotifTitle}, 'room', ${finalStatus}, ${adminNotifInfo}, 0, NOW())
+    `;
 
-    // 2. Kirim notifikasi personal ke tabel User (notifikasi_internal atau notifikasi_eksternal)
     if (user_id) {
       const targetTable = getUserNotificationTable(cleanRole);
       const userNotifTitle =
@@ -165,16 +157,23 @@ export async function POST(request: Request) {
           ? `Reservasi ruangan ${room_name} tanggal ${date} berhasil dan langsung disetujui.`
           : `Pengajuan ruangan ${room_name} Anda telah dikirim dan sedang ditinjau oleh Admin.`;
 
-      await db.query(
-        `INSERT INTO ${targetTable} (user_id, title, type, status, info, is_read, created_at) 
-         VALUES (?, ?, 'room', ?, ?, 0, NOW())`,
-        [user_id, userNotifTitle, finalStatus, userNotifInfo],
-      );
+      // Catatan: Karena penamaan tabel dinamis, kita eksekusi menggunakan query aman
+      if (targetTable === "notifikasi_internal") {
+        await db.$executeRaw`
+          INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
+          VALUES (${Number(user_id)}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, NOW())
+        `;
+      } else {
+        await db.$executeRaw`
+          INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
+          VALUES (${Number(user_id)}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, NOW())
+        `;
+      }
     }
 
     return NextResponse.json({
       success: true,
-      insertId: result.insertId,
+      insertId: insertedId,
       status: finalStatus,
     });
   } catch (error: any) {
@@ -186,7 +185,7 @@ export async function POST(request: Request) {
   }
 }
 
-// 3. PUT: Update status (Approve/Reject) & Notifikasi Ganda ke 3 Tabel Terpisah
+// 3. PUT: Update status (Approve/Reject)
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
@@ -205,96 +204,84 @@ export async function PUT(request: Request) {
     } = body;
     let { user_id } = body;
 
-    // Jika user_id tidak dikirim dari frontend, ambil dari database berdasarkan id agenda
     if (!user_id && id) {
-      const [agendaRows] = await db.query<RowDataPacket[]>(
-        "SELECT user_id, title, date, room_name FROM agendas WHERE id = ?",
-        [id],
-      );
+      const agendaRows: any = await db.$queryRaw`
+        SELECT user_id, title, date, room_name FROM agendas WHERE id = ${Number(id)}
+      `;
       if (agendaRows.length > 0) {
         user_id = agendaRows[0].user_id;
       }
     }
 
-    // Ambil data detail role user pemohon jika ada user_id
     let userRole = "eksternal";
     if (user_id) {
-      const [userRows] = await db.query<RowDataPacket[]>(
-        "SELECT role FROM users WHERE id = ?",
-        [user_id],
-      );
+      const userRows: any = await db.$queryRaw`
+        SELECT role FROM users WHERE id = ${Number(user_id)}
+      `;
       if (userRows.length > 0) {
         userRole = userRows[0].role;
       }
     }
     const targetTable = getUserNotificationTable(userRole);
 
-    // Jika status Ditolak, hapus dari database dan kirim notifikasi penolakan
     if (status === "Ditolak") {
-      await db.query("DELETE FROM agendas WHERE id = ?", [id]);
+      await db.$executeRaw`DELETE FROM agendas WHERE id = ${Number(id)}`;
 
       const notifInfoUser = `Reservasi ${title || "Agenda"} pada tanggal ${date || ""} ditolak oleh admin. ${notes ? `Alasan: ${notes}` : ""}`;
       const notifInfoAdmin = `Reservasi "${title || "Agenda"}" oleh ${pic || "Pemohon"} pada tanggal ${date || ""} telah DITOLAK.`;
 
-      // 1. Notifikasi untuk User Pemohon (tabel internal/eksternal)
       if (user_id) {
-        await db.query(
-          `INSERT INTO ${targetTable} (user_id, title, type, status, info, is_read, created_at) 
-           VALUES (?, 'Reservasi Ditolak', 'room', 'Ditolak', ?, 0, NOW())`,
-          [user_id, notifInfoUser],
-        );
+        if (targetTable === "notifikasi_internal") {
+          await db.$executeRaw`
+            INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
+            VALUES (${Number(user_id)}, 'Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoUser}, 0, NOW())
+          `;
+        } else {
+          await db.$executeRaw`
+            INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
+            VALUES (${Number(user_id)}, 'Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoUser}, 0, NOW())
+          `;
+        }
       }
 
-      // 2. Notifikasi untuk Admin (tabel notifikasi_admin)
-      await db.query(
-        `INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
-         VALUES ('Reservasi Ditolak', 'room', 'Ditolak', ?, 0, NOW())`,
-        [notifInfoAdmin],
-      );
+      await db.$executeRaw`
+        INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
+        VALUES ('Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoAdmin}, 0, NOW())
+      `;
 
       return NextResponse.json({ success: true, message: "Ditolak & dihapus" });
     }
 
-    // Update status selain ditolak (Disetujui / Pending)
-    await db.query(
-      `UPDATE agendas 
-       SET title = ?, date = ?, start_time = ?, end_time = ?, pic = ?, phone = ?, status = ?, notes = ?, total_participants = ?, meeting_leader = ? 
-       WHERE id = ?`,
-      [
-        title,
-        date,
-        start_time,
-        end_time,
-        pic,
-        phone || null,
-        status,
-        notes || "",
-        total_participants || 1,
-        meeting_leader || "-",
-        id,
-      ],
-    );
+    await db.$executeRaw`
+      UPDATE agendas 
+      SET title = ${title}, date = ${date}::date, start_time = ${start_time}, end_time = ${end_time}, 
+          pic = ${pic}, phone = ${phone || null}, status = ${status}, notes = ${notes || ""}, 
+          total_participants = ${total_participants || 1}, meeting_leader = ${meeting_leader || "-"} 
+      WHERE id = ${Number(id)}
+    `;
 
-    // Kirim notifikasi jika status Disetujui oleh Admin
     if (status === "Disetujui") {
       const notifInfoUser = `Reservasi ${title} tanggal ${date} telah disetujui oleh admin.`;
       const notifInfoAdmin = `Reservasi "${title}" oleh ${pic} tanggal ${date} telah DISETUJUI.`;
 
-      // 1. Notifikasi untuk User Pemohon (tabel internal/eksternal)
       if (user_id) {
-        await db.query(
-          `INSERT INTO ${targetTable} (user_id, title, type, status, info, is_read, created_at) 
-           VALUES (?, 'Reservasi Disetujui', 'room', 'Disetujui', ?, 0, NOW())`,
-          [user_id, notifInfoUser],
-        );
+        if (targetTable === "notifikasi_internal") {
+          await db.$executeRaw`
+            INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
+            VALUES (${Number(user_id)}, 'Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoUser}, 0, NOW())
+          `;
+        } else {
+          await db.$executeRaw`
+            INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
+            VALUES (${Number(user_id)}, 'Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoUser}, 0, NOW())
+          `;
+        }
       }
 
-      // 2. Notifikasi untuk Admin (tabel notifikasi_admin)
-      await db.query(
-        `INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
-         VALUES ('Reservasi Disetujui', 'room', 'Disetujui', ?, 0, NOW())`,
-        [notifInfoAdmin],
-      );
+      await db.$executeRaw`
+        INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
+        VALUES ('Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoAdmin}, 0, NOW())
+      `;
     }
 
     return NextResponse.json({ success: true, message: "Agenda diperbarui" });
@@ -312,7 +299,7 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
-    await db.query("DELETE FROM agendas WHERE id = ?", [id]);
+    await db.$executeRaw`DELETE FROM agendas WHERE id = ${Number(id)}`;
     return NextResponse.json({
       success: true,
       message: "Agenda berhasil dihapus",

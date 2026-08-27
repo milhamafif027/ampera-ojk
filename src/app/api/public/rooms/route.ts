@@ -1,19 +1,12 @@
 import { NextResponse } from "next/server";
-import mysql from "mysql2/promise";
-
-const dbConfig = {
-  host: "localhost",
-  user: "root",
-  password: "",
-  database: "ampera_db", 
-};
+import { db } from "@/lib/db";
 
 export async function GET() {
   try {
-    const connection = await mysql.createConnection(dbConfig);
-    // Mengambil data dari tabel ruangan yang sudah ada
-    const [rows] = await connection.execute("SELECT * FROM ruangan");
-    await connection.end();
+    // Menggunakan $queryRaw dari Prisma untuk mengambil data dari tabel ruangan
+    const rows = await db.$queryRaw`
+      SELECT * FROM ruangan ORDER BY id ASC
+    `;
 
     return NextResponse.json({ success: true, data: rows });
   } catch (error: any) {

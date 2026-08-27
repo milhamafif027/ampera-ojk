@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { RowDataPacket } from "mysql2";
 
 export async function GET() {
   try {
-    // Menambahkan 'password' ke dalam kolom yang dipilih dari database
-    const [rows] = await db.query<RowDataPacket[]>(
-      "SELECT id, name, email, role, nip, password FROM users ORDER BY id ASC",
-    );
+    // Menggunakan $queryRaw dari Prisma untuk mengambil data user termasuk password
+    const rows = await db.$queryRaw`
+      SELECT id, name, email, role, nip, password FROM users ORDER BY id ASC
+    `;
 
     return NextResponse.json({
       success: true,

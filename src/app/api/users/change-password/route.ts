@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ResultSetHeader } from "mysql2";
 
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    // Kita tetap terima userId dan newPassword
     const { userId, newPassword, adminRole } = body;
 
     // 1. Validasi Keamanan: Pastikan hanya role 'admin' yang bisa masuk
-    // Catatan: Di masa depan, sangat disarankan validasi ini menggunakan token (JWT)
     if (adminRole !== "admin") {
       return NextResponse.json(
         {
@@ -31,15 +28,15 @@ export async function PUT(request: Request) {
       );
     }
 
-    // 3. Eksekusi Update: Menggunakan ResultSetHeader untuk hasil yang lebih spesifik
-    const query = `UPDATE users SET password = ? WHERE id = ?`;
-    const [result] = await db.query<ResultSetHeader>(query, [
-      newPassword,
-      userId,
-    ]);
+    const uId = Number(userId);
 
-    // 4. Cek apakah user benar-benar ada di database
-    if (result.affectedRows === 0) {
+    // 3. Eksekusi Update menggunakan Prisma $executeRaw
+    const affectedRows = await db.$executeRaw`
+      UPDATE users SET password = ${newPassword} WHERE id = ${uId}
+    `;
+
+    // 4. Cek apakah user benar-ar ada di database (jika affectedRows bernilai 0)
+    if (Number(affectedRows) === 0) {
       return NextResponse.json(
         { success: false, message: "User tidak ditemukan." },
         { status: 404 },
