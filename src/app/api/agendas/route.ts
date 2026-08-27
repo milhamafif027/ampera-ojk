@@ -97,8 +97,15 @@ export async function POST(request: Request) {
       role,
     } = body;
 
-    const cleanRole = role?.toLowerCase() || "eksternal";
+    // Validasi ketat tanggal kosong
+    if (!date || typeof date !== "string" || date.trim() === "") {
+      return NextResponse.json(
+        { success: false, message: "Tanggal agenda wajib diisi dengan benar." },
+        { status: 400 },
+      );
+    }
 
+    const cleanRole = role?.toLowerCase() || "eksternal";
     const finalStatus =
       cleanRole === "admin" || cleanRole === "internal"
         ? "Disetujui"
@@ -157,7 +164,6 @@ export async function POST(request: Request) {
           ? `Reservasi ruangan ${room_name} tanggal ${date} berhasil dan langsung disetujui.`
           : `Pengajuan ruangan ${room_name} Anda telah dikirim dan sedang ditinjau oleh Admin.`;
 
-      // Catatan: Karena penamaan tabel dinamis, kita eksekusi menggunakan query aman
       if (targetTable === "notifikasi_internal") {
         await db.$executeRaw`
           INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
@@ -203,6 +209,14 @@ export async function PUT(request: Request) {
       meeting_leader,
     } = body;
     let { user_id } = body;
+
+    // Validasi ketat tanggal kosong pada saat update
+    if (!date || typeof date !== "string" || date.trim() === "") {
+      return NextResponse.json(
+        { success: false, message: "Tanggal agenda wajib diisi dengan benar." },
+        { status: 400 },
+      );
+    }
 
     if (!user_id && id) {
       const agendaRows: any = await db.$queryRaw`
