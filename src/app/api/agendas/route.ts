@@ -141,7 +141,7 @@ export async function POST(request: Request) {
 
     await db.$executeRaw`
       INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
-      VALUES (${adminNotifTitle}, 'room', ${finalStatus}, ${adminNotifInfo}, 0, NOW())
+      VALUES (${adminNotifTitle}, 'room', ${finalStatus}, ${adminNotifInfo}, 0, CURRENT_TIMESTAMP)
     `;
 
     if (user_id) {
@@ -159,12 +159,12 @@ export async function POST(request: Request) {
       if (targetTable === "notifikasi_internal") {
         await db.$executeRaw`
           INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
-          VALUES (${uIdNum}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, NOW())
+          VALUES (${uIdNum}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
         `;
       } else {
         await db.$executeRaw`
           INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
-          VALUES (${uIdNum}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, NOW())
+          VALUES (${uIdNum}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
         `;
       }
     }
@@ -183,23 +183,11 @@ export async function POST(request: Request) {
   }
 }
 
-// 3. PUT: Update status dengan pengaman total pada bagian insert notifikasi
+// 3. PUT: Update status dengan aman (hanya mengubah status & notes tanpa menyentuh tanggal)
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const {
-      id,
-      title = "",
-      start_time = "",
-      end_time = "",
-      pic = "",
-      phone = null,
-      status = "Pending",
-      notes = "",
-      total_participants = 1,
-      meeting_leader = "-",
-    } = body;
-    let { user_id } = body;
+    const { id, status = "Pending", notes = "" } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -209,122 +197,21 @@ export async function PUT(request: Request) {
     }
 
     const agendaId = Number(id);
+    const safeStatus = String(status);
+    const safeNotes = String(notes || "");
 
-    if (!user_id) {
-      try {
-        const agendaRows: any = await db.$queryRaw`
-          SELECT user_id FROM agendas WHERE id = ${agendaId}
-        `;
-        if (agendaRows && agendaRows.length > 0) {
-          user_id = agendaRows[0].user_id;
-        }
-      } catch (e) {
-        console.error("Gagal ambil user_id agenda:", e);
-      }
-    }
-
-    let userRole = "eksternal";
-    if (user_id) {
-      try {
-        const userRows: any = await db.$queryRaw`
-          SELECT role FROM users WHERE id = ${Number(user_id)}
-        `;
-        if (userRows && userRows.length > 0) {
-          userRole = userRows[0].role || "eksternal";
-        }
-      } catch (e) {
-        console.error("Gagal ambil role user:", e);
-      }
-    }
-
-    const targetTable = getUserNotificationTable(userRole);
-
-    if (status === "Ditolak") {
+    if (safeStatus === "Ditolak") {
       await db.$executeRaw`DELETE FROM agendas WHERE id = ${agendaId}`;
-
-      const notifInfoUser = `Reservasi ${title || "Agenda"} ditolak oleh admin. ${notes ? `Alasan: ${notes}` : ""}`;
-      const notifInfoAdmin = `Reservasi "${title || "Agenda"}" oleh ${pic || "Pemohon"} telah DITOLAK.`;
-
-      if (user_id) {
-        const uIdNum = Number(user_id);
-        try {
-          if (targetTable === "notifikasi_internal") {
-            await db.$executeRaw`
-              INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
-              VALUES (${uIdNum}, 'Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoUser}, 0, CURRENT_TIMESTAMP)
-            `;
-          } else {
-            await db.$executeRaw`
-              INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
-              VALUES (${uIdNum}, 'Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoUser}, 0, CURRENT_TIMESTAMP)
-            `;
-          }
-        } catch (notifErr) {
-          console.error("Gagal insert notifikasi user ditolak:", notifErr);
-        }
-      }
-
-      try {
-        await db.$executeRaw`
-          INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
-          VALUES ('Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoAdmin}, 0, CURRENT_TIMESTAMP)
-        `;
-      } catch (adminNotifErr) {
-        console.error("Gagal insert notifikasi admin:", adminNotifErr);
-      }
-
       return NextResponse.json({ success: true, message: "Ditolak & dihapus" });
     }
 
-    const participantsNum = parseInt(total_participants, 10) || 1;
-
-    // UPDATE murni data agenda
+    // UPDATE paling minimalis & aman: Hanya memperbarui kolom status dan notes
     await db.$executeRaw`
       UPDATE agendas 
-      SET title = ${String(title)}, 
-          start_time = ${String(start_time)}, 
-          end_time = ${String(end_time)}, 
-          pic = ${String(pic)}, 
-          phone = ${phone ? String(phone) : null}, 
-          status = ${String(status)}, 
-          notes = ${String(notes || "")}, 
-          total_participants = ${participantsNum}, 
-          meeting_leader = ${String(meeting_leader)} 
+      SET status = ${safeStatus}, 
+          notes = ${safeNotes}
       WHERE id = ${agendaId}
     `;
-
-    if (status === "Disetujui") {
-      const notifInfoUser = `Reservasi ${title || "Agenda"} telah disetujui oleh admin.`;
-      const notifInfoAdmin = `Reservasi "${title || "Agenda"}" oleh ${pic || "Pemohon"} telah DISETUJUI.`;
-
-      if (user_id) {
-        const uIdNum = Number(user_id);
-        try {
-          if (targetTable === "notifikasi_internal") {
-            await db.$executeRaw`
-              INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
-              VALUES (${uIdNum}, 'Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoUser}, 0, CURRENT_TIMESTAMP)
-            `;
-          } else {
-            await db.$executeRaw`
-              INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
-              VALUES (${uIdNum}, 'Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoUser}, 0, CURRENT_TIMESTAMP)
-            `;
-          }
-        } catch (uNotifErr) {
-          console.error("Gagal insert notifikasi user disetujui:", uNotifErr);
-        }
-      }
-
-      try {
-        await db.$executeRaw`
-          INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
-          VALUES ('Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoAdmin}, 0, CURRENT_TIMESTAMP)
-        `;
-      } catch (aNotifErr) {
-        console.error("Gagal insert notifikasi admin disetujui:", aNotifErr);
-      }
-    }
 
     return NextResponse.json({ success: true, message: "Agenda diperbarui" });
   } catch (error: any) {
