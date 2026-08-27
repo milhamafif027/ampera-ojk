@@ -80,7 +80,7 @@ export default function RoomCard({
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm flex flex-col justify-between transition-all hover:shadow-md w-full">
       <div>
         {/* Banner Galeri Foto Bisa Di-scroll Horizontal */}
-        <div className="relative h-40 w-full bg-slate-950 group overflow-hidden">
+        <div className="relative h-36 sm:h-40 w-full bg-slate-950 group overflow-hidden">
           <div
             onScroll={handleScroll}
             className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scroll-smooth"
@@ -132,14 +132,17 @@ export default function RoomCard({
         </div>
 
         {/* Informasi Isi Card */}
-        <div className="p-5 flex flex-col space-y-3">
+        <div className="p-4 sm:p-5 flex flex-col space-y-3">
           <div className="flex justify-between items-start gap-2">
-            <div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+            <div className="min-w-0 flex-1">
+              <h3
+                className="font-bold text-slate-900 dark:text-white text-sm truncate"
+                title={room.name}
+              >
                 {room.name}
               </h3>
               {roomLayout && (
-                <span className="inline-block mt-1 px-2 py-0.5 bg-rose-50 dark:bg-rose-950/40 text-[#9f1521] dark:text-rose-400 text-[10px] font-black rounded-md border border-rose-200 dark:border-rose-900/50">
+                <span className="inline-block mt-1 px-2 py-0.5 bg-rose-50 dark:bg-rose-950/40 text-[#9f1521] dark:text-rose-400 text-[10px] font-black rounded-md border border-rose-200 dark:border-rose-900/50 truncate max-w-full">
                   Layout: {roomLayout}
                 </span>
               )}
@@ -170,8 +173,8 @@ export default function RoomCard({
           </div>
 
           <p className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-            <Users size={13} className="text-[#9f1521]" /> Kapasitas:{" "}
-            <strong className="text-slate-700 dark:text-slate-200">
+            <Users size={13} className="text-[#9f1521] shrink-0" /> Kapasitas:{" "}
+            <strong className="text-slate-700 dark:text-slate-200 truncate">
               {room.capacity} Orang
             </strong>
           </p>
@@ -185,12 +188,12 @@ export default function RoomCard({
 
       {/* Tombol Reservasi Bawah */}
       <div className="p-4 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 mt-auto">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate pr-2">
           {roomType === "pertemuan" ? "Ruang Pertemuan" : "Ruang Rapat"}
         </span>
         <button
           onClick={() => handleOpenBooking(room)}
-          className="px-3 py-1.5 bg-[#9f1521]/10 hover:bg-[#9f1521] text-[#9f1521] hover:text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
+          className="px-3 py-1.5 bg-[#9f1521]/10 hover:bg-[#9f1521] text-[#9f1521] hover:text-white text-xs font-bold rounded-xl transition-all cursor-pointer shrink-0"
           type="button"
         >
           Pesan Ruangan

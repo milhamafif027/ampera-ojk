@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Hotel,
   RefreshCw,
@@ -9,6 +9,8 @@ import {
   X,
   AlertTriangle,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import CardPartner from "@/components/dashboard/cardPartner";
@@ -36,6 +38,23 @@ export default function PartnerPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<LocalUser | null>(null);
+
+  // Ref untuk Scroll Horizontal Carousel Hotel Rekanan
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollPartners = (direction: "left" | "right") => {
+    if (scrollRef.current) {
+      const { scrollLeft, clientWidth } = scrollRef.current;
+      const scrollAmount = clientWidth * 0.75;
+      scrollRef.current.scrollTo({
+        left:
+          direction === "left"
+            ? scrollLeft - scrollAmount
+            : scrollLeft + scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
 
   // State Modal (Tambah / Edit)
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -178,13 +197,11 @@ export default function PartnerPage() {
     }
   };
 
-  // Fungsi memicu modal hapus
   const promptDelete = (id: number | string, name: string) => {
     setItemToDelete({ id, name });
     setIsDeleteModalOpen(true);
   };
 
-  // Fungsi konfirmasi hapus data
   const handleConfirmDelete = async () => {
     if (!itemToDelete) return;
 
@@ -225,14 +242,31 @@ export default function PartnerPage() {
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="space-y-6"
+      className="space-y-6 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full pb-12"
     >
-      {/* HEADER BAR */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(159, 21, 33, 0.25);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(159, 21, 33, 0.6);
+        }
+      `}</style>
+
+      {/* HEADER BAR - Responsive Perfect Alignment */}
+      <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Hotel className="text-[#9f1521]" size={22} /> Kemitraan Hotel
-            Rekanan
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Hotel className="text-[#9f1521] shrink-0" size={22} /> Kemitraan
+            Hotel Rekanan
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
             Daftar akomodasi hotel mitra resmi Kantor OJK Provinsi Sumatera
@@ -240,28 +274,55 @@ export default function PartnerPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          {isAdmin && (
+        {/* Baris Tombol Aksi yang Responsif dan Rapi */}
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap sm:flex-nowrap justify-between">
+          <div className="flex items-center gap-2">
             <button
-              onClick={openAddModal}
-              className="px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-colors shadow-sm cursor-pointer"
+              onClick={fetchPartners}
+              className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors cursor-pointer shrink-0"
+              title="Refresh Data"
             >
-              <Plus size={16} /> Tambah Kemitraan
+              <RefreshCw
+                size={16}
+                className={isLoading ? "animate-spin" : ""}
+              />
             </button>
-          )}
+            {/* Tombol Navigasi Geser Kiri / Kanan untuk Carousel */}
+            {!isLoading && filteredPartners.length > 0 && (
+              <div className="hidden sm:flex items-center gap-1.5">
+                <button
+                  onClick={() => scrollPartners("left")}
+                  className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                  title="Geser Kiri"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  onClick={() => scrollPartners("right")}
+                  className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                  title="Geser Kanan"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+          </div>
 
-          <button
-            onClick={fetchPartners}
-            className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors cursor-pointer"
-            title="Refresh Data"
-          >
-            <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
-          </button>
+          <div className="flex items-center gap-2 flex-1 justify-end flex-wrap sm:flex-nowrap">
+            {isAdmin && (
+              <button
+                onClick={openAddModal}
+                className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer whitespace-nowrap"
+              >
+                <Plus size={16} /> Tambah Kemitraan
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* SEARCH BAR */}
-      <div className="relative max-w-md">
+      <div className="relative w-full max-w-md">
         <Search
           size={16}
           className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
@@ -275,37 +336,50 @@ export default function PartnerPage() {
         />
       </div>
 
-      {/* GRID KATALOG HOTEL REKANAN MENGGUNAKAN CardPartner */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredPartners.length > 0 ? (
-          filteredPartners.map((hotel) => (
-            <CardPartner
-              key={hotel.id}
-              hotel={hotel}
-              isAdmin={isAdmin}
-              onEdit={() => openEditModal(hotel)}
-              onDelete={() => promptDelete(hotel.id, hotel.name)}
+      {/* GRID / CAROUSEL KATALOG HOTEL REKANAN (SCROLL KE SAMPING) */}
+      <div
+        ref={scrollRef}
+        className="flex gap-6 overflow-x-auto custom-scrollbar pb-4 snap-x snap-mandatory scroll-smooth"
+        style={{ scrollbarWidth: "thin" }}
+      >
+        {isLoading ? (
+          [1, 2, 3].map((n) => (
+            <div
+              key={n}
+              className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0"
             />
           ))
+        ) : filteredPartners.length > 0 ? (
+          filteredPartners.map((hotel) => (
+            <div
+              key={hotel.id}
+              className="min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0 snap-start"
+            >
+              <CardPartner
+                hotel={hotel}
+                isAdmin={isAdmin}
+                onEdit={() => openEditModal(hotel)}
+                onDelete={() => promptDelete(hotel.id, hotel.name)}
+              />
+            </div>
+          ))
         ) : (
-          <div className="col-span-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center text-xs text-slate-400 italic">
-            {isLoading
-              ? "Memuat data hotel rekanan dari MySQL..."
-              : "Tidak ditemukan hotel rekanan yang sesuai dengan pencarian."}
+          <div className="w-full py-12 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            Tidak ditemukan hotel rekanan yang sesuai dengan pencarian.
           </div>
         )}
       </div>
 
       {/* MODAL TAMBAH / EDIT KEMITRAAN */}
       {isModalOpen && isAdmin && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+            className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh] my-auto"
           >
-            <div className="px-8 py-6 bg-gradient-to-br from-[#9f1521] to-[#7a1019] text-white flex justify-between items-center shrink-0">
-              <h2 className="text-lg font-black tracking-tight">
+            <div className="px-6 py-5 bg-gradient-to-br from-[#9f1521] to-[#7a1019] text-white flex justify-between items-center shrink-0">
+              <h2 className="text-base font-black tracking-tight">
                 {isEditMode
                   ? "Edit Hotel Rekanan"
                   : "Tambah Hotel Rekanan Baru"}
@@ -313,7 +387,7 @@ export default function PartnerPage() {
               <button
                 disabled={isSubmitting}
                 onClick={() => setIsModalOpen(false)}
-                className="p-2 hover:bg-white/20 rounded-full transition-colors bg-white/10 cursor-pointer disabled:opacity-50"
+                className="p-1.5 hover:bg-white/20 rounded-full transition-colors bg-white/10 cursor-pointer disabled:opacity-50"
               >
                 <X size={18} />
               </button>
@@ -321,7 +395,7 @@ export default function PartnerPage() {
 
             <form
               onSubmit={handleSubmit}
-              className="p-8 overflow-y-auto flex-1 space-y-4"
+              className="p-6 overflow-y-auto flex-1 space-y-4 custom-scrollbar text-xs"
             >
               <div>
                 <label className={labelClassName}>Nama Hotel</label>
@@ -337,7 +411,7 @@ export default function PartnerPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={labelClassName}>Bintang</label>
                   <select
@@ -367,7 +441,7 @@ export default function PartnerPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={labelClassName}>
                     No. Telepon / WhatsApp
@@ -418,24 +492,24 @@ export default function PartnerPage() {
                   onChange={handleInputChange}
                   disabled={isSubmitting}
                   rows={3}
-                  className={`${inputClassName} disabled:opacity-50`}
+                  className={`${inputClassName} disabled:opacity-50 resize-none`}
                   placeholder="Keterangan fasilitas khusus atau rate korporat OJK."
                 />
               </div>
 
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-end gap-2">
                 <button
                   type="button"
                   disabled={isSubmitting}
                   onClick={() => setIsModalOpen(false)}
-                  className="px-6 py-2.5 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 text-xs cursor-pointer disabled:opacity-50"
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 text-xs cursor-pointer disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs disabled:opacity-75 transition-colors shadow-sm cursor-pointer flex items-center gap-2"
+                  className="w-full sm:w-auto px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs disabled:opacity-75 transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
                 >
                   {isSubmitting && (
                     <Loader2 size={14} className="animate-spin" />

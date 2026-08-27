@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { Room, Agenda, StatusPengajuan } from "@/types";
 import { getSmartStatus } from "@/lib/utils";
 import RoomBookingModal from "@/components/dashboard/RoomBookingModal";
@@ -17,6 +23,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 interface LocalUser {
@@ -33,6 +41,27 @@ export default function RuanganPage() {
   const [agendas, setAgendas] = useState<Agenda[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+
+  // Refs untuk Scroll Horizontal Carousel
+  const conferenceScrollRef = useRef<HTMLDivElement>(null);
+  const meetingScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollContainer = (
+    ref: React.RefObject<HTMLDivElement | null>,
+    direction: "left" | "right",
+  ) => {
+    if (ref.current) {
+      const { scrollLeft, clientWidth } = ref.current;
+      const scrollAmount = clientWidth * 0.75;
+      ref.current.scrollTo({
+        left:
+          direction === "left"
+            ? scrollLeft - scrollAmount
+            : scrollLeft + scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
@@ -423,65 +452,129 @@ export default function RuanganPage() {
         />
       </div>
 
-      {/* SECTION 1: RUANGAN PERTEMUAN */}
+      {/* SECTION 1: RUANGAN PERTEMUAN (SCROLL KE SAMPING) */}
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
           <h2 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
             Ruangan Pertemuan ({conferenceRooms.length})
           </h2>
+
+          {!isLoading && conferenceRooms.length > 0 && (
+            <div className="hidden sm:flex items-center gap-1.5">
+              <button
+                onClick={() => scrollContainer(conferenceScrollRef, "left")}
+                className="p-1.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer"
+                title="Geser Kiri"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                onClick={() => scrollContainer(conferenceScrollRef, "right")}
+                className="p-1.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer"
+                title="Geser Kanan"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {conferenceRooms.length > 0 ? (
-            conferenceRooms.map((room: any) => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                isAdmin={isAdmin}
-                user={user}
-                getRoomLiveStatus={getRoomLiveStatus}
-                handleOpenBooking={handleOpenBooking}
-                handleOpenEditModal={handleOpenEditModal}
+        <div
+          ref={conferenceScrollRef}
+          className="flex gap-4 sm:gap-6 overflow-x-auto custom-scrollbar pb-4 snap-x snap-mandatory scroll-smooth"
+          style={{ scrollbarWidth: "thin" }}
+        >
+          {isLoading ? (
+            [1, 2, 3].map((n) => (
+              <div
+                key={n}
+                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0"
               />
             ))
+          ) : conferenceRooms.length > 0 ? (
+            conferenceRooms.map((room: any) => (
+              <div
+                key={room.id}
+                className="min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0 snap-start"
+              >
+                <RoomCard
+                  room={room}
+                  isAdmin={isAdmin}
+                  user={user}
+                  getRoomLiveStatus={getRoomLiveStatus}
+                  handleOpenBooking={handleOpenBooking}
+                  handleOpenEditModal={handleOpenEditModal}
+                />
+              </div>
+            ))
           ) : (
-            <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
-              {isLoading
-                ? "Memuat data ruangan pertemuan..."
-                : "Tidak ada data ruangan pertemuan di database."}
+            <div className="w-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
+              Tidak ada data ruangan pertemuan di database.
             </div>
           )}
         </div>
       </div>
 
-      {/* SECTION 2: RUANGAN RAPAT */}
+      {/* SECTION 2: RUANGAN RAPAT (SCROLL KE SAMPING) */}
       <div className="space-y-4 pt-4">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
           <h2 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
             Ruangan Rapat ({meetingRooms.length})
           </h2>
+
+          {!isLoading && meetingRooms.length > 0 && (
+            <div className="hidden sm:flex items-center gap-1.5">
+              <button
+                onClick={() => scrollContainer(meetingScrollRef, "left")}
+                className="p-1.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer"
+                title="Geser Kiri"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                onClick={() => scrollContainer(meetingScrollRef, "right")}
+                className="p-1.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer"
+                title="Geser Kanan"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {meetingRooms.length > 0 ? (
-            meetingRooms.map((room: any) => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                isAdmin={isAdmin}
-                user={user}
-                getRoomLiveStatus={getRoomLiveStatus}
-                handleOpenBooking={handleOpenBooking}
-                handleOpenEditModal={handleOpenEditModal}
+        <div
+          ref={meetingScrollRef}
+          className="flex gap-4 sm:gap-6 overflow-x-auto custom-scrollbar pb-4 snap-x snap-mandatory scroll-smooth"
+          style={{ scrollbarWidth: "thin" }}
+        >
+          {isLoading ? (
+            [1, 2, 3].map((n) => (
+              <div
+                key={n}
+                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0"
               />
             ))
+          ) : meetingRooms.length > 0 ? (
+            meetingRooms.map((room: any) => (
+              <div
+                key={room.id}
+                className="min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0 snap-start"
+              >
+                <RoomCard
+                  room={room}
+                  isAdmin={isAdmin}
+                  user={user}
+                  getRoomLiveStatus={getRoomLiveStatus}
+                  handleOpenBooking={handleOpenBooking}
+                  handleOpenEditModal={handleOpenEditModal}
+                />
+              </div>
+            ))
           ) : (
-            <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
-              {isLoading
-                ? "Memuat data ruangan rapat..."
-                : "Tidak ada data ruangan rapat di database."}
+            <div className="w-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
+              Tidak ada data ruangan rapat di database.
             </div>
           )}
         </div>

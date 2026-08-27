@@ -1,7 +1,22 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Car, Plus, CheckCircle2, Calendar, X, RefreshCw } from "lucide-react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
+import {
+  Car,
+  Plus,
+  CheckCircle2,
+  Calendar,
+  X,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import VehicleCard from "@/components/dashboard/VehicleCard";
 import VehicleBookingModal from "@/components/dashboard/VehicleBookingModal";
@@ -43,6 +58,23 @@ export default function KendaraanPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [bookings, setBookings] = useState<VehicleBooking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Ref untuk Scroll Horizontal Katalog Kendaraan
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollVehicles = (direction: "left" | "right") => {
+    if (scrollRef.current) {
+      const { scrollLeft, clientWidth } = scrollRef.current;
+      const scrollAmount = clientWidth * 0.75;
+      scrollRef.current.scrollTo({
+        left:
+          direction === "left"
+            ? scrollLeft - scrollAmount
+            : scrollLeft + scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
 
   // State untuk Filter Jenis Kendaraan (Semua / Mobil / Sepeda Motor)
   const [filterType, setFilterType] = useState<
@@ -247,20 +279,19 @@ export default function KendaraanPage() {
       return;
     }
 
-    // Pastikan jika user adalah tamu/eksternal atau tidak ada nama, kolom dikosongkan agar user mengetik manual
     const defaultBorrower = user && !isExternalUser ? user.name || "" : "";
     const defaultDept = user ? user.dept || "" : "";
 
     setFormData({
       vehicleName: vehicle ? vehicle.name : "",
       destination: "",
-      borrower: defaultBorrower, // Bersih otomatis jika belum login / tamu
+      borrower: defaultBorrower,
       dept: defaultDept,
       startDate: "",
       endDate: "",
       purpose: "",
     });
-    setIsModalOpen(1 === 1); // atau true
+    setIsModalOpen(true);
   };
 
   const handleOpenAddModal = () => {
@@ -476,14 +507,31 @@ export default function KendaraanPage() {
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="space-y-6"
+      className="space-y-6 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full pb-12"
     >
-      {/* HEADER BAR */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(159, 21, 33, 0.25);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(159, 21, 33, 0.6);
+        }
+      `}</style>
+
+      {/* HEADER BAR - Responsive Perfect Alignment */}
+      <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Car className="text-[#9f1521]" size={22} /> Layanan Armada &
-            Kendaraan Dinas
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Car className="text-[#9f1521] shrink-0" size={22} /> Layanan Armada
+            & Kendaraan Dinas
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
             Kelola dan ajukan peminjaman kendaraan operasional dinas Kantor OJK
@@ -491,40 +539,67 @@ export default function KendaraanPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={fetchVehicleData}
-            className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors cursor-pointer"
-            title="Refresh Data"
-          >
-            <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
-          </button>
-
-          {isAdmin && (
+        {/* Baris Tombol Aksi yang Responsif dan Rapi */}
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap sm:flex-nowrap justify-between">
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleOpenAddModal}
-              className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md cursor-pointer"
+              onClick={fetchVehicleData}
+              className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors cursor-pointer shrink-0"
+              title="Refresh Data"
             >
-              <Plus size={16} /> Tambah Kendaraan
+              <RefreshCw
+                size={16}
+                className={isLoading ? "animate-spin" : ""}
+              />
             </button>
-          )}
+            {/* Tombol Navigasi Geser Kiri / Kanan untuk Carousel di Desktop */}
+            {!isLoading && filteredVehicles.length > 0 && (
+              <div className="hidden sm:flex items-center gap-1.5">
+                <button
+                  onClick={() => scrollVehicles("left")}
+                  className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                  title="Geser Kiri"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  onClick={() => scrollVehicles("right")}
+                  className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                  title="Geser Kanan"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+          </div>
 
-          <button
-            onClick={() => handleOpenModal()}
-            className="px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md shadow-rose-900/10 cursor-pointer"
-          >
-            <Plus size={16} /> Ajukan Peminjaman Mobil
-          </button>
+          <div className="flex items-center gap-2 flex-1 justify-end flex-wrap sm:flex-nowrap">
+            {isAdmin && (
+              <button
+                onClick={handleOpenAddModal}
+                className="flex-1 sm:flex-initial px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer whitespace-nowrap"
+              >
+                <Plus size={16} /> Tambah Kendaraan
+              </button>
+            )}
+
+            <button
+              onClick={() => handleOpenModal()}
+              className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md shadow-rose-900/10 cursor-pointer whitespace-nowrap"
+            >
+              <Plus size={16} /> Ajukan Peminjaman Mobil
+            </button>
+          </div>
         </div>
       </div>
 
       {/* FILTER KATEGORI / JENIS KENDARAAN */}
-      <div className="flex bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm w-fit gap-1">
+      <div className="flex bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm w-fit gap-1 overflow-x-auto">
         {(["Semua", "Mobil", "Sepeda Motor"] as const).map((type) => (
           <button
             key={type}
             onClick={() => setFilterType(type)}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
               filterType === type
                 ? "bg-[#9f1521] text-white shadow-md shadow-rose-900/10"
                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -535,30 +610,50 @@ export default function KendaraanPage() {
         ))}
       </div>
 
-      {/* KATALOG ARMADA KENDARAAN */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {filteredVehicles.map((vehicle) => (
-          <div key={vehicle.id} className="optimize-card-render">
-            <VehicleCard
-              vehicle={vehicle}
-              isAdmin={isAdmin}
-              user={user}
-              onOpenModal={handleOpenModal}
-              onOpenEditModal={handleOpenEditModal}
+      {/* KATALOG ARMADA KENDARAAN (SCROLL KE SAMPING / HORIZONTAL CAROUSEL) */}
+      <div
+        ref={scrollRef}
+        className="flex gap-6 overflow-x-auto custom-scrollbar pb-4 snap-x snap-mandatory scroll-smooth"
+        style={{ scrollbarWidth: "thin" }}
+      >
+        {isLoading ? (
+          [1, 2, 3].map((n) => (
+            <div
+              key={n}
+              className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0"
             />
+          ))
+        ) : filteredVehicles.length > 0 ? (
+          filteredVehicles.map((vehicle) => (
+            <div
+              key={vehicle.id}
+              className="min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0 snap-start optimize-card-render"
+            >
+              <VehicleCard
+                vehicle={vehicle}
+                isAdmin={isAdmin}
+                user={user}
+                onOpenModal={handleOpenModal}
+                onOpenEditModal={handleOpenEditModal}
+              />
+            </div>
+          ))
+        ) : (
+          <div className="w-full py-12 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            Tidak ada data kendaraan untuk kategori ini.
           </div>
-        ))}
+        )}
       </div>
 
       {/* RIWAYAT & PENGAJUAN KENDARAAN */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
         <h2 className="font-bold text-slate-800 dark:text-white text-base border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
           <Calendar size={18} className="text-[#9f1521]" /> Daftar Pengajuan
           Kendaraan
         </h2>
 
         {filteredBookings.length > 0 ? (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase font-black tracking-wider">
@@ -574,11 +669,11 @@ export default function KendaraanPage() {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
                 {filteredBookings.map((b) => (
                   <tr key={b.id}>
-                    <td className="p-3 font-bold text-slate-900 dark:text-white">
+                    <td className="p-3 font-bold text-slate-900 dark:text-white whitespace-nowrap">
                       {b.vehicleName}
                     </td>
                     <td className="p-3">{b.destination}</td>
-                    <td className="p-3">
+                    <td className="p-3 whitespace-nowrap">
                       {b.borrower} ({b.dept || "Umum"})
                     </td>
                     <td className="p-3 whitespace-nowrap">
@@ -600,7 +695,7 @@ export default function KendaraanPage() {
                         </span>
                       )}
                     </td>
-                    <td className="p-3 text-center">
+                    <td className="p-3 text-center whitespace-nowrap">
                       <span
                         className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
                           b.status === "Disetujui"
@@ -612,7 +707,7 @@ export default function KendaraanPage() {
                       </span>
                     </td>
                     {isAdmin && (
-                      <td className="p-3 text-center">
+                      <td className="p-3 text-center whitespace-nowrap">
                         {b.status === "Pending" ? (
                           <button
                             onClick={() =>
@@ -647,11 +742,11 @@ export default function KendaraanPage() {
 
       {/* MODAL TAMBAH / EDIT KENDARAAN (KHUSUS ADMIN) */}
       {isAddVehicleModalOpen && isAdmin && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl flex flex-col"
+            className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl flex flex-col my-auto"
           >
             <div className="px-6 py-5 bg-slate-900 text-white flex justify-between items-center">
               <h3 className="font-bold text-base">
@@ -670,7 +765,7 @@ export default function KendaraanPage() {
 
             <form
               onSubmit={handleAddOrUpdateVehicleSubmit}
-              className="p-6 space-y-4 text-xs font-medium text-slate-800 dark:text-slate-100"
+              className="p-6 space-y-4 text-xs font-medium text-slate-800 dark:text-slate-100 max-h-[70vh] overflow-y-auto custom-scrollbar"
             >
               <div>
                 <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
@@ -692,7 +787,7 @@ export default function KendaraanPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
                     Nomor Plat
@@ -733,7 +828,7 @@ export default function KendaraanPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
                     Status Kendaraan
@@ -776,19 +871,19 @@ export default function KendaraanPage() {
                 </div>
               </div>
 
-              <div className="pt-3 flex justify-end gap-2">
+              <div className="pt-3 flex flex-col sm:flex-row justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsAddVehicleModalOpen(false)}
                   disabled={isSubmitting}
-                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold cursor-pointer disabled:opacity-50"
+                  className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold cursor-pointer disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 cursor-pointer disabled:opacity-50"
+                  className="w-full sm:w-auto px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 cursor-pointer disabled:opacity-50"
                 >
                   {isSubmitting ? "Menyimpan..." : "Simpan Kendaraan"}
                 </button>
@@ -800,11 +895,11 @@ export default function KendaraanPage() {
 
       {/* MODAL PERSETUJUAN / VERIFIKASI ADMIN */}
       {approvalModal.isOpen && isAdmin && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-md w-full shadow-2xl space-y-4"
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-md w-full shadow-2xl space-y-4 my-auto"
           >
             <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
@@ -884,7 +979,7 @@ export default function KendaraanPage() {
                 />
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="pt-2 flex flex-col sm:flex-row justify-end gap-2">
                 <button
                   type="button"
                   onClick={() =>
@@ -896,14 +991,14 @@ export default function KendaraanPage() {
                     })
                   }
                   disabled={isSubmittingApproval}
-                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold cursor-pointer disabled:opacity-50"
+                  className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold cursor-pointer disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingApproval}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+                  className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors shadow-sm cursor-pointer disabled:opacity-50"
                 >
                   {isSubmittingApproval
                     ? "Menyimpan..."
