@@ -186,14 +186,13 @@ export async function POST(request: Request) {
   }
 }
 
-// 3. PUT: Update status (Approve/Reject) dengan proteksi tanggal aman & fallback DB
+// 3. PUT: Update status (Approve/Reject) murni tanpa menyentuh kolom tanggal
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    let {
+    const {
       id,
       title = "",
-      date,
       start_time = "",
       end_time = "",
       pic = "",
@@ -202,8 +201,8 @@ export async function PUT(request: Request) {
       notes = "",
       total_participants = 1,
       meeting_leader = "-",
-      user_id,
     } = body;
+    let { user_id } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -214,33 +213,18 @@ export async function PUT(request: Request) {
 
     const agendaId = Number(id);
 
-    // Fallback otomatis ambil tanggal dari DB jika dari frontend kosong/tidak valid
-    if (
-      !date ||
-      typeof date !== "string" ||
-      date.trim() === "" ||
-      date.includes("1970")
-    ) {
+    // Ambil user_id dari database jika tidak dikirim dari body
+    if (!user_id) {
       try {
-        const existingAgenda: any = await db.$queryRaw`
-          SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, user_id, title, pic FROM agendas WHERE id = ${agendaId}
+        const agendaRows: any = await db.$queryRaw`
+          SELECT user_id FROM agendas WHERE id = ${agendaId}
         `;
-        if (existingAgenda && existingAgenda.length > 0) {
-          date = existingAgenda[0].date;
-          if (!user_id) user_id = existingAgenda[0].user_id;
-          if (!title) title = existingAgenda[0].title;
-          if (!pic) pic = existingAgenda[0].pic;
+        if (agendaRows && agendaRows.length > 0) {
+          user_id = agendaRows[0].user_id;
         }
       } catch (e) {
-        console.error("Gagal fallback tanggal dari DB:", e);
+        console.error("Gagal ambil user_id agenda:", e);
       }
-    }
-
-    if (!date || typeof date !== "string" || date.trim() === "") {
-      return NextResponse.json(
-        { success: false, message: "Tanggal agenda tidak valid." },
-        { status: 400 },
-      );
     }
 
     let userRole = "eksternal";
@@ -262,8 +246,8 @@ export async function PUT(request: Request) {
     if (status === "Ditolak") {
       await db.$executeRaw`DELETE FROM agendas WHERE id = ${agendaId}`;
 
-      const notifInfoUser = `Reservasi ${title || "Agenda"} pada tanggal ${date} ditolak oleh admin. ${notes ? `Alasan: ${notes}` : ""}`;
-      const notifInfoAdmin = `Reservasi "${title || "Agenda"}" oleh ${pic || "Pemohon"} pada tanggal ${date} telah DITOLAK.`;
+      const notifInfoUser = `Reservasi ${title || "Agenda"} ditolak oleh admin. ${notes ? `Alasan: ${notes}` : ""}`;
+      const notifInfoAdmin = `Reservasi "${title || "Agenda"}" oleh ${pic || "Pemohon"} telah DITOLAK.`;
 
       if (user_id) {
         const uIdNum = Number(user_id);
@@ -298,10 +282,10 @@ export async function PUT(request: Request) {
 
     const participantsNum = parseInt(total_participants, 10) || 1;
 
+    // HATI-HATI: Pastikan kueri UPDATE di bawah ini TIDAK ADA variabel "date" sama sekali!
     await db.$executeRaw`
       UPDATE agendas 
       SET title = ${String(title)}, 
-          date = ${String(date)}::date, 
           start_time = ${String(start_time)}, 
           end_time = ${String(end_time)}, 
           pic = ${String(pic)}, 
@@ -314,8 +298,8 @@ export async function PUT(request: Request) {
     `;
 
     if (status === "Disetujui") {
-      const notifInfoUser = `Reservasi ${title} tanggal ${date} telah disetujui oleh admin.`;
-      const notifInfoAdmin = `Reservasi "${title}" oleh ${pic} tanggal ${date} telah DISETUJUI.`;
+      const notifInfoUser = `Reservasi ${title} telah disetujui oleh admin.`;
+      const notifInfoAdmin = `Reservasi "${title}" oleh ${pic} telah DISETUJUI.`;
 
       if (user_id) {
         const uIdNum = Number(user_id);
@@ -349,31 +333,6 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: true, message: "Agenda diperbarui" });
   } catch (error: any) {
     console.error("API PUT AGENDAS ERROR:", error);
-    return NextResponse.json(
-      { success: false, message: error.message || String(error) },
-      { status: 500 },
-    );
-  }
-}
-
-// 4. DELETE: Hapus agenda manual
-export async function DELETE(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-    if (!id) {
-      return NextResponse.json(
-        { success: false, message: "ID diperlukan." },
-        { status: 400 },
-      );
-    }
-    await db.$executeRaw`DELETE FROM agendas WHERE id = ${Number(id)}`;
-    return NextResponse.json({
-      success: true,
-      message: "Agenda berhasil dihapus",
-    });
-  } catch (error: any) {
-    console.error("API DELETE AGENDAS ERROR:", error);
     return NextResponse.json(
       { success: false, message: error.message || String(error) },
       { status: 500 },
