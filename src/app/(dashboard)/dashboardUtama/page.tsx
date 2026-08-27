@@ -61,7 +61,7 @@ export default function DashboardPage() {
     data: null,
   });
 
-  // 1. Fungsi Fetch Data dari API MySQL
+  // 1. Fungsi Fetch Data dari API
   const fetchAgendas = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -100,7 +100,7 @@ export default function DashboardPage() {
         setAgendas(mappedAgendas);
       }
     } catch (error) {
-      console.error("Gagal mengambil data agenda dari MySQL:", error);
+      console.error("Gagal mengambil data agenda:", error);
     } finally {
       setIsLoading(false);
     }
@@ -218,12 +218,6 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
       );
       if (!selectedAgenda) return;
 
-      const timeParts = selectedAgenda.time
-        ? selectedAgenda.time.split(" - ")
-        : [];
-      const startTime = timeParts[0] || "08:00";
-      const endTime = timeParts[1] || "10:00";
-
       const newStatus =
         confirmModal.actionType === "approve" ? "Disetujui" : "Ditolak";
       const notesPayload =
@@ -231,37 +225,17 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
           ? confirmModal.rejectReason
           : "Disetujui oleh Admin";
 
-      // Pengaman tanggal untuk mencegah format kosong atau error 1970
-      let safeDate = selectedAgenda.date;
-      if (
-        !safeDate ||
-        typeof safeDate !== "string" ||
-        safeDate.trim() === "" ||
-        safeDate.includes("1970")
-      ) {
-        safeDate = new Date().toISOString().split("T")[0];
-      }
-
       const res = await fetch("/api/agendas", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: confirmModal.agendaId,
-          title: selectedAgenda.title || "Agenda Rapat",
-          date: safeDate,
-          start_time: startTime.length >= 5 ? startTime : "08:00",
-          end_time: endTime.length >= 5 ? endTime : "10:00",
-          pic: selectedAgenda.pic || "Admin",
-          phone: selectedAgenda.phone || "",
           status: newStatus,
           notes: notesPayload,
-          total_participants: Number(selectedAgenda.total_participants) || 1,
-          meeting_leader: selectedAgenda.meeting_leader || "-",
         }),
       });
 
       if (res.ok) {
-        // [OTOMATIS KIRIM NOTIFIKASI WHATSAPP]
         sendWhatsAppNotification(
           selectedAgenda,
           newStatus,
@@ -278,9 +252,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
         });
       } else {
         const errData = await res.json();
-        alert(
-          `Gagal memproses status reservasi: ${errData.message || "Unknown error"}`,
-        );
+        alert(`Gagal memproses status reservasi: ${errData.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error("Error processing agenda status:", error);
@@ -294,30 +266,30 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="space-y-8"
+      className="space-y-6 sm:space-y-8 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full pb-12"
     >
-      {/* WELCOME BANNER */}
+      {/* WELCOME BANNER - Responsive Flex & Padding */}
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5 }}
-        className="bg-gradient-to-r from-[#9f1521] to-[#7a1019] text-white p-8 rounded-3xl shadow-xl relative overflow-hidden flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6"
+        className="bg-gradient-to-r from-[#9f1521] to-[#7a1019] text-white p-6 sm:p-8 rounded-3xl shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6"
       >
-        <div className="relative z-10 space-y-2">
+        <div className="relative z-10 space-y-2 max-w-2xl">
           <span className="px-3 py-1 bg-white/20 border border-white/35 backdrop-blur-md rounded-full text-[10px] font-extrabold uppercase tracking-widest text-rose-200">
             {isExternal ? "PORTAL EKSTERNAL AMPERA" : "PORTAL INTERNAL AMPERA"}
           </span>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-snug">
             Selamat Datang,{" "}
             {isAdmin ? "Admin TIM LMSt" : user?.name || "Tamu Eksternal OJK"}
           </h1>
-          <p className="text-xs sm:text-sm text-rose-100 font-medium max-w-xl leading-relaxed">
+          <p className="text-xs sm:text-sm text-rose-100 font-medium leading-relaxed">
             {isExternal
               ? "Akses portal eksternal OJK Sumsel untuk melihat katalog fasilitas ruangan, layanan peminjaman kendaraan, hotel rekanan, dan pusat bantuan."
-              : "Pantau ketersediaan ruang rapat, jadwal kegiatan live, dan status pengajuan fasilitas secara real-time dari database MySQL."}
+              : "Pantau ketersediaan ruang rapat, jadwal kegiatan live, dan status pengajuan fasilitas secara real-time dari database."}
           </p>
         </div>
-        <div className="relative z-10 shrink-0 flex items-center gap-3">
+        <div className="relative z-10 shrink-0 flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
           <button
             onClick={fetchAgendas}
             className="p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-2xl text-white transition-colors cursor-pointer"
@@ -325,11 +297,11 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
           >
             <RefreshCw size={18} className={isLoading ? "animate-spin" : ""} />
           </button>
-          <div className="px-4 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl text-right">
+          <div className="px-4 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl text-right flex-1 md:flex-initial">
             <p className="text-[10px] font-bold text-rose-200 uppercase">
               Hari Ini
             </p>
-            <p className="text-sm font-black text-white">
+            <p className="text-xs sm:text-sm font-black text-white">
               {new Date().toLocaleDateString("id-ID", {
                 weekday: "long",
                 day: "numeric",
@@ -349,7 +321,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
           transition={{ duration: 0.4, delay: 0.1 }}
           className="space-y-6"
         >
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-3xl shadow-sm">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 rounded-3xl shadow-sm">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
               Menu & Layanan Eksternal Tersedia
             </h2>
@@ -434,58 +406,58 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
-          className="space-y-8"
+          className="space-y-6 sm:space-y-8"
         >
-          {/* KARTU METRIK STATISTIK */}
+          {/* KARTU METRIK STATISTIK - Responsive Grid */}
           <div
-            className={`grid grid-cols-2 ${isAdmin ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-4`}
+            className={`grid grid-cols-2 ${isAdmin ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-3 sm:gap-4`}
           >
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-1">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm space-y-1">
               <div className="flex justify-between items-center text-slate-400">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider">
+                <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">
                   Total Agenda
                 </span>
                 <CalendarDays size={18} className="text-[#9f1521]" />
               </div>
-              <p className="text-3xl font-black text-slate-800 dark:text-white">
+              <p className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white">
                 {totalAgendas}
               </p>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-1">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm space-y-1">
               <div className="flex justify-between items-center text-slate-400">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider">
+                <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">
                   Terkonfirmasi
                 </span>
                 <CheckCircle2 size={18} className="text-emerald-600" />
               </div>
-              <p className="text-3xl font-black text-emerald-600">
+              <p className="text-2xl sm:text-3xl font-black text-emerald-600">
                 {totalDisetujui}
               </p>
             </div>
 
             {isAdmin && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-1">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm space-y-1">
                 <div className="flex justify-between items-center text-slate-400">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider">
+                  <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">
                     Pending
                   </span>
                   <AlertCircle size={18} className="text-amber-500" />
                 </div>
-                <p className="text-3xl font-black text-amber-500">
+                <p className="text-2xl sm:text-3xl font-black text-amber-500">
                   {totalPending}
                 </p>
               </div>
             )}
 
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm space-y-1">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm space-y-1">
               <div className="flex justify-between items-center text-slate-400">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider">
+                <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">
                   Ruangan Terpakai
                 </span>
                 <Building2 size={18} className="text-blue-600" />
               </div>
-              <p className="text-3xl font-black text-slate-800 dark:text-white">
+              <p className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white">
                 {totalRuanganTerpakai}
               </p>
             </div>
@@ -494,14 +466,14 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
           {/* GRID LIVE STATUS & AGENDA TERDEKAT */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Panel Kegiatan Berlangsung (Live) */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col h-[340px]">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col h-[320px] sm:h-[340px]">
               <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />{" "}
                     LIVE STATUS
                   </span>
-                  <h2 className="text-lg font-bold text-slate-800 dark:text-white mt-1">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white mt-1">
                     Sedang Berlangsung
                   </h2>
                 </div>
@@ -546,7 +518,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
                     </div>
                   ))
                 ) : (
-                  <div className="h-full flex items-center justify-center text-xs text-slate-400 font-medium italic">
+                  <div className="h-full flex items-center justify-center text-xs text-slate-400 font-medium italic text-center px-4">
                     Saat ini tidak ada agenda yang sedang berlangsung.
                   </div>
                 )}
@@ -554,13 +526,13 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
             </div>
 
             {/* Panel Agenda Terdekat */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col h-[340px]">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col h-[320px] sm:h-[340px]">
               <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521] dark:text-rose-400">
                     PERSIAPAN ACARA
                   </span>
-                  <h2 className="text-lg font-bold text-slate-800 dark:text-white mt-1">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white mt-1">
                     Agenda Terdekat
                   </h2>
                 </div>
@@ -603,7 +575,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
                     </div>
                   ))
                 ) : (
-                  <div className="h-full flex items-center justify-center text-xs text-slate-400 font-medium italic">
+                  <div className="h-full flex items-center justify-center text-xs text-slate-400 font-medium italic text-center px-4">
                     Belum ada agenda terkonfirmasi untuk ditampilkan.
                   </div>
                 )}
@@ -613,19 +585,19 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
 
           {/* PANEL PENGAJUAN PENDING: HANYA MUNCUL UNTUK ADMIN */}
           {isAdmin && (
-            <div className="bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/30 rounded-3xl p-6 sm:p-8 space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-amber-200/60 dark:border-amber-900/30 pb-4">
+            <div className="bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/30 rounded-3xl p-5 sm:p-8 space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-amber-200/60 dark:border-amber-900/30 pb-4">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
                     <Bell size={14} /> MENUNGGU VERIFIKASI
                   </span>
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-1">
                     Pengajuan Pending ({totalPending})
                   </h2>
                 </div>
                 <p className="text-xs text-slate-500 font-medium max-w-md">
                   Daftar reservasi ruangan yang membutuhkan peninjauan dan
-                  persetujuan Admin TIM LMSt.
+                  persetujuan Admin.
                 </p>
               </div>
 
@@ -651,7 +623,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
                         <p className="text-xs text-slate-500 font-medium">
                           {item.room} • {item.time}
                         </p>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-slate-400 truncate">
                           PIC: {item.pic} ({item.dept || "Umum"})
                         </p>
                       </div>
@@ -700,20 +672,20 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
         </motion.div>
       )}
 
-      {/* MODAL DETAIL INFORMASI LENGKAP PENGAJUAN */}
+      {/* MODAL DETAIL INFORMASI LENGKAP PENGAJUAN (Responsive Full/Centered) */}
       {detailModal.isOpen && detailModal.data && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-lg w-full shadow-2xl space-y-5 overflow-hidden"
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4 overflow-hidden my-auto"
           >
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
                   VERIFIKASI DATA PENGAJUAN
                 </span>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white mt-0.5">
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-0.5">
                   Detail Informasi Reservasi
                 </h3>
               </div>
@@ -725,13 +697,13 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
               </button>
             </div>
 
-            <div className="space-y-3 max-h-[380px] overflow-y-auto custom-scrollbar pr-1 text-xs">
-              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-2.5 border border-slate-200/60 dark:border-slate-800">
-                <div className="flex justify-between items-center">
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 text-xs">
+              <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-2.5 border border-slate-200/60 dark:border-slate-800">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
                   <span className="text-slate-400 font-medium">
                     Nama Kegiatan:
                   </span>
-                  <strong className="text-slate-900 dark:text-white text-right">
+                  <strong className="text-slate-900 dark:text-white sm:text-right">
                     {detailModal.data.title}
                   </strong>
                 </div>
@@ -785,7 +757,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-2.5 border border-slate-200/60 dark:border-slate-800">
+              <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-2.5 border border-slate-200/60 dark:border-slate-800">
                 <div className="flex justify-between items-center">
                   <span className="text-slate-400 font-medium">
                     Penanggung Jawab (PIC):
@@ -821,7 +793,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
               </div>
             </div>
 
-            <div className="flex gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => {
@@ -830,7 +802,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
                   setDetailModal({ isOpen: false, data: null });
                   openConfirmModal(agendaId, title, "reject");
                 }}
-                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 transition-colors cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 transition-colors cursor-pointer text-center"
               >
                 Tolak Pengajuan
               </button>
@@ -842,7 +814,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
                   setDetailModal({ isOpen: false, data: null });
                   openConfirmModal(agendaId, title, "approve");
                 }}
-                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm cursor-pointer text-center"
               >
                 Setujui Pengajuan
               </button>
@@ -853,11 +825,11 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
 
       {/* MODAL POP-UP KONFIRMASI (SETUJU ATAU TOLAK) */}
       {confirmModal.isOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl space-y-4 text-center"
+            className="bg-white dark:bg-slate-900 rounded-[2rem] p-5 sm:p-6 max-w-sm w-full shadow-2xl space-y-4 text-center"
           >
             <div
               className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto ${
@@ -914,7 +886,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
               </div>
             )}
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <button
                 onClick={() =>
                   setConfirmModal({

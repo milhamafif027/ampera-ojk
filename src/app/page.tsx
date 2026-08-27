@@ -72,7 +72,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans overflow-hidden">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans overflow-x-hidden">
       {/* 1. NAVBAR */}
       <Navbar />
 
@@ -80,10 +80,10 @@ export default function LandingPage() {
       <Hero />
 
       {hasError && (
-        <div className="max-w-7xl mx-auto px-6 w-full pt-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full pt-6">
           <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between text-xs text-amber-800 shadow-sm">
             <div className="flex items-center gap-2">
-              <AlertCircle size={16} />
+              <AlertCircle size={16} className="shrink-0" />
               <span>Gagal memuat sebagian data live database.</span>
             </div>
           </div>
@@ -94,7 +94,7 @@ export default function LandingPage() {
       <motion.div
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: false, amount: 0.2 }}
+        viewport={{ once: false, amount: 0.1 }}
         variants={containerVariants}
         className="w-full flex flex-col"
       >
@@ -117,12 +117,12 @@ export default function LandingPage() {
 
       {/* FOOTER */}
       <footer className="mt-auto bg-slate-900 text-slate-400 text-xs py-8 border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+          <p className="leading-relaxed">
             © 2026 Tim LMSt — Kantor OJK Provinsi Sumatera Selatan. Hak Cipta
             Dilindungi.
           </p>
-          <div className="flex gap-6">
+          <div className="flex items-center gap-6 shrink-0">
             <Link href="/login" className="hover:text-white transition-colors">
               Portal Pegawai
             </Link>

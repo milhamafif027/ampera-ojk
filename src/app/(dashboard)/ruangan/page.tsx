@@ -298,7 +298,7 @@ export default function RuanganPage() {
   };
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-12 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full">
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 5px;
@@ -365,12 +365,12 @@ export default function RuanganPage() {
         </div>
       )}
 
-      {/* HEADER BAR */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      {/* HEADER BAR - Responsive Perfect Alignment */}
+      <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Building2 className="text-[#9f1521]" size={22} /> Katalog Ruang
-            Pertemuan & Rapat
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Building2 className="text-[#9f1521] shrink-0" size={22} /> Katalog
+            Ruang Pertemuan & Rapat
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
             Kelola dan lihat daftar ketersediaan ruang pertemuan serta rapat di
@@ -378,35 +378,38 @@ export default function RuanganPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        {/* Baris Tombol Aksi yang Responsif dan Rapi */}
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap sm:flex-nowrap justify-between">
           <button
             onClick={fetchData}
-            className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors cursor-pointer"
+            className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors cursor-pointer shrink-0"
             title="Refresh Data"
           >
             <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
           </button>
 
-          {isAdmin && (
-            <button
-              onClick={handleOpenAddModal}
-              className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md cursor-pointer"
-            >
-              <Plus size={16} /> Tambah Ruangan
-            </button>
-          )}
+          <div className="flex items-center gap-2 flex-1 justify-end flex-wrap sm:flex-nowrap">
+            {isAdmin && (
+              <button
+                onClick={handleOpenAddModal}
+                className="flex-1 sm:flex-initial px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer whitespace-nowrap"
+              >
+                <Plus size={16} /> Tambah Ruangan
+              </button>
+            )}
 
-          <button
-            onClick={() => handleOpenBooking()}
-            className="px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md shadow-rose-900/10 cursor-pointer"
-          >
-            <Plus size={16} /> Reservasi Ruangan
-          </button>
+            <button
+              onClick={() => handleOpenBooking()}
+              className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md shadow-rose-900/10 cursor-pointer whitespace-nowrap"
+            >
+              <Plus size={16} /> Reservasi Ruangan
+            </button>
+          </div>
         </div>
       </div>
 
       {/* SEARCH BAR */}
-      <div className="relative max-w-md">
+      <div className="relative w-full max-w-md">
         <Search
           size={16}
           className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
@@ -429,10 +432,9 @@ export default function RuanganPage() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {conferenceRooms.length > 0 ? (
             conferenceRooms.map((room: any) => (
-              // DIUBAH: Menghapus kelas optimize-card-render agar browser merender langsung secara mulus tanpa layout shift
               <RoomCard
                 key={room.id}
                 room={room}
@@ -462,10 +464,9 @@ export default function RuanganPage() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {meetingRooms.length > 0 ? (
             meetingRooms.map((room: any) => (
-              // DIUBAH: Menghapus kelas optimize-card-render
               <RoomCard
                 key={room.id}
                 room={room}
@@ -488,14 +489,14 @@ export default function RuanganPage() {
 
       {/* MODAL TAMBAH / EDIT DATA RUANGAN */}
       {isEditModalOpen && editingRoom && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-5">
-            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-xl w-full p-5 sm:p-6 shadow-2xl space-y-4 my-auto">
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
                   PENGATURAN RUANGAN
                 </span>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-0.5">
                   {editingRoom.id
                     ? `Edit Ruangan: ${editingRoom.name}`
                     : "Tambah Ruangan Baru"}
@@ -512,7 +513,7 @@ export default function RuanganPage() {
 
             <form
               onSubmit={handleSaveEdit}
-              className="space-y-4 max-h-[420px] overflow-y-auto custom-scrollbar pr-1"
+              className="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1"
             >
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -531,7 +532,7 @@ export default function RuanganPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Kapasitas Ruangan
@@ -591,7 +592,7 @@ export default function RuanganPage() {
               </div>
 
               <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                       Galeri Foto Ruangan
@@ -601,7 +602,11 @@ export default function RuanganPage() {
                     </span>
                   </div>
                   <label
-                    className={`px-3 py-1.5 bg-[#9f1521] text-white rounded-xl text-[11px] font-bold flex items-center gap-1.5 shadow-sm ${isSubmitting ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                    className={`px-3 py-1.5 bg-[#9f1521] text-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 shadow-sm w-fit ${
+                      isSubmitting
+                        ? "opacity-50 cursor-not-allowed"
+                        : "cursor-pointer"
+                    }`}
                   >
                     <Upload size={13} /> Pilih Foto
                     <input
@@ -653,7 +658,7 @@ export default function RuanganPage() {
                   </label>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {editingRoom.imgs &&
                   editingRoom.imgs.filter(Boolean).length > 0 ? (
                     editingRoom.imgs
@@ -684,7 +689,7 @@ export default function RuanganPage() {
                         </div>
                       ))
                   ) : (
-                    <div className="col-span-3 py-6 text-center text-xs text-slate-400 italic bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center gap-1">
+                    <div className="col-span-2 sm:col-span-3 py-6 text-center text-xs text-slate-400 italic bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center gap-1">
                       <span>Belum ada foto yang dipilih.</span>
                       <span className="text-[10px] text-rose-600 font-bold">
                         Wajib menyertakan minimal 1 foto ruangan.
@@ -694,19 +699,19 @@ export default function RuanganPage() {
                 </div>
               </div>
 
-              <div className="pt-3 border-t flex justify-end gap-2">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-end gap-2">
                 <button
                   type="button"
                   disabled={isSubmitting}
                   onClick={() => setIsEditModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+                  className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-[#9f1521] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-75"
+                  className="w-full sm:w-auto px-4 py-2.5 bg-[#9f1521] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md cursor-pointer disabled:opacity-75"
                 >
                   {isSubmitting ? (
                     <>

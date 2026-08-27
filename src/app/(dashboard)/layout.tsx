@@ -13,6 +13,8 @@ import {
   Search,
   ChevronDown,
   Loader2,
+  Menu,
+  X,
 } from "lucide-react";
 import { getFilteredNavItems } from "@/lib/auth";
 import NotificationDropdown, {
@@ -37,6 +39,7 @@ export default function DashboardLayout({
   const [user, setUser] = useState<LocalUser | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   // State untuk indikator loading logout
@@ -66,7 +69,7 @@ export default function DashboardLayout({
     checkUserSession();
   }, [router]);
 
-  // Fungsi Fetch Data Notifikasi dari Database MySQL
+  // Fungsi Fetch Data Notifikasi dari Database
   const fetchNotifications = useCallback(async (currentUserData: LocalUser) => {
     try {
       const res = await fetch(
@@ -101,45 +104,21 @@ export default function DashboardLayout({
   }, []);
 
   // Panggil fetchNotifications saat user sudah siap
-  // Panggil fetchNotifications saat user sudah siap
   useEffect(() => {
     if (!user) return;
+    const timer = setTimeout(() => {
+      fetchNotifications(user);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [user, fetchNotifications]);
 
-    const loadNotifications = async () => {
-      try {
-        const res = await fetch(
-          `/api/notifikasi?user_id=${user.id}&role=${user.role}`,
-        );
-        const result = await res.json();
-
-        if (res.ok && result.success && result.data) {
-          const dbNotifs: NotificationItem[] = result.data.map((item: any) => ({
-            id: item.id,
-            title: item.title,
-            type: item.type || "room",
-            status: item.status || "Pending",
-            date: item.created_at ? item.created_at.split("T")[0] : "",
-            info: item.info || "",
-            user_id: item.user_id ? Number(item.user_id) : null,
-            created_at: item.created_at,
-            is_read: item.is_read,
-          }));
-
-          setNotifications(dbNotifs);
-
-          const unreadExist = dbNotifs.some(
-            (notif: any) =>
-              Number(notif.is_read) === 0 || notif.is_read === false,
-          );
-          setHasUnread(unreadExist);
-        }
-      } catch (error) {
-        console.error("Gagal memuat notifikasi dari database:", error);
-      }
-    };
-
-    loadNotifications();
-  }, [user]);
+  // Tutup menu mobile otomatis saat berpindah halaman
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsMobileMenuOpen(false);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [pathname]);
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
@@ -165,20 +144,39 @@ export default function DashboardLayout({
   const navItems = getFilteredNavItems(user?.role);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] text-slate-900 dark:text-slate-100 flex font-sans transition-colors duration-300">
-      {/* SIDEBAR */}
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] text-slate-900 dark:text-slate-100 flex font-sans transition-colors duration-300 relative">
+      {/* BACKDROP MOBILE MENU */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* SIDEBAR (Responsive: Drawer di Mobile, Hoverable di Desktop) */}
       <aside
-        className="fixed left-4 top-4 bottom-4 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 z-40 flex flex-col justify-between shadow-2xl rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-all duration-300 ease-out"
-        style={{ width: isHovered ? 280 : 88 }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        className={`fixed top-4 bottom-4 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 z-50 flex flex-col justify-between shadow-2xl rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-all duration-300 ease-out ${
+          isMobileMenuOpen ? "left-4 w-[280px]" : "-left-80 lg:left-4"
+        }`}
+        style={{
+          width:
+            isHovered && window.innerWidth >= 1024
+              ? 280
+              : window.innerWidth >= 1024
+                ? 88
+                : 280,
+        }}
+        onMouseEnter={() => window.innerWidth >= 1024 && setIsHovered(true)}
+        onMouseLeave={() => window.innerWidth >= 1024 && setIsHovered(false)}
       >
         <div className="flex flex-col h-full w-full">
-          {/* Header Sidebar & Logo icon.png */}
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center min-h-[80px] shrink-0 whitespace-nowrap">
+          {/* Header Sidebar & Logo */}
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between min-h-[80px] shrink-0 whitespace-nowrap">
             <div
               className={`flex items-center gap-3 w-full ${
-                isHovered ? "justify-start px-2" : "justify-center px-0"
+                isHovered || isMobileMenuOpen
+                  ? "justify-start px-2"
+                  : "justify-center px-0"
               }`}
             >
               <div className="relative w-10 h-10 rounded-2xl overflow-hidden shrink-0 shadow-md bg-white flex items-center justify-center border border-slate-100">
@@ -193,9 +191,9 @@ export default function DashboardLayout({
 
               <div
                 className={`transition-opacity duration-200 overflow-hidden text-left ${
-                  isHovered
+                  isHovered || isMobileMenuOpen
                     ? "opacity-100"
-                    : "opacity-0 pointer-events-none w-0"
+                    : "opacity-0 pointer-events-none lg:w-0"
                 }`}
               >
                 <h1 className="font-extrabold text-sm text-slate-900 dark:text-white tracking-tight leading-tight">
@@ -206,11 +204,19 @@ export default function DashboardLayout({
                 </p>
               </div>
 
-              {isHovered && (
-                <ChevronDown
-                  size={16}
-                  className="text-slate-400 shrink-0 ml-auto"
-                />
+              {(isHovered || isMobileMenuOpen) && (
+                <div className="flex items-center ml-auto">
+                  <button
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 lg:hidden"
+                  >
+                    <X size={18} />
+                  </button>
+                  <ChevronDown
+                    size={16}
+                    className="text-slate-400 shrink-0 hidden lg:block"
+                  />
+                </div>
               )}
             </div>
           </div>
@@ -223,9 +229,9 @@ export default function DashboardLayout({
                 type="text"
                 placeholder="Search..."
                 className={`bg-transparent text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none transition-all duration-200 ${
-                  isHovered
+                  isHovered || isMobileMenuOpen
                     ? "w-full pl-2.5 opacity-100"
-                    : "w-0 opacity-0 pointer-events-none"
+                    : "w-0 opacity-0 pointer-events-none lg:w-0"
                 }`}
               />
             </div>
@@ -241,11 +247,15 @@ export default function DashboardLayout({
                 <Link
                   key={item.href}
                   href={item.href}
-                  title={!isHovered ? item.label : undefined}
+                  title={
+                    !isHovered && !isMobileMenuOpen ? item.label : undefined
+                  }
                 >
                   <div
                     className={`flex items-center p-3 rounded-2xl text-xs font-bold transition-colors box-border whitespace-nowrap ${
-                      isHovered ? "justify-start gap-3.5" : "justify-center"
+                      isHovered || isMobileMenuOpen
+                        ? "justify-start gap-3.5"
+                        : "justify-center"
                     } ${
                       isActive
                         ? "bg-[#9f1521] text-white shadow-md shadow-rose-900/25"
@@ -262,9 +272,9 @@ export default function DashboardLayout({
                     />
                     <span
                       className={`transition-opacity duration-200 truncate overflow-hidden whitespace-nowrap ${
-                        isHovered
+                        isHovered || isMobileMenuOpen
                           ? "opacity-100"
-                          : "opacity-0 pointer-events-none w-0"
+                          : "opacity-0 pointer-events-none lg:w-0"
                       }`}
                     >
                       {item.label}
@@ -279,7 +289,7 @@ export default function DashboardLayout({
           <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 shrink-0 space-y-2">
             <div
               className={`flex items-center gap-3 px-2 py-1 overflow-hidden ${
-                !isHovered && "justify-center"
+                !isHovered && !isMobileMenuOpen && "lg:justify-center"
               }`}
             >
               <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">
@@ -287,9 +297,9 @@ export default function DashboardLayout({
               </div>
               <div
                 className={`transition-opacity duration-200 truncate whitespace-nowrap overflow-hidden ${
-                  isHovered
+                  isHovered || isMobileMenuOpen
                     ? "opacity-100"
-                    : "opacity-0 pointer-events-none w-0"
+                    : "opacity-0 pointer-events-none lg:w-0"
                 }`}
               >
                 <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
@@ -304,19 +314,19 @@ export default function DashboardLayout({
             <button
               type="button"
               onClick={() => setIsLogoutModalOpen(true)}
-              title={!isHovered ? "Logout" : undefined}
+              title={!isHovered && !isMobileMenuOpen ? "Logout" : undefined}
               className={`flex items-center bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 text-rose-700 dark:text-rose-400 rounded-2xl text-xs font-bold transition-all border border-rose-100 dark:border-rose-900/50 whitespace-nowrap overflow-hidden cursor-pointer ${
-                isHovered
+                isHovered || isMobileMenuOpen
                   ? "gap-3.5 p-3 w-full justify-start"
-                  : "justify-center w-12 h-12 p-0 mx-auto"
+                  : "lg:justify-center lg:w-12 lg:h-12 lg:p-0 lg:mx-auto gap-3.5 p-3 w-full justify-start"
               }`}
             >
               <LogOut size={18} className="shrink-0" />
               <span
                 className={`transition-opacity duration-200 truncate overflow-hidden whitespace-nowrap ${
-                  isHovered
+                  isHovered || isMobileMenuOpen
                     ? "opacity-100"
-                    : "opacity-0 pointer-events-none w-0"
+                    : "opacity-0 pointer-events-none lg:w-0"
                 }`}
               >
                 Logout
@@ -326,14 +336,26 @@ export default function DashboardLayout({
         </div>
       </aside>
 
-      {/* KONTEN KANAN */}
+      {/* KONTEN UTAMA KANAN */}
       <div
-        className="flex-1 flex flex-col min-w-0 transition-all duration-300 ease-out"
-        style={{ paddingLeft: isHovered ? "310px" : "110px" }}
+        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-out pl-0 ${
+          isHovered ? "lg:pl-[310px]" : "lg:pl-[110px]"
+        }`}
       >
-        <header className="h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-8 flex items-center justify-between">
-          <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-            Portal Internal AMPERA OJK Sumatera Selatan
+        {/* HEADER */}
+        <header className="h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-4 sm:px-8 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Tombol Hamburger Menu Mobile */}
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 lg:hidden cursor-pointer"
+            >
+              <Menu size={20} />
+            </button>
+
+            <div className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate max-w-[200px] sm:max-w-none">
+              Portal Internal AMPERA OJK Sumatera Selatan
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -359,7 +381,9 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        <main className="p-8 flex-1 overflow-y-auto">{children}</main>
+        <main className="p-4 sm:p-6 lg:p-8 flex-1 overflow-y-auto">
+          {children}
+        </main>
       </div>
 
       {/* MODAL LOGOUT */}

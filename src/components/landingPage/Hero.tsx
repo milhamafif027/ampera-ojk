@@ -60,29 +60,30 @@ export default function Hero() {
   return (
     <section
       id="profil"
-      className="relative bg-gradient-to-b from-white to-slate-100/70 border-b border-slate-200 py-20 lg:py-28 overflow-hidden"
+      className="relative bg-gradient-to-b from-white to-slate-100/70 border-b border-slate-200 py-12 sm:py-16 lg:py-28 overflow-hidden"
     >
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
         {/* Kolom Teks / Informasi (Animasi masuk dari kiri) */}
         <motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: false, amount: 0.3 }}
           variants={textVariants}
-          className="space-y-6"
+          className="space-y-5 sm:space-y-6 text-center lg:text-left"
         >
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-50 border border-rose-200 text-[#9f1521] text-[11px] font-extrabold tracking-wider shadow-sm">
-            <ShieldCheck className="w-4 h-4" /> PLATFORM INTEGRASI PERKANTORAN
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-50 border border-rose-200 text-[#9f1521] text-[10px] sm:text-[11px] font-extrabold tracking-wider shadow-sm mx-auto lg:mx-0">
+            <ShieldCheck className="w-4 h-4 shrink-0" /> PLATFORM INTEGRASI
+            PERKANTORAN
           </div>
 
-          <h1 className="text-4xl lg:text-5xl font-black text-slate-900 leading-[1.15] tracking-tight">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 leading-[1.15] tracking-tight">
             AMPERA <br />
-            <span className="text-[#9f1521]">
+            <span className="text-[#9f1521] text-2xl sm:text-3xl lg:text-4xl">
               Aplikasi Manajemen Peminjaman Ruangan & Kendaraan
             </span>
           </h1>
 
-          <p className="text-sm md:text-base text-slate-600 leading-relaxed">
+          <p className="text-xs sm:text-sm md:text-base text-slate-600 leading-relaxed max-w-xl mx-auto lg:mx-0">
             Selamat datang di portal informasi Kantor OJK Provinsi Sumatera
             Selatan. Gedung ini terdiri dari 8 lantai berkonsep{" "}
             <strong className="text-slate-800 font-bold">
@@ -92,23 +93,31 @@ export default function Hero() {
             operasional modern.
           </p>
 
-          <div className="flex flex-wrap items-center gap-4 pt-2">
-            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+          <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
+            <motion.div
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="w-full sm:w-auto"
+            >
               <Link
                 href="/login"
-                className="inline-flex items-center gap-2 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-bold px-6 py-3.5 rounded-xl transition-all shadow-lg shadow-rose-900/20"
+                className="inline-flex items-center justify-center gap-2 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-bold px-6 py-3.5 rounded-xl transition-all shadow-lg shadow-rose-900/20 w-full sm:w-auto"
               >
                 Masuk Portal Pegawai <ArrowRight className="w-4 h-4" />
               </Link>
             </motion.div>
 
-            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+            <motion.div
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="w-full sm:w-auto"
+            >
               <Link
                 href="/panduan"
-                className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-bold px-6 py-3.5 rounded-xl transition-all shadow-sm"
+                className="inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-bold px-6 py-3.5 rounded-xl transition-all shadow-sm w-full sm:w-auto"
               >
-                <BookOpen className="w-4 h-4 text-slate-500" /> Panduan Sistem &
-                SOP
+                <BookOpen className="w-4 h-4 text-slate-500 shrink-0" /> Panduan
+                Sistem & SOP
               </Link>
             </motion.div>
           </div>
@@ -120,9 +129,9 @@ export default function Hero() {
           whileInView="visible"
           viewport={{ once: false, amount: 0.3 }}
           variants={imageVariants}
-          className="relative"
+          className="relative w-full max-w-lg mx-auto lg:max-w-none"
         >
-          <div className="relative aspect-[4/3] rounded-[2rem] overflow-hidden border border-slate-200 shadow-2xl bg-slate-900">
+          <div className="relative aspect-[4/3] rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden border border-slate-200 shadow-2xl bg-slate-900">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentIndex}
@@ -143,11 +152,11 @@ export default function Hero() {
             </AnimatePresence>
 
             {/* Overlay Gradient & Informasi Teks di Atas Gambar */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-8 text-white z-10 pointer-events-none">
-              <span className="text-xs font-bold text-rose-300 uppercase tracking-widest">
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-5 sm:p-8 text-white z-10 pointer-events-none">
+              <span className="text-[10px] sm:text-xs font-bold text-rose-300 uppercase tracking-widest">
                 {buildingImages[currentIndex].title}
               </span>
-              <h3 className="text-xl font-bold mt-1">
+              <h3 className="text-sm sm:text-base lg:text-xl font-bold mt-1 leading-snug">
                 Jl. Jenderal Sudirman No. 1025, Kota Palembang
               </h3>
             </div>
