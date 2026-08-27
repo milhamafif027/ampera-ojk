@@ -186,11 +186,11 @@ export async function POST(request: Request) {
   }
 }
 
-// 3. PUT: Update status (Approve/Reject) dengan proteksi aman
+// 3. PUT: Update status (Approve/Reject) dengan proteksi tanggal aman & fallback DB
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const {
+    let {
       id,
       title = "",
       date,
@@ -202,8 +202,8 @@ export async function PUT(request: Request) {
       notes = "",
       total_participants = 1,
       meeting_leader = "-",
+      user_id,
     } = body;
-    let { user_id } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -212,30 +212,37 @@ export async function PUT(request: Request) {
       );
     }
 
+    const agendaId = Number(id);
+
+    // Fallback otomatis ambil tanggal dari DB jika dari frontend kosong/tidak valid
+    if (
+      !date ||
+      typeof date !== "string" ||
+      date.trim() === "" ||
+      date.includes("1970")
+    ) {
+      try {
+        const existingAgenda: any = await db.$queryRaw`
+          SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, user_id, title, pic FROM agendas WHERE id = ${agendaId}
+        `;
+        if (existingAgenda && existingAgenda.length > 0) {
+          date = existingAgenda[0].date;
+          if (!user_id) user_id = existingAgenda[0].user_id;
+          if (!title) title = existingAgenda[0].title;
+          if (!pic) pic = existingAgenda[0].pic;
+        }
+      } catch (e) {
+        console.error("Gagal fallback tanggal dari DB:", e);
+      }
+    }
+
     if (!date || typeof date !== "string" || date.trim() === "") {
       return NextResponse.json(
-        { success: false, message: "Tanggal agenda wajib diisi dengan benar." },
+        { success: false, message: "Tanggal agenda tidak valid." },
         { status: 400 },
       );
     }
 
-    const agendaId = Number(id);
-
-    // Ambil user_id dari database jika tidak dikirim dari body
-    if (!user_id) {
-      try {
-        const agendaRows: any = await db.$queryRaw`
-          SELECT user_id FROM agendas WHERE id = ${agendaId}
-        `;
-        if (agendaRows && agendaRows.length > 0) {
-          user_id = agendaRows[0].user_id;
-        }
-      } catch (e) {
-        console.error("Gagal ambil user_id agenda:", e);
-      }
-    }
-
-    // Tentukan role dengan aman tanpa bikin error jika tabel users kosong/tidak ada
     let userRole = "eksternal";
     if (user_id) {
       try {
