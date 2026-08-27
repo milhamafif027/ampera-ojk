@@ -103,7 +103,7 @@ export default function DashboardLayout({
     }
   }, []);
 
-  // Panggil fetchNotifications saat user sudah siap
+  // Panggil fetchNotifications saat user sudah siap (dengan pengaman async untuk linter)
   useEffect(() => {
     if (!user) return;
     const timer = setTimeout(() => {
@@ -160,14 +160,24 @@ export default function DashboardLayout({
         }`}
         style={{
           width:
-            isHovered && window.innerWidth >= 1024
-              ? 280
-              : window.innerWidth >= 1024
-                ? 88
-                : 280,
+            typeof window !== "undefined"
+              ? isHovered && window.innerWidth >= 1024
+                ? 280
+                : window.innerWidth >= 1024
+                  ? 88
+                  : 280
+              : 88,
         }}
-        onMouseEnter={() => window.innerWidth >= 1024 && setIsHovered(true)}
-        onMouseLeave={() => window.innerWidth >= 1024 && setIsHovered(false)}
+        onMouseEnter={() =>
+          typeof window !== "undefined" &&
+          window.innerWidth >= 1024 &&
+          setIsHovered(true)
+        }
+        onMouseLeave={() =>
+          typeof window !== "undefined" &&
+          window.innerWidth >= 1024 &&
+          setIsHovered(false)
+        }
       >
         <div className="flex flex-col h-full w-full">
           {/* Header Sidebar & Logo */}
