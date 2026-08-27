@@ -197,18 +197,26 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const {
       id,
-      title,
+      title = "",
       date,
-      start_time,
-      end_time,
-      pic,
-      phone,
-      status,
-      notes,
-      total_participants,
-      meeting_leader,
+      start_time = "",
+      end_time = "",
+      pic = "",
+      phone = null,
+      status = "Pending",
+      notes = "",
+      total_participants = 1,
+      meeting_leader = "-",
     } = body;
     let { user_id } = body;
+
+    // Validasi ID wajib ada
+    if (!id) {
+      return NextResponse.json(
+        { success: false, message: "ID agenda diperlukan untuk update." },
+        { status: 400 },
+      );
+    }
 
     // Validasi ketat tanggal kosong pada saat update
     if (!date || typeof date !== "string" || date.trim() === "") {
@@ -218,9 +226,11 @@ export async function PUT(request: Request) {
       );
     }
 
-    if (!user_id && id) {
+    const agendaId = Number(id);
+
+    if (!user_id && agendaId) {
       const agendaRows: any = await db.$queryRaw`
-        SELECT user_id, title, date, room_name FROM agendas WHERE id = ${Number(id)}
+        SELECT user_id, title, date, room_name FROM agendas WHERE id = ${agendaId}
       `;
       if (agendaRows.length > 0) {
         user_id = agendaRows[0].user_id;
@@ -239,21 +249,22 @@ export async function PUT(request: Request) {
     const targetTable = getUserNotificationTable(userRole);
 
     if (status === "Ditolak") {
-      await db.$executeRaw`DELETE FROM agendas WHERE id = ${Number(id)}`;
+      await db.$executeRaw`DELETE FROM agendas WHERE id = ${agendaId}`;
 
-      const notifInfoUser = `Reservasi ${title || "Agenda"} pada tanggal ${date || ""} ditolak oleh admin. ${notes ? `Alasan: ${notes}` : ""}`;
-      const notifInfoAdmin = `Reservasi "${title || "Agenda"}" oleh ${pic || "Pemohon"} pada tanggal ${date || ""} telah DITOLAK.`;
+      const notifInfoUser = `Reservasi ${title || "Agenda"} pada tanggal ${date} ditolak oleh admin. ${notes ? `Alasan: ${notes}` : ""}`;
+      const notifInfoAdmin = `Reservasi "${title || "Agenda"}" oleh ${pic || "Pemohon"} pada tanggal ${date} telah DITOLAK.`;
 
       if (user_id) {
+        const uIdNum = Number(user_id);
         if (targetTable === "notifikasi_internal") {
           await db.$executeRaw`
             INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
-            VALUES (${Number(user_id)}, 'Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoUser}, 0, NOW())
+            VALUES (${uIdNum}, 'Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoUser}, 0, NOW())
           `;
         } else {
           await db.$executeRaw`
             INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
-            VALUES (${Number(user_id)}, 'Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoUser}, 0, NOW())
+            VALUES (${uIdNum}, 'Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoUser}, 0, NOW())
           `;
         }
       }
@@ -266,12 +277,21 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: true, message: "Ditolak & dihapus" });
     }
 
+    const participantsNum = parseInt(total_participants, 10) || 1;
+
     await db.$executeRaw`
       UPDATE agendas 
-      SET title = ${title}, date = ${date}::date, start_time = ${start_time}, end_time = ${end_time}, 
-          pic = ${pic}, phone = ${phone || null}, status = ${status}, notes = ${notes || ""}, 
-          total_participants = ${total_participants || 1}, meeting_leader = ${meeting_leader || "-"} 
-      WHERE id = ${Number(id)}
+      SET title = ${String(title)}, 
+          date = ${String(date)}::date, 
+          start_time = ${String(start_time)}, 
+          end_time = ${String(end_time)}, 
+          pic = ${String(pic)}, 
+          phone = ${phone ? String(phone) : null}, 
+          status = ${String(status)}, 
+          notes = ${String(notes || "")}, 
+          total_participants = ${participantsNum}, 
+          meeting_leader = ${String(meeting_leader)} 
+      WHERE id = ${agendaId}
     `;
 
     if (status === "Disetujui") {
@@ -279,15 +299,16 @@ export async function PUT(request: Request) {
       const notifInfoAdmin = `Reservasi "${title}" oleh ${pic} tanggal ${date} telah DISETUJUI.`;
 
       if (user_id) {
+        const uIdNum = Number(user_id);
         if (targetTable === "notifikasi_internal") {
           await db.$executeRaw`
             INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
-            VALUES (${Number(user_id)}, 'Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoUser}, 0, NOW())
+            VALUES (${uIdNum}, 'Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoUser}, 0, NOW())
           `;
         } else {
           await db.$executeRaw`
             INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
-            VALUES (${Number(user_id)}, 'Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoUser}, 0, NOW())
+            VALUES (${uIdNum}, 'Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoUser}, 0, NOW())
           `;
         }
       }
