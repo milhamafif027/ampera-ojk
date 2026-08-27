@@ -183,7 +183,7 @@ export async function POST(request: Request) {
   }
 }
 
-// 3. PUT: Update status murni pakai SQL raw tanpa menyentuh tanggal
+// 3. PUT: Update status dengan pengaman total pada bagian insert notifikasi
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
@@ -251,12 +251,12 @@ export async function PUT(request: Request) {
           if (targetTable === "notifikasi_internal") {
             await db.$executeRaw`
               INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
-              VALUES (${uIdNum}, 'Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoUser}, 0, NOW())
+              VALUES (${uIdNum}, 'Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoUser}, 0, CURRENT_TIMESTAMP)
             `;
           } else {
             await db.$executeRaw`
               INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
-              VALUES (${uIdNum}, 'Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoUser}, 0, NOW())
+              VALUES (${uIdNum}, 'Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoUser}, 0, CURRENT_TIMESTAMP)
             `;
           }
         } catch (notifErr) {
@@ -267,7 +267,7 @@ export async function PUT(request: Request) {
       try {
         await db.$executeRaw`
           INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
-          VALUES ('Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoAdmin}, 0, NOW())
+          VALUES ('Reservasi Ditolak', 'room', 'Ditolak', ${notifInfoAdmin}, 0, CURRENT_TIMESTAMP)
         `;
       } catch (adminNotifErr) {
         console.error("Gagal insert notifikasi admin:", adminNotifErr);
@@ -278,7 +278,7 @@ export async function PUT(request: Request) {
 
     const participantsNum = parseInt(total_participants, 10) || 1;
 
-    // UPDATE murni tanpa menyentuh kolom tanggal
+    // UPDATE murni data agenda
     await db.$executeRaw`
       UPDATE agendas 
       SET title = ${String(title)}, 
@@ -303,12 +303,12 @@ export async function PUT(request: Request) {
           if (targetTable === "notifikasi_internal") {
             await db.$executeRaw`
               INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
-              VALUES (${uIdNum}, 'Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoUser}, 0, NOW())
+              VALUES (${uIdNum}, 'Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoUser}, 0, CURRENT_TIMESTAMP)
             `;
           } else {
             await db.$executeRaw`
               INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
-              VALUES (${uIdNum}, 'Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoUser}, 0, NOW())
+              VALUES (${uIdNum}, 'Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoUser}, 0, CURRENT_TIMESTAMP)
             `;
           }
         } catch (uNotifErr) {
@@ -319,7 +319,7 @@ export async function PUT(request: Request) {
       try {
         await db.$executeRaw`
           INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
-          VALUES ('Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoAdmin}, 0, NOW())
+          VALUES ('Reservasi Disetujui', 'room', 'Disetujui', ${notifInfoAdmin}, 0, CURRENT_TIMESTAMP)
         `;
       } catch (aNotifErr) {
         console.error("Gagal insert notifikasi admin disetujui:", aNotifErr);
@@ -329,31 +329,6 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: true, message: "Agenda diperbarui" });
   } catch (error: any) {
     console.error("API PUT AGENDAS ERROR:", error);
-    return NextResponse.json(
-      { success: false, message: error.message || String(error) },
-      { status: 500 },
-    );
-  }
-}
-
-// 4. DELETE: Hapus agenda manual menggunakan SQL raw
-export async function DELETE(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-    if (!id) {
-      return NextResponse.json(
-        { success: false, message: "ID diperlukan." },
-        { status: 400 },
-      );
-    }
-    await db.$executeRaw`DELETE FROM agendas WHERE id = ${Number(id)}`;
-    return NextResponse.json({
-      success: true,
-      message: "Agenda berhasil dihapus",
-    });
-  } catch (error: any) {
-    console.error("API DELETE AGENDAS ERROR:", error);
     return NextResponse.json(
       { success: false, message: error.message || String(error) },
       { status: 500 },
