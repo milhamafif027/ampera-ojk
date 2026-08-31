@@ -175,7 +175,7 @@ export default function RoomCard({
           <p className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
             <Users size={13} className="text-[#9f1521] shrink-0" /> Kapasitas:{" "}
             <strong className="text-slate-700 dark:text-slate-200 truncate">
-              {room.capacity} Orang
+              {room.capacity}
             </strong>
           </p>
 

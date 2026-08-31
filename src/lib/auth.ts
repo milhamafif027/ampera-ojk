@@ -49,7 +49,7 @@ export const navItemsConfig = [
   },
   {
     key: "kendaraan",
-    label: "Peminjaman Kendaraan",
+    label: "Manajemen Kendaraan",
     href: "/kendaraan",
     icon: Car,
     roles: ["admin", "internal_kopg", "eksternal"],
