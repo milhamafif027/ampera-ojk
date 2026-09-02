@@ -75,10 +75,23 @@ export default function KalenderPage() {
               }
             }
 
-            const formattedTime =
-              item.start_time && item.end_time
-                ? `${item.start_time.slice(0, 5)} - ${item.end_time.slice(0, 5)}`
-                : item.time || "";
+            // PERBAIKAN FORMAT WAKTU AGAR TIDAK MUNCUL 1970-
+            let formattedTime = "";
+            if (item.start_time && item.end_time) {
+              const startStr = String(item.start_time);
+              const endStr = String(item.end_time);
+
+              const cleanStart = startStr.includes("T")
+                ? startStr.split("T")[1]
+                : startStr;
+              const cleanEnd = endStr.includes("T")
+                ? endStr.split("T")[1]
+                : endStr;
+
+              formattedTime = `${cleanStart.slice(0, 5)} - ${cleanEnd.slice(0, 5)}`;
+            } else {
+              formattedTime = item.time || "08:00 - 17:00";
+            }
 
             const agendaItem = {
               id: String(item.id),
@@ -96,12 +109,10 @@ export default function KalenderPage() {
               smartStatus: getSmartStatus(agendaItem) as StatusPengajuan,
             };
           });
-        // PERHATIAN: Filter `.filter((agenda: Agenda) => agenda.date >= todayStr)`
-        // telah dihapus agar data jadwal baru/masa lalu tidak terhapus dari kalender.
 
         setAgendas(mappedAgendas);
       }
-
+      
       if (resVehicles.ok && resultVehicles.bookings) {
         const mappedBookings: VehicleBookingItem[] = resultVehicles.bookings
           .filter((item: any) => item.status === "Disetujui") // Hanya menyaring yang berstatus Disetujui
