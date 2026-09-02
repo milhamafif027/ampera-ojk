@@ -76,16 +76,29 @@ export default function AgendaPage() {
             }
           }
 
-          const formattedTime =
-            item.start_time && item.end_time
-              ? `${item.start_time.slice(0, 5)} - ${item.end_time.slice(0, 5)}`
-              : item.time || "";
+          // PERBAIKAN WAKTU: Pastikan aman dari format epoch / timestamp 1970
+          let formattedTime = "";
+          if (item.start_time && item.end_time) {
+            const startStr = String(item.start_time);
+            const endStr = String(item.end_time);
+
+            const cleanStart = startStr.includes("T")
+              ? startStr.split("T")[1]
+              : startStr;
+            const cleanEnd = endStr.includes("T")
+              ? endStr.split("T")[1]
+              : endStr;
+
+            formattedTime = `${cleanStart.slice(0, 5)} - ${cleanEnd.slice(0, 5)}`;
+          } else {
+            formattedTime = item.time || "08:00 - 17:00";
+          }
 
           const agendaItem = {
             id: String(item.id),
             title: item.title,
             date: formattedDate,
-            time: formattedTime,
+            time: formattedTime, // Waktu yang sudah dibersihkan
             room: item.room_name || item.room || "Ruang Rapat OJK",
             pic: item.pic || "Pegawai OJK",
             dept: item.dept || "OJK Sumsel",
@@ -102,7 +115,7 @@ export default function AgendaPage() {
         setAgendas(mappedAgendas);
       }
     } catch (error) {
-      console.error("Gagal mengambil data agenda dari MySQL:", error);
+      console.error("Gagal mengambil data agenda:", error);
     } finally {
       setIsLoading(false);
     }

@@ -71,16 +71,30 @@ export default function DashboardPage() {
       if (res.ok && result.data) {
         const mappedAgendas: Agenda[] = result.data.map((item: any) => {
           const formattedDate = item.date ? item.date.split("T")[0] : "";
-          const formattedTime =
-            item.start_time && item.end_time
-              ? `${item.start_time.slice(0, 5)} - ${item.end_time.slice(0, 5)}`
-              : item.time || "";
+
+          // PERBAIKAN WAKTU: Amankan dari format epoch / timestamp 1970
+          let formattedTime = "";
+          if (item.start_time && item.end_time) {
+            const startStr = String(item.start_time);
+            const endStr = String(item.end_time);
+
+            const cleanStart = startStr.includes("T")
+              ? startStr.split("T")[1]
+              : startStr;
+            const cleanEnd = endStr.includes("T")
+              ? endStr.split("T")[1]
+              : endStr;
+
+            formattedTime = `${cleanStart.slice(0, 5)} - ${cleanEnd.slice(0, 5)}`;
+          } else {
+            formattedTime = item.time || "";
+          }
 
           const agendaItem = {
             id: String(item.id),
             title: item.title,
             date: formattedDate,
-            time: formattedTime,
+            time: formattedTime, // Waktu yang sudah bersih
             room: item.room_name || item.room || "Ruang Rapat OJK",
             pic: item.pic || "Pegawai OJK",
             dept: item.dept || "OJK Sumsel",
@@ -252,7 +266,9 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
         });
       } else {
         const errData = await res.json();
-        alert(`Gagal memproses status reservasi: ${errData.message || 'Unknown error'}`);
+        alert(
+          `Gagal memproses status reservasi: ${errData.message || "Unknown error"}`,
+        );
       }
     } catch (error) {
       console.error("Error processing agenda status:", error);
