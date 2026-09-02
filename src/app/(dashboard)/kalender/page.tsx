@@ -59,11 +59,6 @@ export default function KalenderPage() {
       const resVehicles = await fetch("/api/kendaraan");
       const resultVehicles = await resVehicles.json();
 
-      const nowLocal = new Date();
-      const todayStr = `${nowLocal.getFullYear()}-${String(
-        nowLocal.getMonth() + 1,
-      ).padStart(2, "0")}-${String(nowLocal.getDate()).padStart(2, "0")}`;
-
       if (resAgendas.ok && resultAgendas.data) {
         const mappedAgendas: Agenda[] = resultAgendas.data
           .filter((item: any) => item.status !== "Ditolak")
@@ -100,25 +95,16 @@ export default function KalenderPage() {
               ...agendaItem,
               smartStatus: getSmartStatus(agendaItem) as StatusPengajuan,
             };
-          })
-          .filter((agenda: Agenda) => {
-            if (!agenda.date) return false;
-            return agenda.date >= todayStr;
           });
+        // PERHATIAN: Filter `.filter((agenda: Agenda) => agenda.date >= todayStr)`
+        // telah dihapus agar data jadwal baru/masa lalu tidak terhapus dari kalender.
 
         setAgendas(mappedAgendas);
       }
 
       if (resVehicles.ok && resultVehicles.bookings) {
         const mappedBookings: VehicleBookingItem[] = resultVehicles.bookings
-          .filter((item: any) => {
-            if (item.status !== "Disetujui") return false;
-
-            let endDate = item.end_date ? String(item.end_date) : "";
-            if (endDate.includes("T")) endDate = endDate.split("T")[0];
-
-            return endDate >= todayStr;
-          })
+          .filter((item: any) => item.status === "Disetujui") // Hanya menyaring yang berstatus Disetujui
           .map((item: any) => {
             let startDate = item.start_date ? String(item.start_date) : "";
             if (startDate.includes("T")) startDate = startDate.split("T")[0];

@@ -7,6 +7,13 @@ export function getSmartStatus(agenda: {
 }) {
   if (agenda.status === "Pending") return "Pending";
   if (agenda.status === "Ditolak") return "Ditolak";
+
+  // Jika string date tidak ada atau terindikasi bukan tanggal yang valid (misal teks bebas),
+  // langsung kembalikan status aslinya tanpa menjalankan kalkulasi waktu.
+  if (!agenda.date || typeof agenda.date !== "string") {
+    return agenda.status || "Disetujui";
+  }
+
   try {
     let y = "",
       m = "",
@@ -25,9 +32,17 @@ export function getSmartStatus(agenda: {
       }
     }
 
-    if (!y || !m || !d) return agenda.status;
+    // Validasi tambahan: pastikan tahun berupa angka (mencegah teks non-tanggal lolos)
+    if (!y || !m || !d || isNaN(Number(y)) || Number(y) < 2000) {
+      return agenda.status || "Disetujui";
+    }
 
-    const [startT, endT] = agenda.time.split(" - ");
+    // Jika format waktu kosong / berupa teks non-waktu, beri default aman
+    const timeStr =
+      agenda.time && agenda.time.includes(" - ")
+        ? agenda.time
+        : "00:00 - 23:59";
+    const [startT, endT] = timeStr.split(" - ");
     const now = new Date();
 
     const startTime = new Date(`${y}-${m}-${d}T${startT || "00:00"}`);
@@ -47,17 +62,22 @@ export function getSmartStatus(agenda: {
       endTime = new Date(`${y}-${m}-${d}T${endT || "23:59"}`);
     }
 
+    // Jika tanggal invalid (Invalid Date), fallback ke status aman
+    if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+      return agenda.status || "Disetujui";
+    }
+
     if (now < startTime) return "Disetujui";
     if (now >= startTime && now <= endTime) return "Sedang Berlangsung";
     if (now > endTime) return "Selesai";
   } catch (e) {
-    return agenda.status;
+    return agenda.status || "Disetujui";
   }
-  return agenda.status;
+  return agenda.status || "Disetujui";
 }
 
 export function formatDateIndo(dateStr: string): string {
-  if (!dateStr) return "";
+  if (!dateStr || typeof dateStr !== "string") return "";
   const months = [
     "Jan",
     "Feb",
@@ -74,19 +94,24 @@ export function formatDateIndo(dateStr: string): string {
   ];
 
   let d = "",
-    m = "";
+    m = "",
+    y = "";
   if (dateStr.includes("-")) {
     const parts = dateStr.split("T")[0].split("-");
     if (parts.length === 3) {
-      [, m, d] = parts; // YYYY-MM-DD -> ambil bulan dan hari
+      [y, m, d] = parts; // YYYY-MM-DD
     }
   } else if (dateStr.includes("/")) {
     const parts = dateStr.split("/");
     if (parts.length === 3) {
-      [d, m] = parts; // DD/MM/YYYY -> ambil hari dan bulan
+      [d, m, y] = parts; // DD/MM/YYYY
     }
   }
 
-  if (!d || !m) return dateStr;
+  // Jika format bukan tanggal valid, kembalikan string aslinya daripada error / kosong
+  if (!d || !m || isNaN(Number(m)) || Number(m) < 1 || Number(m) > 12) {
+    return dateStr;
+  }
+
   return `${parseInt(d, 10)} ${months[parseInt(m, 10) - 1]}`;
 }

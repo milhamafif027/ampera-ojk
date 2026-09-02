@@ -15,7 +15,8 @@ export async function GET(request: Request) {
     const dateParam = searchParams.get("date");
     const roomParam = searchParams.get("room");
 
-    await db.$executeRaw`DELETE FROM agendas WHERE date < CURRENT_DATE`;
+    // PERHATIAN: Perintah DELETE otomatis (DELETE FROM agendas WHERE date < CURRENT_DATE)
+    // telah dihapus di sini agar data arsip/jadwal baru tidak terhapus otomatis oleh sistem.
 
     if (dateParam && roomParam) {
       const rows = await db.$queryRaw`
@@ -183,7 +184,7 @@ export async function POST(request: Request) {
   }
 }
 
-// 3. PUT: Update status dengan aman (hanya mengubah status & notes tanpa menyentuh tanggal)
+// 3. PUT: Update status dengan aman
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
@@ -205,7 +206,6 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: true, message: "Ditolak & dihapus" });
     }
 
-    // UPDATE paling minimalis & aman: Hanya memperbarui kolom status dan notes
     await db.$executeRaw`
       UPDATE agendas 
       SET status = ${safeStatus}, 
