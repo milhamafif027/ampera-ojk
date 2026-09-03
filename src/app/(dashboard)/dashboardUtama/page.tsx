@@ -124,8 +124,8 @@ export default function DashboardPage() {
   useEffect(() => {
     const initData = async () => {
       await Promise.resolve();
-
-      const storedUser = localStorage.getItem("local_user");
+      
+      const storedUser = sessionStorage.getItem("local_user");
       if (storedUser) {
         try {
           setUser(JSON.parse(storedUser));

@@ -20,9 +20,10 @@ import { getFilteredNavItems } from "@/lib/auth";
 import NotificationDropdown, {
   NotificationItem,
 } from "@/components/dashboard/NotificationDropdown";
+import { useAuth } from "@/hooks/useAuth";
 
 interface LocalUser {
-  id: number;
+  id: number | string;
   name: string;
   email: string;
   role: string;
@@ -36,6 +37,8 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { user: authUser, loading: authLoading, logout } = useAuth();
+
   const [user, setUser] = useState<LocalUser | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -50,24 +53,28 @@ export default function DashboardLayout({
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [hasUnread, setHasUnread] = useState(false);
 
-  // Cek Session User dari localStorage
+  // Cek Session User dari sessionStorage
   useEffect(() => {
-    const checkUserSession = async () => {
-      await Promise.resolve();
-      const storedUser = localStorage.getItem("local_user");
-      if (!storedUser) {
-        router.push("/login");
-      } else {
-        try {
-          setUser(JSON.parse(storedUser));
-        } catch (err) {
-          console.error("Gagal membaca session user:", err);
+    const timer = setTimeout(() => {
+      if (!authLoading) {
+        const storedUser = sessionStorage.getItem("local_user");
+        if (!storedUser && !authUser) {
           router.push("/login");
+        } else if (storedUser) {
+          try {
+            setUser(JSON.parse(storedUser));
+          } catch (err) {
+            console.error("Gagal membaca session user:", err);
+            router.push("/login");
+          }
+        } else if (authUser) {
+          setUser(authUser);
         }
       }
-    };
-    checkUserSession();
-  }, [router]);
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [authUser, authLoading, router]);
 
   // Fungsi Fetch Data Notifikasi dari Database
   const fetchNotifications = useCallback(async (currentUserData: LocalUser) => {
@@ -103,7 +110,7 @@ export default function DashboardLayout({
     }
   }, []);
 
-  // Panggil fetchNotifications saat user sudah siap (dengan pengaman async untuk linter)
+  // Panggil fetchNotifications saat user sudah siap
   useEffect(() => {
     if (!user) return;
     const timer = setTimeout(() => {
@@ -130,18 +137,27 @@ export default function DashboardLayout({
   };
 
   // Fungsi Logout dengan efek loading yang rapi
-  const handleConfirmLogout = () => {
+  const handleConfirmLogout = async () => {
     setIsLoggingOut(true);
-
-    setTimeout(() => {
-      localStorage.removeItem("local_user");
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Gagal keluar:", error);
+    } finally {
       setIsLoggingOut(false);
       setIsLogoutModalOpen(false);
-      router.push("/login");
-    }, 600);
+    }
   };
 
   const navItems = getFilteredNavItems(user?.role);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] flex items-center justify-center">
+        <Loader2 size={32} className="animate-spin text-[#9f1521]" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] text-slate-900 dark:text-slate-100 flex font-sans transition-colors duration-300 relative">
@@ -153,7 +169,7 @@ export default function DashboardLayout({
         />
       )}
 
-      {/* SIDEBAR (Responsive: Drawer di Mobile, Hoverable di Desktop) */}
+      {/* SIDEBAR */}
       <aside
         className={`fixed top-4 bottom-4 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 z-50 flex flex-col justify-between shadow-2xl rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-all duration-300 ease-out ${
           isMobileMenuOpen ? "left-4 w-[280px]" : "-left-80 lg:left-4"
@@ -355,7 +371,6 @@ export default function DashboardLayout({
         {/* HEADER */}
         <header className="h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 px-4 sm:px-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* Tombol Hamburger Menu Mobile */}
             <button
               onClick={() => setIsMobileMenuOpen(true)}
               className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 lg:hidden cursor-pointer"
@@ -376,7 +391,6 @@ export default function DashboardLayout({
               {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
-            {/* KOMPONEN NOTIFIKASI */}
             <NotificationDropdown
               isOpen={isNotifOpen}
               setIsOpen={setIsNotifOpen}

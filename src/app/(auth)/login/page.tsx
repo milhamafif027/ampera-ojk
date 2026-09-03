@@ -52,7 +52,7 @@ export default function LoginPage() {
         );
       }
 
-      localStorage.setItem("local_user", JSON.stringify(data.user));
+      sessionStorage.setItem("local_user", JSON.stringify(data.user));
       router.push("/dashboardUtama");
     } catch (err: any) {
       setIsLoading(false);
