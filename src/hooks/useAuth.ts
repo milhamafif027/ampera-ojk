@@ -3,11 +3,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
-const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 Menit dalam milidetik
+const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 Menit
 
 export function useAuth() {
   const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // State baru untuk menampilkan modal peringatan habis sesi
+  const [isSessionExpired, setIsSessionExpired] = useState<boolean>(false);
+
   const router = useRouter();
 
   const handleLogout = useCallback(async () => {
@@ -16,7 +20,7 @@ export function useAuth() {
     router.push("/login");
   }, [router]);
 
-  // Efek Inaktivitas 30 Menit (Auto-Logout)
+  // Efek Inaktivitas 30 Menit
   useEffect(() => {
     const stored = sessionStorage.getItem("local_user");
     if (!stored) return;
@@ -26,10 +30,8 @@ export function useAuth() {
     const resetTimer = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        alert(
-          "Sesi Anda telah habis karena tidak ada aktivitas selama 30 menit. Silakan login kembali.",
-        );
-        handleLogout();
+        // Alih-alih alert(), kita buka modal interaktif
+        setIsSessionExpired(true);
       }, INACTIVITY_LIMIT);
     };
 
@@ -49,29 +51,25 @@ export function useAuth() {
     };
   }, [handleLogout]);
 
-  // Cek Sesi SessionStorage dengan aman tanpa cascading render
   useEffect(() => {
     const timer = setTimeout(() => {
       const storedUser = sessionStorage.getItem("local_user");
       if (storedUser) {
         try {
-          const parsed = JSON.parse(storedUser);
-          setUser(parsed);
+          setUser(JSON.parse(storedUser));
         } catch (e) {
-          console.error("Gagal parse session user", e);
+          console.error("Gagal parse session", e);
         }
       }
       setLoading(false);
     }, 0);
-
     return () => clearTimeout(timer);
   }, []);
 
   return {
     user,
     loading,
-    isAdmin: user?.role === "admin",
-    isExternal: user?.role === "eksternal",
+    isSessionExpired, // Diekspor agar bisa dibaca di layout utama
     logout: handleLogout,
   };
 }
