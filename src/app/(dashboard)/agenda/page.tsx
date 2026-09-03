@@ -124,7 +124,10 @@ export default function AgendaPage() {
   useEffect(() => {
     const initData = async () => {
       await Promise.resolve();
-      const storedUser = localStorage.getItem("local_user");
+
+      // UBAH DARI localStorage MENJADI sessionStorage
+      const storedUser = sessionStorage.getItem("local_user");
+
       if (!storedUser) {
         router.push("/login");
         return;
