@@ -126,7 +126,8 @@ export default function BantuanPage() {
   // 1. Ambil Session User saat halaman dimuat
   useEffect(() => {
     const timer = setTimeout(() => {
-      const storedUser = localStorage.getItem("local_user");
+      // Diperbaiki menggunakan sessionStorage agar sinkron dengan modul lain
+      const storedUser = sessionStorage.getItem("local_user");
       if (storedUser) {
         try {
           setUser(JSON.parse(storedUser));

@@ -99,7 +99,8 @@ export default function PartnerPage() {
   useEffect(() => {
     const initData = async () => {
       await Promise.resolve();
-      const storedUser = localStorage.getItem("local_user");
+      // Diperbaiki menggunakan sessionStorage agar sinkron dengan modul lain
+      const storedUser = sessionStorage.getItem("local_user");
       if (storedUser) {
         try {
           setUser(JSON.parse(storedUser));
