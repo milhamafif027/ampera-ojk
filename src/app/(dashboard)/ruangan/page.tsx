@@ -162,7 +162,8 @@ export default function RuanganPage() {
 
   useEffect(() => {
     const initData = async () => {
-      const storedUser = localStorage.getItem("local_user");
+      // Diperbaiki menggunakan sessionStorage agar sinkron dengan auth layout
+      const storedUser = sessionStorage.getItem("local_user");
       if (storedUser) {
         try {
           setUser(JSON.parse(storedUser));
@@ -394,7 +395,7 @@ export default function RuanganPage() {
         </div>
       )}
 
-      {/* HEADER BAR - Responsive Perfect Alignment */}
+      {/* HEADER BAR */}
       <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -407,7 +408,6 @@ export default function RuanganPage() {
           </p>
         </div>
 
-        {/* Baris Tombol Aksi yang Responsif dan Rapi */}
         <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap sm:flex-nowrap justify-between">
           <button
             onClick={fetchData}
@@ -452,7 +452,7 @@ export default function RuanganPage() {
         />
       </div>
 
-      {/* SECTION 1: RUANGAN PERTEMUAN (SCROLL KE SAMPING) */}
+      {/* SECTION 1: RUANGAN PERTEMUAN */}
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
           <h2 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
@@ -516,7 +516,7 @@ export default function RuanganPage() {
         </div>
       </div>
 
-      {/* SECTION 2: RUANGAN RAPAT (SCROLL KE SAMPING) */}
+      {/* SECTION 2: RUANGAN RAPAT */}
       <div className="space-y-4 pt-4">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
           <h2 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">

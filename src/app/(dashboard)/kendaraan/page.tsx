@@ -185,7 +185,8 @@ export default function KendaraanPage() {
   useEffect(() => {
     const initData = async () => {
       await Promise.resolve();
-      const storedUser = localStorage.getItem("local_user");
+      // UBAH DARI localStorage MENJADI sessionStorage
+      const storedUser = sessionStorage.getItem("local_user");
       if (storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser);

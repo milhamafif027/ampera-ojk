@@ -30,7 +30,6 @@ export function useAuth() {
     const resetTimer = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        // Alih-alih alert(), kita buka modal interaktif
         setIsSessionExpired(true);
       }, INACTIVITY_LIMIT);
     };
@@ -49,7 +48,7 @@ export function useAuth() {
       clearTimeout(timeoutId);
       events.forEach((event) => window.removeEventListener(event, resetTimer));
     };
-  }, [handleLogout]);
+  }, []); // Kosongkan dependency jika timer cukup diinisialisasi sekali saat mount
 
   useEffect(() => {
     const timer = setTimeout(() => {
