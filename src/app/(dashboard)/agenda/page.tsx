@@ -76,7 +76,6 @@ export default function AgendaPage() {
             }
           }
 
-          // PERBAIKAN WAKTU: Pastikan aman dari format epoch / timestamp 1970
           let formattedTime = "";
           if (item.start_time && item.end_time) {
             const startStr = String(item.start_time);
@@ -98,7 +97,7 @@ export default function AgendaPage() {
             id: String(item.id),
             title: item.title,
             date: formattedDate,
-            time: formattedTime, // Waktu yang sudah dibersihkan
+            time: formattedTime,
             room: item.room_name || item.room || "Ruang Rapat OJK",
             pic: item.pic || "Pegawai OJK",
             dept: item.dept || "OJK Sumsel",
@@ -125,7 +124,6 @@ export default function AgendaPage() {
     const initData = async () => {
       await Promise.resolve();
 
-      // UBAH DARI localStorage MENJADI sessionStorage
       const storedUser = sessionStorage.getItem("local_user");
 
       if (!storedUser) {
@@ -270,7 +268,7 @@ export default function AgendaPage() {
           0: { halign: "center", cellWidth: 12 },
           6: { halign: "center", cellWidth: 35 },
         },
-        didDrawPage: (data: any) => {
+        didDrawPage: () => {
           doc.setFontSize(8);
           doc.text(
             `Halaman ${doc.getNumberOfPages()}`,
@@ -291,25 +289,17 @@ export default function AgendaPage() {
   const handleApprove = async (id: string) => {
     setActionLoadingId(id);
     try {
-      const selectedAgenda = agendas.find((a) => a.id === id);
-      if (!selectedAgenda) return;
-      const [startTime, endTime] = selectedAgenda.time.split(" - ");
       const res = await fetch("/api/agendas", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id,
-          title: selectedAgenda.title,
-          date: selectedAgenda.date,
-          start_time: startTime || "08:00",
-          end_time: endTime || "10:00",
-          pic: selectedAgenda.pic,
           status: "Disetujui",
         }),
       });
       if (res.ok) fetchAgendas();
     } catch (error) {
-      console.error(error);
+      console.error("Gagal menyetujui agenda:", error);
     } finally {
       setActionLoadingId(null);
     }
@@ -331,7 +321,7 @@ export default function AgendaPage() {
         setDeleteModal({ isOpen: false, agendaId: null, title: null });
       }
     } catch (error) {
-      console.error(error);
+      console.error("Gagal menghapus agenda:", error);
     } finally {
       setActionLoadingId(null);
     }

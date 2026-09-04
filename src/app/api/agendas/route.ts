@@ -15,9 +15,6 @@ export async function GET(request: Request) {
     const dateParam = searchParams.get("date");
     const roomParam = searchParams.get("room");
 
-    // PERHATIAN: Perintah DELETE otomatis (DELETE FROM agendas WHERE date < CURRENT_DATE)
-    // telah dihapus di sini agar data arsip/jadwal baru tidak terhapus otomatis oleh sistem.
-
     if (dateParam && roomParam) {
       const rows = await db.$queryRaw`
         SELECT id, title, pic, dept, phone, room_id, room_name, 
@@ -216,6 +213,38 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: true, message: "Agenda diperbarui" });
   } catch (error: any) {
     console.error("API PUT AGENDAS ERROR:", error);
+    return NextResponse.json(
+      { success: false, message: error.message || String(error) },
+      { status: 500 },
+    );
+  }
+}
+
+// 4. DELETE: Hapus data agenda secara permanen
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, message: "ID agenda diperlukan untuk menghapus." },
+        { status: 400 },
+      );
+    }
+
+    const agendaId = Number(id);
+
+    await db.$executeRaw`
+      DELETE FROM agendas WHERE id = ${agendaId}
+    `;
+
+    return NextResponse.json({
+      success: true,
+      message: "Agenda berhasil dihapus.",
+    });
+  } catch (error: any) {
+    console.error("API DELETE AGENDAS ERROR:", error);
     return NextResponse.json(
       { success: false, message: error.message || String(error) },
       { status: 500 },
