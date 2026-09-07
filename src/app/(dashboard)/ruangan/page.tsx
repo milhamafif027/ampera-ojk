@@ -106,7 +106,7 @@ export default function RuanganPage() {
           return {
             id: String(r.id),
             name: r.name,
-            capacity: String(r.capacity) + " Orang",
+            capacity: r.capacity || "30 Orang",
             type:
               r.type ||
               (r.name.toLowerCase().includes("ballroom")
@@ -162,7 +162,6 @@ export default function RuanganPage() {
 
   useEffect(() => {
     const initData = async () => {
-      // Diperbaiki menggunakan sessionStorage agar sinkron dengan auth layout
       const storedUser = sessionStorage.getItem("local_user");
       if (storedUser) {
         try {
@@ -238,6 +237,33 @@ export default function RuanganPage() {
     setIsEditModalOpen(true);
   };
 
+  const handleDeleteRoom = async (roomId: string | number) => {
+    try {
+      const res = await fetch(`/api/ruangan?id=${roomId}`, {
+        method: "DELETE",
+      });
+      const result = await res.json();
+      if (res.ok) {
+        await fetchData();
+        setCustomAlert({
+          isOpen: true,
+          title: "Berhasil!",
+          message: "Ruangan berhasil dihapus dari sistem.",
+          type: "success",
+        });
+      } else {
+        setCustomAlert({
+          isOpen: true,
+          title: "Gagal!",
+          message: result.error || "Gagal menghapus ruangan.",
+          type: "error",
+        });
+      }
+    } catch (error) {
+      console.error("Gagal menghapus ruangan:", error);
+    }
+  };
+
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingRoom) return;
@@ -263,7 +289,8 @@ export default function RuanganPage() {
     const formData = new FormData();
     if (editingRoom.id) formData.append("id", editingRoom.id);
     formData.append("name", editingRoom.name);
-    formData.append("capacity", editingRoom.capacity.replace(/\D/g, ""));
+    // Kapasitas dikirim utuh tanpa regex strip agar teks seperti rentang angka tetap aman
+    formData.append("capacity", editingRoom.capacity);
     formData.append("description", editingRoom.description || "");
     formData.append("type", editingRoom.type || "rapat");
     formData.append("floor", editingRoom.floor || "Lantai 2");
@@ -489,14 +516,14 @@ export default function RuanganPage() {
             [1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0"
+                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 w-[280px] sm:w-[320px] lg:w-[calc(33.333%-16px)] shrink-0"
               />
             ))
           ) : conferenceRooms.length > 0 ? (
             conferenceRooms.map((room: any) => (
               <div
                 key={room.id}
-                className="min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0 snap-start"
+                className="w-[280px] sm:w-[320px] lg:w-[calc(33.333%-16px)] shrink-0 snap-start"
               >
                 <RoomCard
                   room={room}
@@ -505,6 +532,7 @@ export default function RuanganPage() {
                   getRoomLiveStatus={getRoomLiveStatus}
                   handleOpenBooking={handleOpenBooking}
                   handleOpenEditModal={handleOpenEditModal}
+                  handleDeleteRoom={handleDeleteRoom}
                 />
               </div>
             ))
@@ -553,14 +581,14 @@ export default function RuanganPage() {
             [1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0"
+                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 w-[280px] sm:w-[320px] lg:w-[calc(33.333%-16px)] shrink-0"
               />
             ))
           ) : meetingRooms.length > 0 ? (
             meetingRooms.map((room: any) => (
               <div
                 key={room.id}
-                className="min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0 snap-start"
+                className="w-[280px] sm:w-[320px] lg:w-[calc(33.333%-16px)] shrink-0 snap-start"
               >
                 <RoomCard
                   room={room}
@@ -569,6 +597,7 @@ export default function RuanganPage() {
                   getRoomLiveStatus={getRoomLiveStatus}
                   handleOpenBooking={handleOpenBooking}
                   handleOpenEditModal={handleOpenEditModal}
+                  handleDeleteRoom={handleDeleteRoom}
                 />
               </div>
             ))
@@ -620,7 +649,7 @@ export default function RuanganPage() {
                   }
                   required
                   disabled={isSubmitting}
-                  placeholder="Contoh: Ruang Rapat Merdeka"
+                  placeholder="Contoh: Ballroom Sriwidjaja"
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] disabled:opacity-50"
                 />
               </div>
@@ -641,7 +670,7 @@ export default function RuanganPage() {
                     }
                     required
                     disabled={isSubmitting}
-                    placeholder="Contoh: 30 Orang"
+                    placeholder="Contoh: 80 - 500 Orang"
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] disabled:opacity-50"
                   />
                 </div>
@@ -670,7 +699,7 @@ export default function RuanganPage() {
                   Fasilitas / Deskripsi
                 </label>
                 <textarea
-                  rows={2}
+                  rows={3}
                   value={editingRoom.description || ""}
                   disabled={isSubmitting}
                   onChange={(e) =>
@@ -679,7 +708,7 @@ export default function RuanganPage() {
                       description: e.target.value,
                     })
                   }
-                  placeholder="Contoh: Perlengkapan: Proyektor | Sound System"
+                  placeholder="Kapasitas disesuaikan dengan layout yakni Theater (500 Orang), dll..."
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] disabled:opacity-50"
                 />
               </div>

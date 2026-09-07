@@ -53,8 +53,8 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     const name = String(formData.get("name") || "");
 
-    const rawCapacity = formData.get("capacity") || "0";
-    const capacity = parseInt(String(rawCapacity).replace(/\D/g, "")) || 0;
+    // Kapasitas diambil utuh sebagai string (mendukung teks dan rentang angka)
+    const capacity = String(formData.get("capacity") || "30 Orang");
 
     const description = String(formData.get("description") || "");
     const type = String(formData.get("type") || "rapat");
@@ -99,7 +99,6 @@ export async function PUT(req: Request) {
     const formData = await req.formData();
     const id = formData.get("id");
 
-    // Validasi keberadaan ID untuk mencegah update data yang salah
     if (!id) {
       return NextResponse.json(
         {
@@ -112,15 +111,15 @@ export async function PUT(req: Request) {
 
     const roomId = Number(id);
     const name = String(formData.get("name") || "");
-    const rawCapacity = formData.get("capacity") || "0";
-    const capacity = parseInt(String(rawCapacity).replace(/\D/g, "")) || 0;
+
+    // Kapasitas diambil utuh sebagai string (mendukung teks dan rentang angka)
+    const capacity = String(formData.get("capacity") || "30 Orang");
 
     const description = String(formData.get("description") || "");
     const type = String(formData.get("type") || "rapat");
     const floor = String(formData.get("floor") || "Lantai 2");
     const status = String(formData.get("status") || "Tersedia");
 
-    // Ambil gambar lama yang dipertahankan dari frontend
     const existingImgsRaw = formData.get("existingImgs");
     let savedImageUrls: string[] = [];
     if (existingImgsRaw) {
@@ -131,7 +130,6 @@ export async function PUT(req: Request) {
       }
     }
 
-    // Tambahkan gambar baru (jika ada yang di-upload)
     const newImageUrls = await handleImageUploads(formData);
     savedImageUrls = [...savedImageUrls, ...newImageUrls];
 
