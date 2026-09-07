@@ -79,7 +79,7 @@ export default function Hero() {
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 leading-[1.15] tracking-tight">
             AMPERA <br />
             <span className="text-[#9f1521] text-2xl sm:text-3xl lg:text-4xl">
-              Aplikasi Manajemen Peminjaman Ruangan & Kendaraan
+              Aplikasi Manajemen Peminjaman Ruangan & Kendaraan Dinas
             </span>
           </h1>
 
