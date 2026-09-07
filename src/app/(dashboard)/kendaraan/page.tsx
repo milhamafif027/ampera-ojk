@@ -16,6 +16,8 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import VehicleCard from "@/components/dashboard/VehicleCard";
@@ -111,6 +113,15 @@ export default function KendaraanPage() {
   });
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
 
+  // State Modal Konfirmasi Hapus Pengajuan Kendaraan
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    bookingId: string | null;
+    vehicleName: string;
+    borrowerName: string;
+  }>({ isOpen: false, bookingId: null, vehicleName: "", borrowerName: "" });
+  const [isDeletingBooking, setIsDeletingBooking] = useState(false);
+
   // State Modal Sukses & Pesannya
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -185,7 +196,6 @@ export default function KendaraanPage() {
   useEffect(() => {
     const initData = async () => {
       await Promise.resolve();
-      // UBAH DARI localStorage MENJADI sessionStorage
       const storedUser = sessionStorage.getItem("local_user");
       if (storedUser) {
         try {
@@ -209,7 +219,6 @@ export default function KendaraanPage() {
   const filteredVehicles = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
 
-    // 1. Hitung status ketersediaan berdasarkan jadwal booking aktif
     let list = vehicles.map((v) => {
       const isBooked = bookings.some(
         (b) =>
@@ -230,7 +239,6 @@ export default function KendaraanPage() {
       };
     });
 
-    // 2. Filter berdasarkan tab jenis kendaraan (Semua / Mobil / Sepeda Motor)
     if (filterType !== "Semua") {
       list = list.filter((v) => {
         const isMotorcycle =
@@ -503,6 +511,49 @@ export default function KendaraanPage() {
     }
   };
 
+  // Fungsi untuk Membuka Modal Konfirmasi Hapus
+  const handleOpenDeleteModal = (
+    id: string | number,
+    vehicleName: string,
+    borrowerName: string,
+  ) => {
+    setDeleteModal({
+      isOpen: true,
+      bookingId: String(id),
+      vehicleName,
+      borrowerName,
+    });
+  };
+
+  // Fungsi Eksekusi Hapus Data Booking Kendaraan
+  const handleConfirmDelete = async () => {
+    if (!deleteModal.bookingId) return;
+
+    setIsDeletingBooking(true);
+    try {
+      const res = await fetch(`/api/kendaraan?id=${deleteModal.bookingId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Gagal menghapus pengajuan kendaraan");
+
+      setDeleteModal({
+        isOpen: false,
+        bookingId: null,
+        vehicleName: "",
+        borrowerName: "",
+      });
+      setSuccessMessage("Pengajuan peminjaman kendaraan berhasil dihapus.");
+      setShowSuccessModal(true);
+      fetchVehicleData();
+    } catch (error) {
+      console.error(error);
+      alert("Gagal menghapus data pengajuan.");
+    } finally {
+      setIsDeletingBooking(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -709,24 +760,36 @@ export default function KendaraanPage() {
                     </td>
                     {isAdmin && (
                       <td className="p-3 text-center whitespace-nowrap">
-                        {b.status === "Pending" ? (
+                        <div className="flex items-center justify-center gap-1.5">
+                          {b.status === "Pending" && (
+                            <button
+                              onClick={() =>
+                                handleOpenApprovalModal(
+                                  b.id,
+                                  b.vehicleName,
+                                  b.userId,
+                                )
+                              }
+                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-sm transition-colors cursor-pointer"
+                            >
+                              Setujui
+                            </button>
+                          )}
+                          {/* Tombol Hapus Pengajuan Kendaraan untuk Admin */}
                           <button
                             onClick={() =>
-                              handleOpenApprovalModal(
+                              handleOpenDeleteModal(
                                 b.id,
                                 b.vehicleName,
-                                b.userId,
+                                b.borrower,
                               )
                             }
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-sm transition-colors cursor-pointer"
+                            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 rounded-xl transition-colors cursor-pointer"
+                            title="Hapus Pengajuan"
                           >
-                            Setujui
+                            <Trash2 size={15} />
                           </button>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 font-bold">
-                            Selesai Diverifikasi
-                          </span>
-                        )}
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -1007,6 +1070,64 @@ export default function KendaraanPage() {
                 </button>
               </div>
             </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* MODAL KONFIRMASI HAPUS PENGAJUAN KENDARAAN */}
+      {deleteModal.isOpen && isAdmin && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl text-center space-y-4"
+          >
+            <div className="w-14 h-14 bg-rose-100 dark:bg-rose-900/40 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+              <AlertTriangle size={28} />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-slate-900 dark:text-white">
+                Hapus Pengajuan Kendaraan?
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Tindakan ini akan menghapus permanen data peminjaman{" "}
+                <strong className="text-slate-800 dark:text-slate-200">
+                  {deleteModal.vehicleName}
+                </strong>{" "}
+                oleh{" "}
+                <strong className="text-slate-800 dark:text-slate-200">
+                  {deleteModal.borrowerName}
+                </strong>
+                . Apakah Anda yakin?
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeletingBooking}
+                onClick={() =>
+                  setDeleteModal({
+                    isOpen: false,
+                    bookingId: null,
+                    vehicleName: "",
+                    borrowerName: "",
+                  })
+                }
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingBooking}
+                onClick={handleConfirmDelete}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-75"
+              >
+                {isDeletingBooking ? "Menghapus..." : "Ya, Hapus"}
+              </button>
+            </div>
           </motion.div>
         </div>
       )}

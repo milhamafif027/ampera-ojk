@@ -270,3 +270,33 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// 4. DELETE: Menghapus data pengajuan peminjaman kendaraan berdasarkan ID
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, message: "ID pengajuan kendaraan diperlukan" },
+        { status: 400 },
+      );
+    }
+
+    await db.$executeRaw`
+      DELETE FROM vehicle_bookings WHERE id = ${Number(id)}
+    `;
+
+    return NextResponse.json({
+      success: true,
+      message: "Pengajuan kendaraan berhasil dihapus",
+    });
+  } catch (error: any) {
+    console.error("DELETE Kendaraan Error:", error);
+    return NextResponse.json(
+      { success: false, message: error.message || "Gagal menghapus data" },
+      { status: 500 },
+    );
+  }
+}

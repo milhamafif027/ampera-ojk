@@ -23,8 +23,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 
 interface LocalUser {
@@ -41,27 +39,6 @@ export default function RuanganPage() {
   const [agendas, setAgendas] = useState<Agenda[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-
-  // Refs untuk Scroll Horizontal Carousel
-  const conferenceScrollRef = useRef<HTMLDivElement>(null);
-  const meetingScrollRef = useRef<HTMLDivElement>(null);
-
-  const scrollContainer = (
-    ref: React.RefObject<HTMLDivElement | null>,
-    direction: "left" | "right",
-  ) => {
-    if (ref.current) {
-      const { scrollLeft, clientWidth } = ref.current;
-      const scrollAmount = clientWidth * 0.75;
-      ref.current.scrollTo({
-        left:
-          direction === "left"
-            ? scrollLeft - scrollAmount
-            : scrollLeft + scrollAmount,
-        behavior: "smooth",
-      });
-    }
-  };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
@@ -177,13 +154,18 @@ export default function RuanganPage() {
 
   const isAdmin = user?.role === "admin";
 
+  // Mengurutkan ruangan secara alfabetis (A-Z) berdasarkan nama ruangan
+  const sortedRooms = useMemo(() => {
+    return [...rooms].sort((a, b) => a.name.localeCompare(b.name));
+  }, [rooms]);
+
   const filteredRooms = useMemo(() => {
-    return rooms.filter(
+    return sortedRooms.filter(
       (r) =>
         r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.capacity.toLowerCase().includes(searchTerm.toLowerCase()),
     );
-  }, [rooms, searchTerm]);
+  }, [sortedRooms, searchTerm]);
 
   const conferenceRooms = useMemo(
     () => filteredRooms.filter((r: any) => r.type === "pertemuan"),
@@ -289,7 +271,6 @@ export default function RuanganPage() {
     const formData = new FormData();
     if (editingRoom.id) formData.append("id", editingRoom.id);
     formData.append("name", editingRoom.name);
-    // Kapasitas dikirim utuh tanpa regex strip agar teks seperti rentang angka tetap aman
     formData.append("capacity", editingRoom.capacity);
     formData.append("description", editingRoom.description || "");
     formData.append("type", editingRoom.type || "rapat");
@@ -486,44 +467,22 @@ export default function RuanganPage() {
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
             Ruangan Pertemuan ({conferenceRooms.length})
           </h2>
-
-          {!isLoading && conferenceRooms.length > 0 && (
-            <div className="hidden sm:flex items-center gap-1.5">
-              <button
-                onClick={() => scrollContainer(conferenceScrollRef, "left")}
-                className="p-1.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer"
-                title="Geser Kiri"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                onClick={() => scrollContainer(conferenceScrollRef, "right")}
-                className="p-1.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer"
-                title="Geser Kanan"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          )}
         </div>
 
-        <div
-          ref={conferenceScrollRef}
-          className="flex gap-4 sm:gap-6 overflow-x-auto custom-scrollbar pb-4 snap-x snap-mandatory scroll-smooth"
-          style={{ scrollbarWidth: "thin" }}
-        >
+        {/* Responsive: Scroll horizontal di HP, Grid 3 kolom ke bawah di Desktop */}
+        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 overflow-x-auto sm:overflow-x-visible custom-scrollbar pb-4 sm:pb-0 snap-x sm:snap-none snap-mandatory">
           {isLoading ? (
             [1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 w-[280px] sm:w-[320px] lg:w-[calc(33.333%-16px)] shrink-0"
+                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 w-[280px] sm:w-full shrink-0"
               />
             ))
           ) : conferenceRooms.length > 0 ? (
             conferenceRooms.map((room: any) => (
               <div
                 key={room.id}
-                className="w-[280px] sm:w-[320px] lg:w-[calc(33.333%-16px)] shrink-0 snap-start"
+                className="w-[280px] sm:w-full shrink-0 sm:shrink snap-start"
               >
                 <RoomCard
                   room={room}
@@ -537,7 +496,7 @@ export default function RuanganPage() {
               </div>
             ))
           ) : (
-            <div className="w-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
+            <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
               Tidak ada data ruangan pertemuan di database.
             </div>
           )}
@@ -551,44 +510,22 @@ export default function RuanganPage() {
             <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
             Ruangan Rapat ({meetingRooms.length})
           </h2>
-
-          {!isLoading && meetingRooms.length > 0 && (
-            <div className="hidden sm:flex items-center gap-1.5">
-              <button
-                onClick={() => scrollContainer(meetingScrollRef, "left")}
-                className="p-1.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer"
-                title="Geser Kiri"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                onClick={() => scrollContainer(meetingScrollRef, "right")}
-                className="p-1.5 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer"
-                title="Geser Kanan"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          )}
         </div>
 
-        <div
-          ref={meetingScrollRef}
-          className="flex gap-4 sm:gap-6 overflow-x-auto custom-scrollbar pb-4 snap-x snap-mandatory scroll-smooth"
-          style={{ scrollbarWidth: "thin" }}
-        >
+        {/* Responsive: Scroll horizontal di HP, Grid 3 kolom ke bawah di Desktop */}
+        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 overflow-x-auto sm:overflow-x-visible custom-scrollbar pb-4 sm:pb-0 snap-x sm:snap-none snap-mandatory">
           {isLoading ? (
             [1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 w-[280px] sm:w-[320px] lg:w-[calc(33.333%-16px)] shrink-0"
+                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 w-[280px] sm:w-full shrink-0"
               />
             ))
           ) : meetingRooms.length > 0 ? (
             meetingRooms.map((room: any) => (
               <div
                 key={room.id}
-                className="w-[280px] sm:w-[320px] lg:w-[calc(33.333%-16px)] shrink-0 snap-start"
+                className="w-[280px] sm:w-full shrink-0 sm:shrink snap-start"
               >
                 <RoomCard
                   room={room}
@@ -602,7 +539,7 @@ export default function RuanganPage() {
               </div>
             ))
           ) : (
-            <div className="w-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
+            <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
               Tidak ada data ruangan rapat di database.
             </div>
           )}
