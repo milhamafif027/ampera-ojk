@@ -61,7 +61,7 @@ export default function KendaraanPage() {
   const [bookings, setBookings] = useState<VehicleBooking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Ref untuk Scroll Horizontal Katalog Kendaraan
+  // Ref untuk Scroll Horizontal Katalog Kendaraan (Khusus Mobile)
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scrollVehicles = (direction: "left" | "right") => {
@@ -215,7 +215,7 @@ export default function KendaraanPage() {
     initData();
   }, [fetchVehicleData]);
 
-  // Kalkulasi Status Dinamis & Filter Jenis Kendaraan (Mobil / Motor)
+  // Kalkulasi Status Dinamis & Filter Jenis Kendaraan (Hanya untuk Katalog Kartu Kendaraan)
   const filteredVehicles = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
 
@@ -243,6 +243,7 @@ export default function KendaraanPage() {
       list = list.filter((v) => {
         const isMotorcycle =
           v.capacity.toLowerCase().includes("motor") ||
+          v.name.toLowerCase().includes("motor") ||
           v.name.toLowerCase().includes("stylo") ||
           v.name.toLowerCase().includes("cb 150");
 
@@ -270,6 +271,7 @@ export default function KendaraanPage() {
     );
   }, [user]);
 
+  // Filter untuk Tabel Daftar Pengajuan (TIDAK TERPENGARUH sama sekali oleh filterType kendaraan di atas)
   const filteredBookings = useMemo(() => {
     if (!bookings) return [];
     if (isExternalUser && user) {
@@ -511,7 +513,6 @@ export default function KendaraanPage() {
     }
   };
 
-  // Fungsi untuk Membuka Modal Konfirmasi Hapus
   const handleOpenDeleteModal = (
     id: string | number,
     vehicleName: string,
@@ -525,7 +526,6 @@ export default function KendaraanPage() {
     });
   };
 
-  // Fungsi Eksekusi Hapus Data Booking Kendaraan
   const handleConfirmDelete = async () => {
     if (!deleteModal.bookingId) return;
 
@@ -578,7 +578,7 @@ export default function KendaraanPage() {
         }
       `}</style>
 
-      {/* HEADER BAR - Responsive Perfect Alignment */}
+      {/* HEADER BAR */}
       <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -591,7 +591,6 @@ export default function KendaraanPage() {
           </p>
         </div>
 
-        {/* Baris Tombol Aksi yang Responsif dan Rapi */}
         <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap sm:flex-nowrap justify-between">
           <div className="flex items-center gap-2">
             <button
@@ -604,9 +603,8 @@ export default function KendaraanPage() {
                 className={isLoading ? "animate-spin" : ""}
               />
             </button>
-            {/* Tombol Navigasi Geser Kiri / Kanan untuk Carousel di Desktop */}
             {!isLoading && filteredVehicles.length > 0 && (
-              <div className="hidden sm:flex items-center gap-1.5">
+              <div className="hidden sm:flex lg:hidden items-center gap-1.5">
                 <button
                   onClick={() => scrollVehicles("left")}
                   className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
@@ -662,24 +660,24 @@ export default function KendaraanPage() {
         ))}
       </div>
 
-      {/* KATALOG ARMADA KENDARAAN (SCROLL KE SAMPING / HORIZONTAL CAROUSEL) */}
+      {/* KATALOG ARMADA KENDARAAN (RESPONSIF: Scroll Horizontal di HP, Grid Maksimal 3 Kolom di Desktop) */}
       <div
         ref={scrollRef}
-        className="flex gap-6 overflow-x-auto custom-scrollbar pb-4 snap-x snap-mandatory scroll-smooth"
+        className="flex lg:grid lg:grid-cols-3 gap-6 overflow-x-auto lg:overflow-x-visible custom-scrollbar pb-4 lg:pb-0 snap-x lg:snap-none snap-mandatory scroll-smooth"
         style={{ scrollbarWidth: "thin" }}
       >
         {isLoading ? (
           [1, 2, 3].map((n) => (
             <div
               key={n}
-              className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0"
+              className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 min-w-[280px] sm:min-w-[340px] lg:min-w-0 shrink-0"
             />
           ))
         ) : filteredVehicles.length > 0 ? (
           filteredVehicles.map((vehicle) => (
             <div
               key={vehicle.id}
-              className="min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0 snap-start optimize-card-render"
+              className="min-w-[280px] sm:min-w-[340px] lg:min-w-0 shrink-0 lg:shrink snap-start optimize-card-render"
             >
               <VehicleCard
                 vehicle={vehicle}
@@ -691,13 +689,13 @@ export default function KendaraanPage() {
             </div>
           ))
         ) : (
-          <div className="w-full py-12 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="col-span-full py-12 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
             Tidak ada data kendaraan untuk kategori ini.
           </div>
         )}
       </div>
 
-      {/* RIWAYAT & PENGAJUAN KENDARAAN */}
+      {/* RIWAYAT & PENGAJUAN KENDARAAN (TIDAK TERPENGARUH FILTER KATEGORI DI ATAS) */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
         <h2 className="font-bold text-slate-800 dark:text-white text-base border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
           <Calendar size={18} className="text-[#9f1521]" /> Daftar Pengajuan
@@ -775,7 +773,6 @@ export default function KendaraanPage() {
                               Setujui
                             </button>
                           )}
-                          {/* Tombol Hapus Pengajuan Kendaraan untuk Admin */}
                           <button
                             onClick={() =>
                               handleOpenDeleteModal(
