@@ -39,7 +39,7 @@ export default function PartnerPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<LocalUser | null>(null);
 
-  // Ref untuk Scroll Horizontal Carousel Hotel Rekanan
+  // Ref untuk Scroll Horizontal Carousel Hotel Rekanan (Hanya aktif di mobile/HP)
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scrollPartners = (direction: "left" | "right") => {
@@ -99,7 +99,6 @@ export default function PartnerPage() {
   useEffect(() => {
     const initData = async () => {
       await Promise.resolve();
-      // Diperbaiki menggunakan sessionStorage agar sinkron dengan modul lain
       const storedUser = sessionStorage.getItem("local_user");
       if (storedUser) {
         try {
@@ -288,7 +287,7 @@ export default function PartnerPage() {
                 className={isLoading ? "animate-spin" : ""}
               />
             </button>
-            {/* Tombol Navigasi Geser Kiri / Kanan untuk Carousel */}
+            {/* Tombol Navigasi Geser Kiri / Kanan untuk Carousel di Mobile */}
             {!isLoading && filteredPartners.length > 0 && (
               <div className="hidden sm:flex items-center gap-1.5">
                 <button
@@ -337,24 +336,24 @@ export default function PartnerPage() {
         />
       </div>
 
-      {/* GRID / CAROUSEL KATALOG HOTEL REKANAN (SCROLL KE SAMPING) */}
+      {/* GRID / CAROUSEL KATALOG HOTEL REKANAN (RESPONSIF) */}
       <div
         ref={scrollRef}
-        className="flex gap-6 overflow-x-auto custom-scrollbar pb-4 snap-x snap-mandatory scroll-smooth"
+        className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-6 overflow-x-auto sm:overflow-x-visible custom-scrollbar pb-4 sm:pb-0 snap-x sm:snap-none snap-mandatory"
         style={{ scrollbarWidth: "thin" }}
       >
         {isLoading ? (
           [1, 2, 3].map((n) => (
             <div
               key={n}
-              className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0"
+              className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 w-[280px] sm:w-full shrink-0"
             />
           ))
         ) : filteredPartners.length > 0 ? (
           filteredPartners.map((hotel) => (
             <div
               key={hotel.id}
-              className="min-w-[280px] sm:min-w-[340px] max-w-[360px] shrink-0 snap-start"
+              className="w-[280px] sm:w-full shrink-0 sm:shrink snap-start"
             >
               <CardPartner
                 hotel={hotel}
@@ -365,7 +364,7 @@ export default function PartnerPage() {
             </div>
           ))
         ) : (
-          <div className="w-full py-12 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="col-span-full py-12 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
             Tidak ditemukan hotel rekanan yang sesuai dengan pencarian.
           </div>
         )}
