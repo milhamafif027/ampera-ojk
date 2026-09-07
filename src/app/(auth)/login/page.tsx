@@ -64,16 +64,16 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen w-full flex items-center justify-center bg-slate-100 p-4 sm:p-6 lg:p-10 font-sans selection:bg-[#9f1521] selection:text-white">
-      {/* Container Utama Berbentuk Kartu Besar */}
+    <main className="min-h-screen w-full flex items-center justify-center bg-slate-100 p-4 sm:p-6 font-sans selection:bg-[#9f1521] selection:text-white overflow-y-auto">
+      {/* Container Utama Berbentuk Kartu Fleksibel Menyesuaikan Layar */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
-        className="w-full max-w-6xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[680px] border border-slate-200/60"
+        className="w-full max-w-5xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 border border-slate-200/60 my-auto"
       >
         {/* SISI KIRI: Form Login (Lebar 6 Kolom) */}
-        <div className="lg:col-span-6 p-8 sm:p-12 flex flex-col justify-between relative">
+        <div className="lg:col-span-6 p-6 sm:p-10 lg:p-12 flex flex-col justify-between relative">
           {/* Tombol Kembali */}
           <div>
             <Link
@@ -89,8 +89,8 @@ export default function LoginPage() {
           </div>
 
           {/* Konten Form */}
-          <div className="my-auto py-8 max-w-md w-full mx-auto">
-            <div className="relative h-16 w-32 mb-6">
+          <div className="my-auto py-6 max-w-md w-full mx-auto">
+            <div className="relative h-14 w-28 mb-4">
               <Image
                 src="/logo-lms.png"
                 alt="Logo OJK"
@@ -100,10 +100,10 @@ export default function LoginPage() {
               />
             </div>
 
-            <h2 className="text-3xl font-black text-slate-900 mb-1 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-1 tracking-tight">
               Selamat Datang Kembali
             </h2>
-            <p className="text-slate-500 mb-8 text-xs font-medium">
+            <p className="text-slate-500 mb-6 text-xs font-medium">
               Silakan masuk menggunakan kredensial akun pegawai AMPERA
             </p>
 
@@ -202,18 +202,17 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* SISI KANAN: Visual Gambar dengan Bentuk Lekukan Lembut Estetik */}
-        <div className="hidden lg:col-span-6 lg:flex relative p-6 items-center justify-center">
+        {/* SISI KANAN: Visual Gambar Menyesuaikan Otomatis */}
+        <div className="hidden lg:col-span-6 lg:flex relative p-4 items-center justify-center">
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.7, delay: 0.2 }}
-            className="relative w-full h-full min-h-[620px] overflow-hidden shadow-xl"
+            className="relative w-full h-full min-h-[520px] lg:min-h-[580px] overflow-hidden shadow-xl"
             style={{
-              // Menggunakan kombinasi border-radius melengkung organik yang luwes
-              borderRadius: "2.5rem",
+              borderRadius: "2rem",
               clipPath:
-                "path('M 0 60 C 0 20, 20 0, 60 0 L 100% 0 L 100% 100% L 0 100% Z')",
+                "path('M 0 50 C 0 20, 20 0, 50 0 L 100% 0 L 100% 100% L 0 100% Z')",
             }}
           >
             <Image
@@ -224,11 +223,11 @@ export default function LoginPage() {
               className="object-cover object-center transform hover:scale-105 transition-transform duration-1000"
             />
             {/* Gradien Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent flex flex-col justify-end p-10 text-white">
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent flex flex-col justify-end p-8 text-white">
               <span className="text-[10px] font-extrabold text-rose-300 uppercase tracking-widest mb-1">
                 Kantor OJK Provinsi Sumatera Selatan
               </span>
-              <h3 className="text-2xl font-black mb-2 tracking-tight">
+              <h3 className="text-xl sm:text-2xl font-black mb-2 tracking-tight">
                 AMPERA Portal Pegawai
               </h3>
               <p className="text-xs text-slate-200 font-medium leading-relaxed max-w-md">
