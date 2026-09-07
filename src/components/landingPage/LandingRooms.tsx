@@ -79,9 +79,9 @@ export default function LandingRooms({
               DATABASE SYNC
             </div>
 
-            {/* Tombol Navigasi Geser Kiri / Kanan */}
+            {/* Tombol Navigasi Geser Kiri / Kanan (Hanya tampil di mobile/tablet) */}
             {!isLoading && rooms.length > 0 && (
-              <div className="hidden sm:flex items-center gap-1.5">
+              <div className="hidden sm:flex lg:hidden items-center gap-1.5">
                 <button
                   onClick={() => scroll("left")}
                   className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
@@ -101,17 +101,17 @@ export default function LandingRooms({
           </div>
         </div>
 
-        {/* Wadah Scroll Horizontal */}
+        {/* Wadah Tampilan: Scroll horizontal di HP/Tablet, Grid maksimal 3 kolom ke bawah di Desktop */}
         <div
           ref={scrollRef}
-          className="flex gap-6 overflow-x-auto custom-scrollbar pb-4 snap-x snap-mandatory scroll-smooth"
+          className="flex lg:grid lg:grid-cols-3 gap-6 overflow-x-auto lg:overflow-x-visible custom-scrollbar pb-4 lg:pb-0 snap-x lg:snap-none snap-mandatory"
           style={{ scrollbarWidth: "thin" }}
         >
           {isLoading ? (
             [1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="rounded-3xl bg-slate-100 animate-pulse h-64 min-w-[300px] sm:min-w-[420px] shrink-0"
+                className="rounded-3xl bg-slate-100 animate-pulse h-64 min-w-[300px] sm:min-w-[420px] lg:min-w-0 shrink-0"
               />
             ))
           ) : rooms.length > 0 ? (
@@ -133,9 +133,9 @@ export default function LandingRooms({
               return (
                 <div
                   key={room.id}
-                  className="group bg-slate-50/60 hover:bg-white border border-slate-200/90 hover:border-[#9f1521]/40 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col sm:flex-row min-w-[300px] sm:min-w-[480px] max-w-[520px] shrink-0 snap-start"
+                  className="group bg-slate-50/60 hover:bg-white border border-slate-200/90 hover:border-[#9f1521]/40 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col sm:flex-row lg:flex-col min-w-[300px] sm:min-w-[480px] lg:min-w-0 max-w-[520px] lg:max-w-none shrink-0 lg:shrink snap-start"
                 >
-                  <div className="sm:w-2/5 h-48 sm:h-auto relative overflow-hidden bg-slate-200 shrink-0">
+                  <div className="sm:w-2/5 lg:w-full h-48 sm:h-auto lg:h-48 relative overflow-hidden bg-slate-200 shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={roomThumb}
@@ -151,9 +151,9 @@ export default function LandingRooms({
                     </div>
                   </div>
 
-                  <div className="sm:w-3/5 p-5 sm:p-6 flex flex-col justify-between space-y-4">
+                  <div className="sm:w-3/5 lg:w-full p-5 sm:p-6 flex flex-col justify-between space-y-4">
                     <div className="space-y-2">
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                      <div className="flex flex-col sm:flex-row lg:flex-col sm:justify-between sm:items-start lg:items-stretch gap-2">
                         <h4
                           className="font-black text-slate-900 text-base md:text-lg group-hover:text-[#9f1521] transition-colors leading-snug truncate"
                           title={room.name}
@@ -177,7 +177,7 @@ export default function LandingRooms({
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-bold text-slate-500">
+                    <div className="pt-3 border-t border-slate-200/60 flex flex-col sm:flex-row lg:flex-row sm:items-center justify-between gap-1 text-xs font-bold text-slate-500">
                       <span className="truncate">Gedung Kantor OJK Sumsel</span>
                       <span className="text-[#9f1521] group-hover:underline shrink-0">
                         Reservasi →
@@ -188,7 +188,7 @@ export default function LandingRooms({
               );
             })
           ) : (
-            <div className="w-full py-16 text-center text-xs text-slate-400 font-medium italic bg-slate-50 rounded-3xl border border-slate-200">
+            <div className="col-span-full py-16 text-center text-xs text-slate-400 font-medium italic bg-slate-50 rounded-3xl border border-slate-200">
               Belum ada data ruangan yang tersedia di database.
             </div>
           )}

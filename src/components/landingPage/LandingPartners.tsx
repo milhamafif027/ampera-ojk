@@ -48,9 +48,9 @@ export default function LandingPartners({
             </h2>
           </div>
 
-          {/* Tombol Navigasi Geser Kiri / Kanan */}
+          {/* Tombol Navigasi Geser Kiri / Kanan (Hanya tampil di mobile/tablet) */}
           {!isLoading && partners.length > 0 && (
-            <div className="hidden sm:flex items-center gap-1.5">
+            <div className="hidden sm:flex lg:hidden items-center gap-1.5">
               <button
                 onClick={() => scroll("left")}
                 className="p-2 rounded-xl bg-white hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer shadow-sm"
@@ -69,17 +69,17 @@ export default function LandingPartners({
           )}
         </div>
 
-        {/* Wadah Scroll Horizontal */}
+        {/* Wadah Tampilan: Scroll horizontal di HP/Tablet, Grid maksimal 3 kolom ke bawah di Desktop */}
         <div
           ref={scrollRef}
-          className="flex gap-4 sm:gap-6 overflow-x-auto custom-scrollbar pb-4 snap-x snap-mandatory scroll-smooth"
+          className="flex lg:grid lg:grid-cols-3 gap-4 sm:gap-6 overflow-x-auto lg:overflow-x-visible custom-scrollbar pb-4 lg:pb-0 snap-x lg:snap-none snap-mandatory scroll-smooth"
           style={{ scrollbarWidth: "thin" }}
         >
           {isLoading ? (
             [1, 2, 3, 4].map((n) => (
               <div
                 key={n}
-                className="bg-white rounded-2xl h-64 animate-pulse border border-slate-200 min-w-[260px] sm:min-w-[280px] max-w-[300px] shrink-0"
+                className="bg-white rounded-2xl h-64 animate-pulse border border-slate-200 min-w-[260px] sm:min-w-[280px] lg:min-w-0 max-w-[300px] lg:max-w-none shrink-0"
               />
             ))
           ) : partners.length > 0 ? (
@@ -88,7 +88,7 @@ export default function LandingPartners({
                 variants={itemVariants}
                 whileHover={{ y: -6, scale: 1.02 }}
                 key={h.id || i}
-                className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between transition-shadow hover:shadow-xl min-w-[260px] sm:min-w-[280px] max-w-[300px] shrink-0 snap-start"
+                className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between transition-shadow hover:shadow-xl min-w-[260px] sm:min-w-[280px] lg:min-w-0 max-w-[300px] lg:max-w-none shrink-0 lg:shrink snap-start"
               >
                 <div className="h-32 sm:h-36 w-full bg-slate-200 overflow-hidden group relative shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -134,7 +134,7 @@ export default function LandingPartners({
               </motion.div>
             ))
           ) : (
-            <div className="w-full text-center py-10 text-slate-400 text-xs italic bg-white rounded-3xl border border-slate-200 shadow-sm">
+            <div className="col-span-full text-center py-10 text-slate-400 text-xs italic bg-white rounded-3xl border border-slate-200 shadow-sm">
               Belum ada data hotel rekanan.
             </div>
           )}

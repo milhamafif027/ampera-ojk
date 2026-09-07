@@ -220,9 +220,14 @@ export default function RoomCard({
             </strong>
           </p>
 
-          <div className="h-[42px] overflow-y-auto custom-scrollbar pr-1 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-100 dark:border-slate-800 flex items-start gap-1.5 leading-relaxed">
-            <Info size={12} className="text-slate-400 shrink-0 mt-0.5" />
-            <span>{renderFormattedDescription(roomDesc)}</span>
+          {/* Kotak Informasi Detail / Layout / Fasilitas yang Rapi & Terstruktur */}
+          <div className="max-h-[75px] overflow-y-auto custom-scrollbar pr-1 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2">
+            <div className="flex items-start gap-1.5 text-[10px] text-slate-600 dark:text-slate-300">
+              <Info size={12} className="text-slate-400 shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                {renderFormattedDescription(roomDesc)}
+              </div>
+            </div>
           </div>
         </div>
       </div>
