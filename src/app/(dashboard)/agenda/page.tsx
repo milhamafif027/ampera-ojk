@@ -364,44 +364,50 @@ export default function AgendaPage() {
     });
   };
 
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editModal.data) return;
+const handleSaveEdit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!editModal.data) return;
 
-    setIsSubmittingEdit(true);
-    try {
-      const payload = {
-        id: editModal.data.id,
-        title: editModal.data.title,
-        date: editModal.data.date,
-        start_time: editModal.data.start_time,
-        end_time: editModal.data.end_time,
-        room: editModal.data.room,
-        pic: editModal.data.pic,
-        dept: editModal.data.dept,
-        layout: editModal.data.layout,
-        status: editModal.data.status,
-      };
+  setIsSubmittingEdit(true);
+  try {
+    const payload = {
+      id: editModal.data.id, // Pastikan ID ini tidak null/undefined
+      title: editModal.data.title,
+      date: editModal.data.date,
+      start_time: editModal.data.start_time,
+      end_time: editModal.data.end_time,
+      room: editModal.data.room,
+      pic: editModal.data.pic,
+      dept: editModal.data.dept,
+      layout: editModal.data.layout,
+      status: editModal.data.status,
+    };
 
-      const res = await fetch("/api/agendas", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+    console.log("Payload yang dikirim:", payload); // Cek F12 di browser saat klik simpan
 
-      if (res.ok) {
-        setEditModal({ isOpen: false, data: null });
-        fetchAgendas();
-      } else {
-        const err = await res.json();
-        alert(`Gagal memperbarui agenda: ${err.message || "Unknown error"}`);
-      }
-    } catch (error) {
-      console.error("Gagal memperbarui agenda:", error);
-    } finally {
-      setIsSubmittingEdit(false);
+    const res = await fetch("/api/agendas", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await res.json();
+    console.log("Respon dari backend:", result);
+
+    if (res.ok) {
+      setEditModal({ isOpen: false, data: null });
+      fetchAgendas();
+    } else {
+      alert(
+        `Gagal memperbarui agenda: ${result.message || result.error || "Unknown error"}`,
+      );
     }
-  };
+  } catch (error) {
+    console.error("Gagal memperbarui agenda:", error);
+  } finally {
+    setIsSubmittingEdit(false);
+  }
+};
 
   return (
     <motion.div

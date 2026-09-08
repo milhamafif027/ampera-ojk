@@ -181,11 +181,23 @@ export async function POST(request: Request) {
   }
 }
 
-// 3. PUT: Update status dengan aman
+// 3. PUT: Update data agenda (Mendukung Edit Data Lengkap & Quick Approve/Status)
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, status = "Pending", notes = "" } = body;
+    const {
+      id,
+      title,
+      date,
+      start_time,
+      end_time,
+      room,
+      pic,
+      dept,
+      layout,
+      status = "Pending",
+      notes = "",
+    } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -198,19 +210,44 @@ export async function PUT(request: Request) {
     const safeStatus = String(status);
     const safeNotes = String(notes || "");
 
-    if (safeStatus === "Ditolak") {
-      await db.$executeRaw`DELETE FROM agendas WHERE id = ${agendaId}`;
-      return NextResponse.json({ success: true, message: "Ditolak & dihapus" });
+    // Jika request membawa data lengkap dari form Edit Modal Admin
+    if (title && date && start_time && end_time && room) {
+      await db.$executeRaw`
+        UPDATE agendas 
+        SET title = ${title},
+            date = ${date}::date,
+            start_time = ${start_time},
+            end_time = ${end_time},
+            room_name = ${room},
+            pic = ${pic || "-"},
+            dept = ${dept || "-"},
+            layout = ${layout || "-"},
+            status = ${safeStatus}, 
+            notes = ${safeNotes}
+        WHERE id = ${agendaId}
+      `;
+    } else {
+      // Fallback untuk update cepat (seperti tombol centang persetujuan admin)
+      if (safeStatus === "Ditolak" && !title) {
+        await db.$executeRaw`DELETE FROM agendas WHERE id = ${agendaId}`;
+        return NextResponse.json({
+          success: true,
+          message: "Ditolak & dihapus",
+        });
+      }
+
+      await db.$executeRaw`
+        UPDATE agendas 
+        SET status = ${safeStatus}, 
+            notes = ${safeNotes}
+        WHERE id = ${agendaId}
+      `;
     }
 
-    await db.$executeRaw`
-      UPDATE agendas 
-      SET status = ${safeStatus}, 
-          notes = ${safeNotes}
-      WHERE id = ${agendaId}
-    `;
-
-    return NextResponse.json({ success: true, message: "Agenda diperbarui" });
+    return NextResponse.json({
+      success: true,
+      message: "Agenda berhasil diperbarui",
+    });
   } catch (error: any) {
     console.error("API PUT AGENDAS ERROR:", error);
     return NextResponse.json(
