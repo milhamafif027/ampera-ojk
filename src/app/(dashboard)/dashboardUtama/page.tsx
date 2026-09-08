@@ -20,7 +20,7 @@ import {
   Eye,
 } from "lucide-react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, animate } from "framer-motion";
 
 interface LocalUser {
   id: number;
@@ -28,6 +28,25 @@ interface LocalUser {
   email: string;
   role: string;
   nip?: string;
+}
+
+// Komponen helper untuk efek angka bertambah (Counting Up)
+function Counter({ value }: { value: number }) {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    const controls = animate(0, value, {
+      duration: 1.2,
+      ease: "easeOut",
+      onUpdate(latest) {
+        setDisplayValue(Math.floor(latest));
+      },
+    });
+
+    return controls.stop;
+  }, [value]);
+
+  return <span>{displayValue}</span>;
 }
 
 export default function DashboardPage() {
@@ -72,7 +91,6 @@ export default function DashboardPage() {
         const mappedAgendas: Agenda[] = result.data.map((item: any) => {
           const formattedDate = item.date ? item.date.split("T")[0] : "";
 
-          // PERBAIKAN WAKTU: Amankan dari format epoch / timestamp 1970
           let formattedTime = "";
           if (item.start_time && item.end_time) {
             const startStr = String(item.start_time);
@@ -94,7 +112,7 @@ export default function DashboardPage() {
             id: String(item.id),
             title: item.title,
             date: formattedDate,
-            time: formattedTime, // Waktu yang sudah bersih
+            time: formattedTime,
             room: item.room_name || item.room || "Ruang Rapat OJK",
             pic: item.pic || "Pegawai OJK",
             dept: item.dept || "OJK Sumsel",
@@ -124,7 +142,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const initData = async () => {
       await Promise.resolve();
-      
+
       const storedUser = sessionStorage.getItem("local_user");
       if (storedUser) {
         try {
@@ -205,7 +223,6 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
     window.open(waUrl, "_blank");
   };
 
-  // Buka Modal dengan Tipe Aksi (Approve atau Reject)
   const openConfirmModal = (
     agendaId: string,
     title: string,
@@ -220,7 +237,6 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
     });
   };
 
-  // Eksekusi API PUT untuk Menyetujui atau Menolak Reservasi + Kirim WA
   const handleExecuteAction = async () => {
     if (!confirmModal.agendaId || !confirmModal.actionType) return;
 
@@ -284,7 +300,24 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
       transition={{ duration: 0.4, ease: "easeOut" }}
       className="space-y-6 sm:space-y-8 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full pb-12"
     >
-      {/* WELCOME BANNER - Responsive Flex & Padding */}
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(159, 21, 33, 0.25);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(159, 21, 33, 0.6);
+        }
+      `}</style>
+
+      {/* WELCOME BANNER */}
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -424,7 +457,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
           transition={{ duration: 0.4, delay: 0.1 }}
           className="space-y-6 sm:space-y-8"
         >
-{/* KARTU METRIK STATISTIK - Responsive Grid dengan Transisi Halus */}
+          {/* KARTU METRIK STATISTIK - Dengan Efek Angka Menghitung Naik (Counter) */}
           <div
             className={`grid grid-cols-2 ${isAdmin ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-3 sm:gap-4`}
           >
@@ -446,7 +479,9 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
                     {
                       title: "Pending",
                       value: totalPending,
-                      icon: <AlertCircle size={18} className="text-amber-500" />,
+                      icon: (
+                        <AlertCircle size={18} className="text-amber-500" />
+                      ),
                       textColor: "text-amber-500",
                     },
                   ]
@@ -471,15 +506,11 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
                   </span>
                   {stat.icon}
                 </div>
-                <motion.p
-                  key={stat.value}
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.3 }}
+                <p
                   className={`text-2xl sm:text-3xl font-black ${stat.textColor}`}
                 >
-                  {stat.value}
-                </motion.p>
+                  <Counter value={stat.value} />
+                </p>
               </motion.div>
             ))}
           </div>
@@ -693,7 +724,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
         </motion.div>
       )}
 
-      {/* MODAL DETAIL INFORMASI LENGKAP PENGAJUAN (Responsive Full/Centered) */}
+      {/* MODAL DETAIL INFORMASI LENGKAP PENGAJUAN */}
       {detailModal.isOpen && detailModal.data && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
