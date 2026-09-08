@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, memo } from "react";
 import {
   Building2,
   Users,
@@ -17,11 +17,7 @@ interface LandingRoomsProps {
   itemVariants: Variants;
 }
 
-export default function LandingRooms({
-  rooms,
-  isLoading,
-  itemVariants,
-}: LandingRoomsProps) {
+function LandingRooms({ rooms, isLoading, itemVariants }: LandingRoomsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: "left" | "right") => {
@@ -105,7 +101,7 @@ export default function LandingRooms({
         <div
           ref={scrollRef}
           className="flex lg:grid lg:grid-cols-3 gap-6 overflow-x-auto lg:overflow-x-visible custom-scrollbar pb-4 lg:pb-0 snap-x lg:snap-none snap-mandatory"
-          style={{ scrollbarWidth: "thin" }}
+          style={{ scrollbarWidth: "thin", contentVisibility: "auto" }}
         >
           {isLoading ? (
             [1, 2, 3].map((n) => (
@@ -128,12 +124,16 @@ export default function LandingRooms({
               }
               const roomThumb =
                 parsedImgs[0] ||
-                "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80";
+                "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=600&q=80";
 
               return (
                 <div
                   key={room.id}
                   className="group bg-slate-50/60 hover:bg-white border border-slate-200/90 hover:border-[#9f1521]/40 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col sm:flex-row lg:flex-col min-w-[300px] sm:min-w-[480px] lg:min-w-0 max-w-[520px] lg:max-w-none shrink-0 lg:shrink snap-start"
+                  style={{
+                    contentVisibility: "auto",
+                    containIntrinsicSize: "auto 350px",
+                  }}
                 >
                   <div className="sm:w-2/5 lg:w-full h-48 sm:h-auto lg:h-48 relative overflow-hidden bg-slate-200 shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -145,7 +145,7 @@ export default function LandingRooms({
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute top-3 left-3">
-                      <span className="px-2.5 py-1 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold rounded-lg shadow-md uppercase tracking-wider">
+                      <span className="px-2.5 py-1 bg-black/60 text-white text-[10px] font-bold rounded-lg shadow-md uppercase tracking-wider">
                         {room.type || "Rapat"}
                       </span>
                     </div>
@@ -197,3 +197,5 @@ export default function LandingRooms({
     </motion.section>
   );
 }
+
+export default memo(LandingRooms);
