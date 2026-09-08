@@ -12,6 +12,7 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
+  Clock,
 } from "lucide-react";
 import { Room } from "@/types";
 
@@ -79,6 +80,7 @@ function RoomCard({
 
   const tomorrowObj = new Date();
   tomorrowObj.setDate(tomorrowObj.getDate() + 1);
+  const tomorrowStr = tomorrowObj.toISOString().split("T")[0];
 
   const formattedToday = todayObj.toLocaleDateString("id-ID", {
     day: "numeric",
@@ -139,7 +141,7 @@ function RoomCard({
     }
   };
 
-  // Filter Jadwal Berdasarkan Ruangan Ini
+  // Filter Jadwal Berdasarkan Ruangan Ini (Hanya menampilkan yang Sedang Berlangsung atau Akan Datang)
   const roomAgendas = agendas.filter((a) => {
     if (!a.room || a.room.toLowerCase() !== room.name.toLowerCase())
       return false;
@@ -153,6 +155,54 @@ function RoomCard({
     }
     return false;
   });
+
+  // Helper untuk Menghitung Slot Waktu Kosong (Available Slots) secara Dinamis
+  const getAvailableSlotsForDate = (targetDateStr: string) => {
+    const operationalStart = "08:00";
+    const operationalEnd = "17:00";
+
+    // Ambil agenda di tanggal tersebut untuk ruangan ini
+    const agendasOnDate = roomAgendas
+      .filter((a) => a.date === targetDateStr && a.time)
+      .map((a) => {
+        // Ambil format "HH:mm - HH:mm"
+        const parts = a.time.split("-");
+        if (parts.length === 2) {
+          return {
+            start: parts[0].trim().slice(0, 5),
+            end: parts[1].trim().slice(0, 5),
+          };
+        }
+        return null;
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => a.start.localeCompare(b.start));
+
+    if (agendasOnDate.length === 0) {
+      return [`${operationalStart} - ${operationalEnd}`];
+    }
+
+    const slots: string[] = [];
+    let currentTime = operationalStart;
+
+    agendasOnDate.forEach((agenda: any) => {
+      if (currentTime < agenda.start) {
+        slots.push(`${currentTime} - ${agenda.start}`);
+      }
+      if (agenda.end > currentTime) {
+        currentTime = agenda.end;
+      }
+    });
+
+    if (currentTime < operationalEnd) {
+      slots.push(`${currentTime} - ${operationalEnd}`);
+    }
+
+    return slots.length > 0 ? slots : ["Penuh (Tidak ada slot kosong)"];
+  };
+
+  const todayAvailableSlots = getAvailableSlotsForDate(todayStr);
+  const tomorrowAvailableSlots = getAvailableSlotsForDate(tomorrowStr);
 
   const renderFormattedDescription = (text: string) => {
     if (!text) return null;
@@ -416,7 +466,7 @@ function RoomCard({
         )}
       </AnimatePresence>
 
-      {/* MODAL CEK JADWAL RUANGAN */}
+      {/* MODAL CEK JADWAL RUANGAN (Dengan Slot Kosong Dinamis) */}
       {isScheduleModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
@@ -433,7 +483,7 @@ function RoomCard({
                   {room.name}
                 </h3>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Acara terkonfirmasi & slot tersedia (Hari ini - Besok).
+                  Slot waktu kosong & acara terkonfirmasi (Hari ini - Besok).
                 </p>
               </div>
               <button
@@ -445,13 +495,14 @@ function RoomCard({
             </div>
 
             <div className="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 text-xs">
-              {/* Saran Waktu Booking */}
+              {/* Saran Waktu Booking (Dinamis Berdasarkan Jadwal Terisi) */}
               <div className="space-y-2">
                 <span className="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>{" "}
-                  Saran Waktu Booking (Available 06:00 - 22:00)
+                  Saran Slot Kosong (08:00 - 17:00)
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Hari Ini */}
                   <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-2">
                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
                       <span>HARI INI</span>
@@ -459,11 +510,19 @@ function RoomCard({
                         {formattedToday}
                       </span>
                     </div>
-                    <div className="text-center py-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-xl font-bold border border-emerald-200">
-                      06:00 - 22:00
+                    <div className="space-y-1.5">
+                      {todayAvailableSlots.map((slot, sIdx) => (
+                        <div
+                          key={sIdx}
+                          className="text-center py-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-xl font-bold border border-emerald-200 text-[11px] flex items-center justify-center gap-1"
+                        >
+                          <Clock size={12} /> {slot}
+                        </div>
+                      ))}
                     </div>
                   </div>
 
+                  {/* Besok */}
                   <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-2">
                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
                       <span>BESOK</span>
@@ -471,8 +530,15 @@ function RoomCard({
                         {formattedTomorrow}
                       </span>
                     </div>
-                    <div className="text-center py-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-xl font-bold border border-emerald-200">
-                      06:00 - 22:00
+                    <div className="space-y-1.5">
+                      {tomorrowAvailableSlots.map((slot, sIdx) => (
+                        <div
+                          key={sIdx}
+                          className="text-center py-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-xl font-bold border border-emerald-200 text-[11px] flex items-center justify-center gap-1"
+                        >
+                          <Clock size={12} /> {slot}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
