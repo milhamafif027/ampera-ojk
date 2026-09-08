@@ -21,6 +21,8 @@ import {
   AlertCircle,
   X,
   Loader2,
+  Pencil,
+  Save,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -44,6 +46,7 @@ export default function AgendaPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
+  // State untuk Modal Hapus
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     agendaId: string | null;
@@ -53,6 +56,16 @@ export default function AgendaPage() {
     agendaId: null,
     title: null,
   });
+
+  // State untuk Modal Edit Agenda (Khusus Admin)
+  const [editModal, setEditModal] = useState<{
+    isOpen: boolean;
+    data: any | null;
+  }>({
+    isOpen: false,
+    data: null,
+  });
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
 
   const isAdmin = user?.role === "admin";
 
@@ -77,6 +90,9 @@ export default function AgendaPage() {
           }
 
           let formattedTime = "";
+          let startTimeOnly = "08:00";
+          let endTimeOnly = "17:00";
+
           if (item.start_time && item.end_time) {
             const startStr = String(item.start_time);
             const endStr = String(item.end_time);
@@ -88,7 +104,9 @@ export default function AgendaPage() {
               ? endStr.split("T")[1]
               : endStr;
 
-            formattedTime = `${cleanStart.slice(0, 5)} - ${cleanEnd.slice(0, 5)}`;
+            startTimeOnly = cleanStart.slice(0, 5);
+            endTimeOnly = cleanEnd.slice(0, 5);
+            formattedTime = `${startTimeOnly} - ${endTimeOnly}`;
           } else {
             formattedTime = item.time || "08:00 - 17:00";
           }
@@ -98,6 +116,8 @@ export default function AgendaPage() {
             title: item.title,
             date: formattedDate,
             time: formattedTime,
+            start_time: startTimeOnly,
+            end_time: endTimeOnly,
             room: item.room_name || item.room || "Ruang Rapat OJK",
             pic: item.pic || "Pegawai OJK",
             dept: item.dept || "OJK Sumsel",
@@ -123,7 +143,6 @@ export default function AgendaPage() {
   useEffect(() => {
     const initData = async () => {
       await Promise.resolve();
-
       const storedUser = sessionStorage.getItem("local_user");
 
       if (!storedUser) {
@@ -327,6 +346,63 @@ export default function AgendaPage() {
     }
   };
 
+  const openEditModal = (item: any) => {
+    setEditModal({
+      isOpen: true,
+      data: {
+        id: item.id,
+        title: item.title,
+        date: item.date,
+        start_time: item.start_time || "08:00",
+        end_time: item.end_time || "17:00",
+        room: item.room,
+        pic: item.pic,
+        dept: item.dept,
+        layout: item.layout || "-",
+        status: item.status,
+      },
+    });
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editModal.data) return;
+
+    setIsSubmittingEdit(true);
+    try {
+      const payload = {
+        id: editModal.data.id,
+        title: editModal.data.title,
+        date: editModal.data.date,
+        start_time: editModal.data.start_time,
+        end_time: editModal.data.end_time,
+        room: editModal.data.room,
+        pic: editModal.data.pic,
+        dept: editModal.data.dept,
+        layout: editModal.data.layout,
+        status: editModal.data.status,
+      };
+
+      const res = await fetch("/api/agendas", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setEditModal({ isOpen: false, data: null });
+        fetchAgendas();
+      } else {
+        const err = await res.json();
+        alert(`Gagal memperbarui agenda: ${err.message || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Gagal memperbarui agenda:", error);
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -515,7 +591,7 @@ export default function AgendaPage() {
 
                     {isAdmin && (
                       <td className="p-4 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex items-center justify-center gap-1.5">
                           {item.smartStatus === "Pending" && (
                             <button
                               onClick={() => handleApprove(item.id)}
@@ -524,19 +600,26 @@ export default function AgendaPage() {
                               title="Setujui Agenda"
                             >
                               {actionLoadingId === item.id ? (
-                                <Loader2 size={16} className="animate-spin" />
+                                <Loader2 size={15} className="animate-spin" />
                               ) : (
-                                <CheckCircle2 size={16} />
+                                <CheckCircle2 size={15} />
                               )}
                             </button>
                           )}
+                          <button
+                            onClick={() => openEditModal(item)}
+                            className="p-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 rounded-lg transition-colors cursor-pointer"
+                            title="Edit Agenda"
+                          >
+                            <Pencil size={15} />
+                          </button>
                           <button
                             onClick={() => openDeleteModal(item.id, item.title)}
                             disabled={actionLoadingId === item.id}
                             className="p-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                             title="Hapus Agenda"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </td>
@@ -559,7 +642,235 @@ export default function AgendaPage() {
         </div>
       </div>
 
-      {/* MODAL KONFIRMASI HAPUS AGENDA */}
+      {/* 4. MODAL EDIT AGENDA (KHUSUS ADMIN) */}
+      {editModal.isOpen && editModal.data && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-lg w-full shadow-2xl space-y-4 my-auto"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
+                  PENGATURAN ADMIN
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-0.5">
+                  Edit Data Agenda
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditModal({ isOpen: false, data: null })}
+                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleSaveEdit}
+              className="space-y-4 max-h-[65vh] overflow-y-auto custom-scrollbar pr-1 text-xs"
+            >
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Nama Kegiatan / Acara
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editModal.data.title}
+                  onChange={(e) =>
+                    setEditModal({
+                      ...editModal,
+                      data: { ...editModal.data, title: e.target.value },
+                    })
+                  }
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Tanggal Pelaksanaan
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editModal.data.date}
+                    onChange={(e) =>
+                      setEditModal({
+                        ...editModal,
+                        data: { ...editModal.data, date: e.target.value },
+                      })
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Ruangan Rapat
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editModal.data.room}
+                    onChange={(e) =>
+                      setEditModal({
+                        ...editModal,
+                        data: { ...editModal.data, room: e.target.value },
+                      })
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Jam Mulai
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={editModal.data.start_time}
+                    onChange={(e) =>
+                      setEditModal({
+                        ...editModal,
+                        data: { ...editModal.data, start_time: e.target.value },
+                      })
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Jam Selesai
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={editModal.data.end_time}
+                    onChange={(e) =>
+                      setEditModal({
+                        ...editModal,
+                        data: { ...editModal.data, end_time: e.target.value },
+                      })
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Penanggung Jawab (PIC)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editModal.data.pic}
+                    onChange={(e) =>
+                      setEditModal({
+                        ...editModal,
+                        data: { ...editModal.data, pic: e.target.value },
+                      })
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Satuan Kerja (Satker)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editModal.data.dept}
+                    onChange={(e) =>
+                      setEditModal({
+                        ...editModal,
+                        data: { ...editModal.data, dept: e.target.value },
+                      })
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Tata Letak (Layout)
+                  </label>
+                  <input
+                    type="text"
+                    value={editModal.data.layout}
+                    onChange={(e) =>
+                      setEditModal({
+                        ...editModal,
+                        data: { ...editModal.data, layout: e.target.value },
+                      })
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Status Pengajuan
+                  </label>
+                  <select
+                    value={editModal.data.status}
+                    onChange={(e) =>
+                      setEditModal({
+                        ...editModal,
+                        data: { ...editModal.data, status: e.target.value },
+                      })
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521] cursor-pointer"
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="Disetujui">Disetujui</option>
+                    <option value="Ditolak">Ditolak</option>
+                    <option value="Selesai">Selesai</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={isSubmittingEdit}
+                  onClick={() => setEditModal({ isOpen: false, data: null })}
+                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold cursor-pointer disabled:opacity-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingEdit}
+                  className="px-5 py-2.5 bg-[#9f1521] text-white rounded-xl font-bold hover:bg-[#7a1019] transition-colors shadow-md cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-75"
+                >
+                  {isSubmittingEdit ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save size={15} /> Simpan Perubahan
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* 5. MODAL KONFIRMASI HAPUS AGENDA */}
       {deleteModal.isOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
