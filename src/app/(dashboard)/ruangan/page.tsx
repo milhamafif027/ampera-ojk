@@ -154,7 +154,6 @@ export default function RuanganPage() {
 
   const isAdmin = user?.role === "admin";
 
-  // Mengurutkan ruangan secara alfabetis (A-Z) berdasarkan nama ruangan
   const sortedRooms = useMemo(() => {
     return [...rooms].sort((a, b) => a.name.localeCompare(b.name));
   }, [rooms]);
@@ -469,20 +468,23 @@ export default function RuanganPage() {
           </h2>
         </div>
 
-        {/* Responsive: Scroll horizontal di HP, Grid 3 kolom ke bawah di Desktop */}
-        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 overflow-x-auto sm:overflow-x-visible custom-scrollbar pb-4 sm:pb-0 snap-x sm:snap-none snap-mandatory">
+        {/* Responsive: Scroll horizontal di HP, Grid maksimal 3 kolom di Desktop */}
+        <div
+          className="flex lg:grid lg:grid-cols-3 gap-4 sm:gap-6 overflow-x-auto lg:overflow-x-visible custom-scrollbar pb-4 lg:pb-0 snap-x lg:snap-none snap-mandatory"
+          style={{ contentVisibility: "auto" }}
+        >
           {isLoading ? (
             [1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 w-[280px] sm:w-full shrink-0"
+                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 min-w-[280px] sm:min-w-[340px] lg:min-w-0 shrink-0"
               />
             ))
           ) : conferenceRooms.length > 0 ? (
             conferenceRooms.map((room: any) => (
               <div
                 key={room.id}
-                className="w-[280px] sm:w-full shrink-0 sm:shrink snap-start"
+                className="min-w-[280px] sm:min-w-[340px] lg:min-w-0 shrink-0 lg:shrink snap-start"
               >
                 <RoomCard
                   room={room}
@@ -512,20 +514,23 @@ export default function RuanganPage() {
           </h2>
         </div>
 
-        {/* Responsive: Scroll horizontal di HP, Grid 3 kolom ke bawah di Desktop */}
-        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 overflow-x-auto sm:overflow-x-visible custom-scrollbar pb-4 sm:pb-0 snap-x sm:snap-none snap-mandatory">
+        {/* Responsive: Scroll horizontal di HP, Grid maksimal 3 kolom di Desktop */}
+        <div
+          className="flex lg:grid lg:grid-cols-3 gap-4 sm:gap-6 overflow-x-auto lg:overflow-x-visible custom-scrollbar pb-4 lg:pb-0 snap-x lg:snap-none snap-mandatory"
+          style={{ contentVisibility: "auto" }}
+        >
           {isLoading ? (
             [1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 w-[280px] sm:w-full shrink-0"
+                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 min-w-[280px] sm:min-w-[340px] lg:min-w-0 shrink-0"
               />
             ))
           ) : meetingRooms.length > 0 ? (
             meetingRooms.map((room: any) => (
               <div
                 key={room.id}
-                className="w-[280px] sm:w-full shrink-0 sm:shrink snap-start"
+                className="min-w-[280px] sm:min-w-[340px] lg:min-w-0 shrink-0 lg:shrink snap-start"
               >
                 <RoomCard
                   room={room}
