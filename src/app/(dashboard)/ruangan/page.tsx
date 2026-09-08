@@ -468,8 +468,7 @@ export default function RuanganPage() {
           </h2>
         </div>
 
-        {/* Grid Responsif yang Rapi dan Stabil di Semua Ukuran Layar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {isLoading ? (
             [1, 2, 3].map((n) => (
               <div
@@ -488,13 +487,53 @@ export default function RuanganPage() {
                   handleOpenBooking={handleOpenBooking}
                   handleOpenEditModal={handleOpenEditModal}
                   handleDeleteRoom={handleDeleteRoom}
-                  agendas={agendas} // <-- Tambahkan baris ini
+                  agendas={agendas}
                 />
               </div>
             ))
           ) : (
             <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
               Tidak ada data ruangan pertemuan di database.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SECTION 2: RUANGAN RAPAT */}
+      <div className="space-y-4 pt-4">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+          <h2 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+            Ruangan Rapat ({meetingRooms.length})
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {isLoading ? (
+            [1, 2, 3].map((n) => (
+              <div
+                key={n}
+                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 w-full"
+              />
+            ))
+          ) : meetingRooms.length > 0 ? (
+            meetingRooms.map((room: any) => (
+              <div key={room.id} className="w-full">
+                <RoomCard
+                  room={room}
+                  isAdmin={isAdmin}
+                  user={user}
+                  getRoomLiveStatus={getRoomLiveStatus}
+                  handleOpenBooking={handleOpenBooking}
+                  handleOpenEditModal={handleOpenEditModal}
+                  handleDeleteRoom={handleDeleteRoom}
+                  agendas={agendas}
+                />
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
+              Tidak ada data ruangan rapat di database.
             </div>
           )}
         </div>
