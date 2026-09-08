@@ -217,7 +217,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
       message += `\n\n📝 *Alasan Penolakan:* ${reason}`;
     }
 
-    message += `\n\nTerima kasih.\n_Sistem Manajemen OJK Sumsel_`;
+    message += `\n\nTerima kasih.\n_Bagian Layanan Manajemen Strategis Kantor OJK Sumatera Selatan_`;
 
     const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(waUrl, "_blank");
