@@ -500,9 +500,9 @@ export default function RoomBookingModal({
                       name="dept"
                       value={formData.dept}
                       onChange={handleChange}
-                      disabled={isSubmitting}
-                      className={inputClassName}
-                      placeholder="Contoh: OJK Sumsel"
+                      disabled={true} 
+                      className={`${inputClassName} opacity-80 cursor-not-allowed`}
+                      placeholder="OJK Sumsel"
                       required
                     />
                   </div>
