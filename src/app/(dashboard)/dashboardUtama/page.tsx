@@ -424,59 +424,64 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
           transition={{ duration: 0.4, delay: 0.1 }}
           className="space-y-6 sm:space-y-8"
         >
-          {/* KARTU METRIK STATISTIK - Responsive Grid */}
+{/* KARTU METRIK STATISTIK - Responsive Grid dengan Transisi Halus */}
           <div
             className={`grid grid-cols-2 ${isAdmin ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-3 sm:gap-4`}
           >
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm space-y-1">
-              <div className="flex justify-between items-center text-slate-400">
-                <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">
-                  Total Agenda
-                </span>
-                <CalendarDays size={18} className="text-[#9f1521]" />
-              </div>
-              <p className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white">
-                {totalAgendas}
-              </p>
-            </div>
-
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm space-y-1">
-              <div className="flex justify-between items-center text-slate-400">
-                <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">
-                  Terkonfirmasi
-                </span>
-                <CheckCircle2 size={18} className="text-emerald-600" />
-              </div>
-              <p className="text-2xl sm:text-3xl font-black text-emerald-600">
-                {totalDisetujui}
-              </p>
-            </div>
-
-            {isAdmin && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm space-y-1">
+            {[
+              {
+                title: "Total Agenda",
+                value: totalAgendas,
+                icon: <CalendarDays size={18} className="text-[#9f1521]" />,
+                textColor: "text-slate-800 dark:text-white",
+              },
+              {
+                title: "Terkonfirmasi",
+                value: totalDisetujui,
+                icon: <CheckCircle2 size={18} className="text-emerald-600" />,
+                textColor: "text-emerald-600",
+              },
+              ...(isAdmin
+                ? [
+                    {
+                      title: "Pending",
+                      value: totalPending,
+                      icon: <AlertCircle size={18} className="text-amber-500" />,
+                      textColor: "text-amber-500",
+                    },
+                  ]
+                : []),
+              {
+                title: "Ruangan Terpakai",
+                value: totalRuanganTerpakai,
+                icon: <Building2 size={18} className="text-blue-600" />,
+                textColor: "text-slate-800 dark:text-white",
+              },
+            ].map((stat, idx) => (
+              <motion.div
+                key={stat.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: idx * 0.1 }}
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm space-y-1 hover:shadow-md transition-shadow"
+              >
                 <div className="flex justify-between items-center text-slate-400">
                   <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">
-                    Pending
+                    {stat.title}
                   </span>
-                  <AlertCircle size={18} className="text-amber-500" />
+                  {stat.icon}
                 </div>
-                <p className="text-2xl sm:text-3xl font-black text-amber-500">
-                  {totalPending}
-                </p>
-              </div>
-            )}
-
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm space-y-1">
-              <div className="flex justify-between items-center text-slate-400">
-                <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">
-                  Ruangan Terpakai
-                </span>
-                <Building2 size={18} className="text-blue-600" />
-              </div>
-              <p className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white">
-                {totalRuanganTerpakai}
-              </p>
-            </div>
+                <motion.p
+                  key={stat.value}
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className={`text-2xl sm:text-3xl font-black ${stat.textColor}`}
+                >
+                  {stat.value}
+                </motion.p>
+              </motion.div>
+            ))}
           </div>
 
           {/* GRID LIVE STATUS & AGENDA TERDEKAT */}
