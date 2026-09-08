@@ -62,6 +62,8 @@ function RoomCard({
 
   // Perhitungan Tanggal yang Aman di Luar JSX
   const todayObj = new Date();
+  const todayStr = todayObj.toISOString().split("T")[0];
+
   const tomorrowObj = new Date();
   tomorrowObj.setDate(tomorrowObj.getDate() + 1);
 
@@ -98,13 +100,22 @@ function RoomCard({
     }
   };
 
-  // Filter Jadwal Berdasarkan Ruangan Ini
-  const roomAgendas = agendas.filter(
-    (a) =>
-      a.room &&
-      a.room.toLowerCase() === room.name.toLowerCase() &&
-      (a.smartStatus === "Disetujui" || a.smartStatus === "Sedang Berlangsung"),
-  );
+  // Filter Jadwal Berdasarkan Ruangan Ini (Hanya menampilkan yang Sedang Berlangsung atau Akan Datang)
+  const roomAgendas = agendas.filter((a) => {
+    if (!a.room || a.room.toLowerCase() !== room.name.toLowerCase())
+      return false;
+
+    // Pastikan statusnya disetujui atau sedang berlangsung
+    const isValidStatus =
+      a.smartStatus === "Disetujui" || a.smartStatus === "Sedang Berlangsung";
+    if (!isValidStatus) return false;
+
+    // Filter agar tanggal yang sudah lewat (di bawah hari ini) tidak ditampilkan
+    if (a.date && a.date >= todayStr) {
+      return true;
+    }
+    return false;
+  });
 
   const renderFormattedDescription = (text: string) => {
     if (!text) return null;

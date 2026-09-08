@@ -98,10 +98,24 @@ export default function RuanganPage() {
           .filter((item: any) => item.status !== "Ditolak")
           .map((item: any) => {
             const formattedDate = item.date ? item.date.split("T")[0] : "";
-            const formattedTime =
-              item.start_time && item.end_time
-                ? `${item.start_time.slice(0, 5)} - ${item.end_time.slice(0, 5)}`
-                : item.time || "";
+
+            // Pastikan pembersihan waktu ini ada agar tidak muncul 1970
+            let formattedTime = "";
+            if (item.start_time && item.end_time) {
+              const startStr = String(item.start_time);
+              const endStr = String(item.end_time);
+
+              const cleanStart = startStr.includes("T")
+                ? startStr.split("T")[1]
+                : startStr;
+              const cleanEnd = endStr.includes("T")
+                ? endStr.split("T")[1]
+                : endStr;
+
+              formattedTime = `${cleanStart.slice(0, 5)} - ${cleanEnd.slice(0, 5)}`;
+            } else {
+              formattedTime = item.time || "08:00 - 17:00";
+            }
 
             const agendaItem = {
               id: String(item.id),
@@ -123,6 +137,7 @@ export default function RuanganPage() {
 
         setAgendas(mappedAgendas);
       }
+      
     } catch (error) {
       console.error("Gagal mengambil data:", error);
       setRooms([]);
