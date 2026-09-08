@@ -285,7 +285,8 @@ export default function RoomBookingModal({
       const currentUser = storedUser ? JSON.parse(storedUser) : null;
 
       const userRole = (currentUser?.role || "eksternal").toLowerCase();
-      // Auto-approve jika role adalah admin atau internal
+
+      // AUTO-APPROVE: Jika role admin atau internal, status langsung Disetujui
       const finalStatus =
         userRole === "admin" || userRole === "internal"
           ? "Disetujui"
@@ -317,7 +318,7 @@ export default function RoomBookingModal({
         notes: formData.notes,
         status: finalStatus,
         user_id: currentUser?.id ? Number(currentUser.id) : null,
-        role: userRole, // <-- SANGAT PENTING: Kirim role agar backend mendeteksi auto-approve
+        role: userRole, // Kirim role agar backend mengenali auto-approve
       };
 
       const method = editData?.id ? "PUT" : "POST";
@@ -329,7 +330,7 @@ export default function RoomBookingModal({
 
       if (!res.ok) throw new Error("Gagal menyimpan ke database server.");
 
-      // 1. Kirim notifikasi untuk Admin (masuk ke notifikasi_admin)
+      // 1. Kirim notifikasi untuk Admin
       await fetch("/api/notifikasi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -337,32 +338,36 @@ export default function RoomBookingModal({
           role: "admin",
           title:
             userRole === "internal" || userRole === "admin"
-              ? "Reservasi Otomatis"
+              ? "Reservasi Otomatis (Internal/Admin)"
               : "Pengajuan Ruangan Baru",
           type: "room",
           status: finalStatus,
-          info: `Reservasi ${formData.roomName} oleh ${formData.pic} tanggal ${cleanDate} (${finalStatus}).`,
+          info: `Ruangan ${formData.roomName} dipesan oleh ${formData.pic} (${formData.dept}) untuk tanggal ${cleanDate} (${formData.startTime} - ${formData.endTime}). Status: ${finalStatus}`,
         }),
       });
 
-      // 2. Kirim notifikasi personal untuk User yang bersangkutan (jika login)
+      // 2. Kirim notifikasi personal untuk User yang bersangkutan
       if (currentUser?.id) {
+        const userNotifTitle =
+          finalStatus === "Disetujui"
+            ? "Reservasi Disetujui Otomatis"
+            : "Pengajuan Menunggu Verifikasi";
+
+        const userNotifInfo =
+          finalStatus === "Disetujui"
+            ? `Reservasi ruangan ${formData.roomName} tanggal ${cleanDate} berhasil dan langsung disetujui.`
+            : `Pengajuan ruangan ${formData.roomName} Anda telah dikirim dan sedang ditinjau oleh Admin.`;
+
         await fetch("/api/notifikasi", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             user_id: currentUser.id,
             role: userRole,
-            title:
-              finalStatus === "Disetujui"
-                ? "Reservasi Langsung Disetujui"
-                : "Pengajuan Menunggu Verifikasi",
+            title: userNotifTitle,
             type: "room",
             status: finalStatus,
-            info:
-              finalStatus === "Disetujui"
-                ? `Reservasi ruangan ${formData.roomName} Anda berhasil dan langsung disetujui.`
-                : `Pengajuan ruangan ${formData.roomName} Anda telah dikirim dan sedang ditinjau oleh Admin.`,
+            info: userNotifInfo,
           }),
         });
       }
