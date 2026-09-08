@@ -60,13 +60,10 @@ function RoomCard({
       ? roomImgs.filter(Boolean)
       : [defaultImage];
 
-  // Perhitungan Tanggal yang Aman (Murni di Luar JSX untuk Mencegah Error Render)
+  // Perhitungan Tanggal yang Aman di Luar JSX
   const todayObj = new Date();
-  const todayStr = todayObj.toISOString().split("T")[0];
-
   const tomorrowObj = new Date();
   tomorrowObj.setDate(tomorrowObj.getDate() + 1);
-  const tomorrowStr = tomorrowObj.toISOString().split("T")[0];
 
   const formattedToday = todayObj.toLocaleDateString("id-ID", {
     day: "numeric",
@@ -145,10 +142,7 @@ function RoomCard({
   };
 
   return (
-    <div
-      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between transition-all hover:shadow-md w-full"
-      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 350px" }}
-    >
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between transition-all hover:shadow-md w-full relative">
       <div>
         {/* Banner Galeri Foto (Klik untuk memperbesar / Lightbox) */}
         <div className="relative h-28 sm:h-32 w-full bg-slate-950 overflow-hidden group">
@@ -281,11 +275,11 @@ function RoomCard({
         </button>
       </div>
 
-      {/* MODAL LIGHTBOX / ZOOM GAMBAR */}
+      {/* MODAL LIGHTBOX / ZOOM GAMBAR (Z-Index Tinggi agar di atas segalanya) */}
       <AnimatePresence>
         {lightboxImg && (
           <div
-            className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200"
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200"
             onClick={() => setLightboxImg(null)}
           >
             <motion.div
@@ -313,9 +307,9 @@ function RoomCard({
         )}
       </AnimatePresence>
 
-      {/* MODAL CEK JADWAL RUANGAN */}
+      {/* MODAL CEK JADWAL RUANGAN (Z-Index Tinggi agar tidak terjebak di dalam card) */}
       {isScheduleModalOpen && (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
