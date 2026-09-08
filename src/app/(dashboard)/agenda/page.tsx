@@ -283,7 +283,7 @@ export default function AgendaPage() {
         // Jika logo berhasil dimuat, tambahkan di pojok kanan atas kop surat
         if (imgData) {
           // parameter: (img, format, x, y, width, height)
-          doc.addImage(imgData, "PNG", 255, 12, 18, 14);
+          doc.addImage(imgData, "PNG", 240, 10, 32, 16);
         }
 
         doc.setFont("helvetica", "bold");

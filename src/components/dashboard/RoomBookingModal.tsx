@@ -278,10 +278,18 @@ export default function RoomBookingModal({
     setIsSubmitting(true);
 
     try {
-      const storedUser = localStorage.getItem("local_user");
+      // Ambil data user dari sessionStorage (atau fallback ke localStorage)
+      const storedUser =
+        sessionStorage.getItem("local_user") ||
+        localStorage.getItem("local_user");
       const currentUser = storedUser ? JSON.parse(storedUser) : null;
-      const isAdmin = currentUser?.role === "admin";
-      const finalStatus = isAdmin ? "Disetujui" : "Pending";
+
+      const userRole = (currentUser?.role || "eksternal").toLowerCase();
+      // Auto-approve jika role adalah admin atau internal
+      const finalStatus =
+        userRole === "admin" || userRole === "internal"
+          ? "Disetujui"
+          : "Pending";
 
       let cleanDate = formData.date;
       if (cleanDate) {
@@ -308,7 +316,8 @@ export default function RoomBookingModal({
         layout: formData.layout,
         notes: formData.notes,
         status: finalStatus,
-        user_id: currentUser?.id || null,
+        user_id: currentUser?.id ? Number(currentUser.id) : null,
+        role: userRole, // <-- SANGAT PENTING: Kirim role agar backend mendeteksi auto-approve
       };
 
       const method = editData?.id ? "PUT" : "POST";
@@ -326,10 +335,13 @@ export default function RoomBookingModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           role: "admin",
-          title: "Reservasi Diajukan",
+          title:
+            userRole === "internal" || userRole === "admin"
+              ? "Reservasi Otomatis"
+              : "Pengajuan Ruangan Baru",
           type: "room",
           status: finalStatus,
-          info: `Reservasi ${formData.roomName} oleh ${formData.pic} tanggal ${cleanDate} sedang diproses.`,
+          info: `Reservasi ${formData.roomName} oleh ${formData.pic} tanggal ${cleanDate} (${finalStatus}).`,
         }),
       });
 
@@ -340,16 +352,21 @@ export default function RoomBookingModal({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             user_id: currentUser.id,
-            role: currentUser.role || "eksternal",
-            title: "Pengajuan Diterima Sistem",
+            role: userRole,
+            title:
+              finalStatus === "Disetujui"
+                ? "Reservasi Langsung Disetujui"
+                : "Pengajuan Menunggu Verifikasi",
             type: "room",
             status: finalStatus,
-            info: `Pengajuan ruangan ${formData.roomName} Anda berhasil dikirim.`,
+            info:
+              finalStatus === "Disetujui"
+                ? `Reservasi ruangan ${formData.roomName} Anda berhasil dan langsung disetujui.`
+                : `Pengajuan ruangan ${formData.roomName} Anda telah dikirim dan sedang ditinjau oleh Admin.`,
           }),
         });
       }
 
-      // Tampilkan popup sukses tanpa langsung menutup modal induk secara prematur
       setShowSuccessPopup(true);
     } catch (error: any) {
       setCustomAlert({
