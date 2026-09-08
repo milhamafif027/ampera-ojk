@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, memo } from "react";
+import React, { useState, useRef, memo } from "react";
 import { motion, Variants, AnimatePresence } from "framer-motion";
 import {
   Pencil,
@@ -48,6 +48,9 @@ function RoomCard({
 }: RoomCardProps) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
+
+  // Ref untuk mengontrol posisi scroll gambar secara otomatis
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // State untuk Modal Lightbox / Zoom Gambar
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
@@ -98,19 +101,30 @@ function RoomCard({
     }
   };
 
-  // Handler Navigasi Tombol Kiri/Kanan pada Card
+  // Handler Navigasi Tombol Kiri/Kanan pada Card (Menggeser Scroll Banner)
+  const scrollToImage = (index: number) => {
+    if (scrollContainerRef.current) {
+      const width = scrollContainerRef.current.offsetWidth;
+      scrollContainerRef.current.scrollTo({
+        left: width * index,
+        behavior: "smooth",
+      });
+    }
+    setActiveImageIndex(index);
+  };
+
   const handlePrevImage = (e: React.MouseEvent) => {
     e.stopPropagation();
     const newIndex =
       activeImageIndex === 0 ? roomImages.length - 1 : activeImageIndex - 1;
-    setActiveImageIndex(newIndex);
+    scrollToImage(newIndex);
   };
 
   const handleNextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
     const newIndex =
       activeImageIndex === roomImages.length - 1 ? 0 : activeImageIndex + 1;
-    setActiveImageIndex(newIndex);
+    scrollToImage(newIndex);
   };
 
   const handleDelete = () => {
@@ -125,7 +139,7 @@ function RoomCard({
     }
   };
 
-  // Filter Jadwal Berdasarkan Ruangan Ini (Hanya menampilkan yang Sedang Berlangsung atau Akan Datang)
+  // Filter Jadwal Berdasarkan Ruangan Ini
   const roomAgendas = agendas.filter((a) => {
     if (!a.room || a.room.toLowerCase() !== room.name.toLowerCase())
       return false;
@@ -178,9 +192,10 @@ function RoomCard({
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between transition-all hover:shadow-md w-full relative">
       <div>
-        {/* Banner Galeri Foto (Dengan Tombol Navigasi Kiri & Kanan) */}
+        {/* Banner Galeri Foto (Dengan Ref Scroll & Tombol Navigasi) */}
         <div className="relative h-28 sm:h-32 w-full bg-slate-950 overflow-hidden group">
           <div
+            ref={scrollContainerRef}
             onScroll={handleScroll}
             className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scroll-smooth cursor-zoom-in"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
@@ -205,7 +220,7 @@ function RoomCard({
             ))}
           </div>
 
-          {/* Tombol Panah Navigasi Kiri / Kanan pada Card (Hanya muncul jika foto > 1) */}
+          {/* Tombol Panah Navigasi Kiri / Kanan pada Card */}
           {roomImages.length > 1 && (
             <>
               <button
@@ -331,7 +346,7 @@ function RoomCard({
         </button>
       </div>
 
-      {/* MODAL LIGHTBOX / ZOOM GAMBAR (Dengan Tombol Navigasi Kiri & Kanan) */}
+      {/* MODAL LIGHTBOX / ZOOM GAMBAR */}
       <AnimatePresence>
         {lightboxImg && (
           <div
@@ -352,7 +367,6 @@ function RoomCard({
                 className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-slate-700"
               />
 
-              {/* Tombol Kiri/Kanan di Lightbox Zoom */}
               {roomImages.length > 1 && (
                 <>
                   <button
