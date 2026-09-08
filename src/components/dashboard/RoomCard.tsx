@@ -2,7 +2,17 @@
 
 import React, { useState, memo } from "react";
 import { motion, Variants, AnimatePresence } from "framer-motion";
-import { Pencil, Trash2, Info, Users, Calendar, X, Plus } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  Info,
+  Users,
+  Calendar,
+  X,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Room } from "@/types";
 
 interface LocalUser {
@@ -88,6 +98,21 @@ function RoomCard({
     }
   };
 
+  // Handler Navigasi Tombol Kiri/Kanan pada Card
+  const handlePrevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newIndex =
+      activeImageIndex === 0 ? roomImages.length - 1 : activeImageIndex - 1;
+    setActiveImageIndex(newIndex);
+  };
+
+  const handleNextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newIndex =
+      activeImageIndex === roomImages.length - 1 ? 0 : activeImageIndex + 1;
+    setActiveImageIndex(newIndex);
+  };
+
   const handleDelete = () => {
     if (
       confirm(
@@ -105,12 +130,10 @@ function RoomCard({
     if (!a.room || a.room.toLowerCase() !== room.name.toLowerCase())
       return false;
 
-    // Pastikan statusnya disetujui atau sedang berlangsung
     const isValidStatus =
       a.smartStatus === "Disetujui" || a.smartStatus === "Sedang Berlangsung";
     if (!isValidStatus) return false;
 
-    // Filter agar tanggal yang sudah lewat (di bawah hari ini) tidak ditampilkan
     if (a.date && a.date >= todayStr) {
       return true;
     }
@@ -155,7 +178,7 @@ function RoomCard({
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between transition-all hover:shadow-md w-full relative">
       <div>
-        {/* Banner Galeri Foto (Klik untuk memperbesar / Lightbox) */}
+        {/* Banner Galeri Foto (Dengan Tombol Navigasi Kiri & Kanan) */}
         <div className="relative h-28 sm:h-32 w-full bg-slate-950 overflow-hidden group">
           <div
             onScroll={handleScroll}
@@ -181,6 +204,28 @@ function RoomCard({
               </div>
             ))}
           </div>
+
+          {/* Tombol Panah Navigasi Kiri / Kanan pada Card (Hanya muncul jika foto > 1) */}
+          {roomImages.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={handlePrevImage}
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all opacity-0 group-hover:opacity-100 cursor-pointer z-10 shadow-sm"
+                title="Foto Sebelumnya"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={handleNextImage}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all opacity-0 group-hover:opacity-100 cursor-pointer z-10 shadow-sm"
+                title="Foto Berikutnya"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </>
+          )}
 
           <div className="absolute top-2.5 right-2.5 z-10 flex gap-1.5 pointer-events-none">
             {liveStatus.isUsed ? (
@@ -286,7 +331,7 @@ function RoomCard({
         </button>
       </div>
 
-      {/* MODAL LIGHTBOX / ZOOM GAMBAR (Z-Index Tinggi agar di atas segalanya) */}
+      {/* MODAL LIGHTBOX / ZOOM GAMBAR (Dengan Tombol Navigasi Kiri & Kanan) */}
       <AnimatePresence>
         {lightboxImg && (
           <div
@@ -306,6 +351,45 @@ function RoomCard({
                 alt={room.name}
                 className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-slate-700"
               />
+
+              {/* Tombol Kiri/Kanan di Lightbox Zoom */}
+              {roomImages.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const newIdx =
+                        activeImageIndex === 0
+                          ? roomImages.length - 1
+                          : activeImageIndex - 1;
+                      setActiveImageIndex(newIdx);
+                      setLightboxImg(roomImages[newIdx]);
+                    }}
+                    className="absolute left-3 p-3 bg-black/60 hover:bg-black text-white rounded-full transition-colors cursor-pointer shadow-lg"
+                    title="Sebelumnya"
+                  >
+                    <ChevronLeft size={22} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const newIdx =
+                        activeImageIndex === roomImages.length - 1
+                          ? 0
+                          : activeImageIndex + 1;
+                      setActiveImageIndex(newIdx);
+                      setLightboxImg(roomImages[newIdx]);
+                    }}
+                    className="absolute right-3 p-3 bg-black/60 hover:bg-black text-white rounded-full transition-colors cursor-pointer shadow-lg"
+                    title="Berikutnya"
+                  >
+                    <ChevronRight size={22} />
+                  </button>
+                </>
+              )}
+
               <button
                 onClick={() => setLightboxImg(null)}
                 className="absolute top-3 right-3 p-2 bg-black/60 hover:bg-black text-white rounded-full transition-colors cursor-pointer shadow-lg"
@@ -318,7 +402,7 @@ function RoomCard({
         )}
       </AnimatePresence>
 
-      {/* MODAL CEK JADWAL RUANGAN (Z-Index Tinggi agar tidak terjebak di dalam card) */}
+      {/* MODAL CEK JADWAL RUANGAN */}
       {isScheduleModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
