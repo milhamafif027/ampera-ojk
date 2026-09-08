@@ -97,11 +97,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const cleanRole = role?.toLowerCase() || "eksternal";
-    const finalStatus =
-      cleanRole === "admin" || cleanRole === "internal"
-        ? "Disetujui"
-        : "Pending";
+    const cleanRole = role?.toLowerCase() || "";
+
+    // PERBAIKAN UTAMA:
+    // Anggap sebagai Disetujui jika rolenya admin, internal, pegawai,
+    // atau jika user_id ada dan rolenya bukan secara eksplisit 'eksternal'
+    const isAutoApprove =
+      cleanRole === "admin" ||
+      cleanRole === "internal" ||
+      cleanRole === "pegawai" ||
+      (user_id && cleanRole !== "eksternal");
+
+    const finalStatus = isAutoApprove ? "Disetujui" : "Pending";
 
     const conflicts: any = await db.$queryRaw`
       SELECT id FROM agendas 
@@ -132,9 +139,9 @@ export async function POST(request: Request) {
     const insertedId = result[0]?.id;
 
     const adminNotifTitle =
-      cleanRole === "eksternal"
-        ? "Pengajuan Ruangan Baru"
-        : "Reservasi Otomatis (Internal/Admin)";
+      finalStatus === "Disetujui"
+        ? "Reservasi Otomatis (Internal/Admin)"
+        : "Pengajuan Ruangan Baru";
     const adminNotifInfo = `Ruangan ${room_name} dipesan oleh ${pic} (${dept}) untuk tanggal ${date} (${start_time} - ${end_time}). Status: ${finalStatus}`;
 
     await db.$executeRaw`
