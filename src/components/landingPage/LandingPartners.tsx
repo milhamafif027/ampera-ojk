@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, memo } from "react";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, Variants } from "framer-motion";
 
@@ -10,7 +10,7 @@ interface LandingPartnersProps {
   itemVariants: Variants;
 }
 
-export default function LandingPartners({
+function LandingPartners({
   partners,
   isLoading,
   itemVariants,
@@ -48,7 +48,7 @@ export default function LandingPartners({
             </h2>
           </div>
 
-          {/* Tombol Navigasi Geser Kiri / Kanan (Hanya tampil di mobile/tablet) */}
+          {/* Tombol Navigasi Geser Kiri / Kanan */}
           {!isLoading && partners.length > 0 && (
             <div className="hidden sm:flex lg:hidden items-center gap-1.5">
               <button
@@ -69,36 +69,40 @@ export default function LandingPartners({
           )}
         </div>
 
-        {/* Wadah Tampilan: Scroll horizontal di HP/Tablet, Grid maksimal 3 kolom ke bawah di Desktop */}
+        {/* Wadah Tampilan dengan Optimasi content-visibility agar render instan */}
         <div
           ref={scrollRef}
-          className="flex lg:grid lg:grid-cols-3 gap-4 sm:gap-6 overflow-x-auto lg:overflow-x-visible custom-scrollbar pb-4 lg:pb-0 snap-x lg:snap-none snap-mandatory scroll-smooth"
-          style={{ scrollbarWidth: "thin" }}
+          className="flex lg:grid lg:grid-cols-4 gap-4 sm:gap-6 overflow-x-auto lg:overflow-x-visible custom-scrollbar pb-4 lg:pb-0 snap-x lg:snap-none snap-mandatory scroll-smooth"
+          style={{ scrollbarWidth: "thin", contentVisibility: "auto" }}
         >
           {isLoading ? (
             [1, 2, 3, 4].map((n) => (
               <div
                 key={n}
-                className="bg-white rounded-2xl h-64 animate-pulse border border-slate-200 min-w-[260px] sm:min-w-[280px] lg:min-w-0 max-w-[300px] lg:max-w-none shrink-0"
+                className="bg-white rounded-2xl h-64 animate-pulse border border-slate-200 min-w-[260px] sm:min-w-[280px] lg:min-w-0 shrink-0"
               />
             ))
           ) : partners.length > 0 ? (
             partners.map((h, i) => (
-              <motion.div
-                variants={itemVariants}
-                whileHover={{ y: -6, scale: 1.02 }}
+              <div
                 key={h.id || i}
-                className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between transition-shadow hover:shadow-xl min-w-[260px] sm:min-w-[280px] lg:min-w-0 max-w-[300px] lg:max-w-none shrink-0 lg:shrink snap-start"
+                className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between min-w-[260px] sm:min-w-[280px] lg:min-w-0 shrink-0 lg:shrink snap-start transition-shadow hover:shadow-xl"
+                style={{
+                  contentVisibility: "auto",
+                  containIntrinsicSize: "auto 280px",
+                }}
               >
-                <div className="h-32 sm:h-36 w-full bg-slate-200 overflow-hidden group relative shrink-0">
+                <div className="h-32 sm:h-36 w-full bg-slate-200 overflow-hidden relative shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={
                       h.img ||
-                      "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80"
+                      "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80"
                     }
                     alt={h.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                   />
                 </div>
 
@@ -131,7 +135,7 @@ export default function LandingPartners({
                     </p>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             ))
           ) : (
             <div className="col-span-full text-center py-10 text-slate-400 text-xs italic bg-white rounded-3xl border border-slate-200 shadow-sm">
@@ -143,3 +147,5 @@ export default function LandingPartners({
     </motion.section>
   );
 }
+
+export default memo(LandingPartners);
