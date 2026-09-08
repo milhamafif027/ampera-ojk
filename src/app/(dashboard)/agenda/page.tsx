@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Agenda, StatusPengajuan } from "@/types";
 import { getSmartStatus } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -42,6 +42,7 @@ export default function AgendaPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("Semua Status");
   const [roomFilter, setRoomFilter] = useState<string>("Semua Ruangan");
+  const [monthFilter, setMonthFilter] = useState<string>("Semua Bulan");
 
   const [isExporting, setIsExporting] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -169,28 +170,73 @@ export default function AgendaPage() {
     Boolean,
   );
 
-  const filteredAgendas = agendas.filter((a) => {
-    const matchSearch =
-      a.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.pic.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (a.dept && a.dept.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      a.room.toLowerCase().includes(searchTerm.toLowerCase());
+  // Daftar opsi bulan yang tersedia dari data agenda
+  const monthOptions = useMemo(() => {
+    const monthsSet = new Set<string>();
+    agendas.forEach((a) => {
+      if (a.date) {
+        const yearMonth = a.date.slice(0, 7); // Format "YYYY-MM"
+        monthsSet.add(yearMonth);
+      }
+    });
+    return Array.from(monthsSet).sort().reverse(); // Urutkan dari bulan terbaru
+  }, [agendas]);
 
-    const matchStatus =
-      statusFilter === "Semua Status" || a.smartStatus === statusFilter;
-    const matchRoom = roomFilter === "Semua Ruangan" || a.room === roomFilter;
+  // Helper untuk format nama bulan agar mudah dibaca di dropdown
+  const formatMonthName = (yearMonth: string) => {
+    try {
+      const [year, month] = yearMonth.split("-");
+      const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+      return date.toLocaleDateString("id-ID", {
+        month: "long",
+        year: "numeric",
+      });
+    } catch {
+      return yearMonth;
+    }
+  };
 
-    return matchSearch && matchStatus && matchRoom;
-  });
+  const filteredAgendas = useMemo(() => {
+    return agendas
+      .filter((a) => {
+        const matchSearch =
+          a.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          a.pic.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (a.dept && a.dept.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          a.room.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchStatus =
+          statusFilter === "Semua Status" || a.smartStatus === statusFilter;
+        const matchRoom =
+          roomFilter === "Semua Ruangan" || a.room === roomFilter;
+        const matchMonth =
+          monthFilter === "Semua Bulan" ||
+          (a.date && a.date.startsWith(monthFilter));
+
+        return matchSearch && matchStatus && matchRoom && matchMonth;
+      })
+      .sort((a, b) => {
+        // Urutkan dari yang terbaru ke yang lama (Descending: Tanggal besar/baru di atas)
+        const dateA = a.date || "";
+        const dateB = b.date || "";
+        if (dateA !== dateB) {
+          return dateB.localeCompare(dateA);
+        }
+        // Jika tanggal sama, urutkan berdasarkan waktu mulai terbaru menggunakan 'as any'
+        const timeA = (a as any).start_time || "";
+        const timeB = (b as any).start_time || "";
+        return timeB.localeCompare(timeA);
+      });
+  }, [agendas, searchTerm, statusFilter, roomFilter, monthFilter]);
 
   const handleExportExcel = () => {
     setIsExporting(true);
     try {
       const currentDate = new Date().toISOString().split("T")[0];
       let csvContent = "\uFEFF";
-      csvContent += `"KANTOR REGIONAL / PROVINSI OJK SUMATERA SELATAN"\n`;
+      csvContent += `"KANTOR OJK PROVINSI SUMATERA SELATAN"\n`;
       csvContent += `"LAPORAN REKAPITULASI AGENDA & KEGIATAN RUANGAN"\n`;
-      csvContent += `"Tanggal Cetak: ${currentDate} | Filter Status: ${statusFilter} | Filter Ruangan: ${roomFilter}"\n\n`;
+      csvContent += `"Tanggal Cetak: ${currentDate} | Filter Status: ${statusFilter} | Filter Ruangan: ${roomFilter} | Filter Bulan: ${monthFilter}"\n\n`;
       csvContent += `"No","Tanggal","Waktu","Nama Kegiatan / Acara","Penanggung Jawab (PIC)","Satuan Kerja (Satker)","Ruangan","Tata Letak","Status Pengajuan"\n`;
 
       filteredAgendas.forEach((a, index) => {
@@ -232,76 +278,106 @@ export default function AgendaPage() {
       const doc = new jsPDF("landscape", "mm", "a4");
       const currentDate = new Date().toISOString().split("T")[0];
 
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text("OTORITAS JASA KEUANGAN REPUBLIK INDONESIA", 14, 15);
-      doc.setFontSize(13);
-      doc.text("KANTOR REGIONAL / PROVINSI SUMATERA SELATAN", 14, 22);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text(
-        "Laporan Rekapitulasi Daftar Agenda & Kegiatan Ruang Rapat",
-        14,
-        28,
-      );
-      doc.text(
-        `Tanggal Cetak: ${currentDate} | Status: ${statusFilter} | Ruangan: ${roomFilter}`,
-        14,
-        33,
-      );
-      doc.setLineWidth(0.5);
-      doc.line(14, 37, 283, 37);
+      // Fungsi bantuan untuk membuat dan mencetak PDF setelah gambar dimuat
+      const generatePDFWithLogo = (imgData?: string) => {
+        // Jika logo berhasil dimuat, tambahkan di pojok kanan atas kop surat
+        if (imgData) {
+          // parameter: (img, format, x, y, width, height)
+          doc.addImage(imgData, "PNG", 255, 12, 18, 14);
+        }
 
-      const tableColumn = [
-        "No",
-        "Tanggal & Waktu",
-        "Nama Kegiatan / Acara",
-        "PIC / Satker",
-        "Ruangan",
-        "Layout",
-        "Status",
-      ];
-      const tableRows = filteredAgendas.map((item, index) => [
-        index + 1,
-        `${item.date}\n${item.time}`,
-        item.title,
-        `${item.pic}\n(${item.dept || "Umum"})`,
-        item.room,
-        item.layout || "-",
-        item.smartStatus,
-      ]);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("OTORITAS JASA KEUANGAN REPUBLIK INDONESIA", 14, 15);
+        doc.setFontSize(13);
+        doc.text("KANTOR OJK PROVINSI SUMATERA SELATAN", 14, 22);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text(
+          "Laporan Rekapitulasi Daftar Agenda & Kegiatan Ruang Rapat",
+          14,
+          28,
+        );
+        doc.text(
+          `Tanggal Cetak: ${currentDate} | Status: ${statusFilter} | Ruangan: ${roomFilter} | Bulan: ${monthFilter}`,
+          14,
+          33,
+        );
+        doc.setLineWidth(0.5);
+        doc.line(14, 37, 283, 37);
 
-      autoTable(doc, {
-        head: [tableColumn],
-        body: tableRows,
-        startY: 42,
-        theme: "grid",
-        headStyles: {
-          fillColor: [159, 21, 33],
-          textColor: [255, 255, 255],
-          halign: "center",
-          fontSize: 9,
-        },
-        bodyStyles: { fontSize: 8, textColor: [30, 30, 30] },
-        columnStyles: {
-          0: { halign: "center", cellWidth: 12 },
-          6: { halign: "center", cellWidth: 35 },
-        },
-        didDrawPage: () => {
-          doc.setFontSize(8);
-          doc.text(
-            `Halaman ${doc.getNumberOfPages()}`,
-            14,
-            doc.internal.pageSize.height - 10,
-          );
-        },
-      });
+        const tableColumn = [
+          "No",
+          "Tanggal & Waktu",
+          "Nama Kegiatan / Acara",
+          "PIC / Satker",
+          "Ruangan",
+          "Layout",
+          "Status",
+        ];
+        const tableRows = filteredAgendas.map((item, index) => [
+          index + 1,
+          `${item.date}\n${item.time}`,
+          item.title,
+          `${item.pic}\n(${item.dept || "Umum"})`,
+          item.room,
+          item.layout || "-",
+          item.smartStatus,
+        ]);
 
-      doc.save(`Laporan_Agenda_OJK_Sumsel_${currentDate}.pdf`);
+        autoTable(doc, {
+          head: [tableColumn],
+          body: tableRows,
+          startY: 42,
+          theme: "grid",
+          headStyles: {
+            fillColor: [159, 21, 33],
+            textColor: [255, 255, 255],
+            halign: "center",
+            fontSize: 9,
+          },
+          bodyStyles: { fontSize: 8, textColor: [30, 30, 30] },
+          columnStyles: {
+            0: { halign: "center", cellWidth: 12 },
+            6: { halign: "center", cellWidth: 35 },
+          },
+          didDrawPage: () => {
+            doc.setFontSize(8);
+            doc.text(
+              `Halaman ${doc.getNumberOfPages()}`,
+              14,
+              doc.internal.pageSize.height - 10,
+            );
+          },
+        });
+
+        doc.save(`Laporan_Agenda_OJK_Sumsel_${currentDate}.pdf`);
+        setIsExporting(false);
+      };
+
+      // Load gambar logo OJK dari public folder
+      const img = new Image();
+      img.src = "/otoritas-jasa-keuangan-logo.png";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          const dataURL = canvas.toDataURL("image/png");
+          generatePDFWithLogo(dataURL);
+        } else {
+          generatePDFWithLogo();
+        }
+      };
+      img.onerror = () => {
+        // Tetap cetak PDF meskipun logo gagal dimuat
+        generatePDFWithLogo();
+      };
     } catch (error) {
       console.error("Gagal mendownload PDF:", error);
-    } finally {
-      setTimeout(() => setIsExporting(false), 500);
+      setIsExporting(false);
     }
   };
 
@@ -364,50 +440,47 @@ export default function AgendaPage() {
     });
   };
 
-const handleSaveEdit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!editModal.data) return;
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editModal.data) return;
 
-  setIsSubmittingEdit(true);
-  try {
-    const payload = {
-      id: editModal.data.id, // Pastikan ID ini tidak null/undefined
-      title: editModal.data.title,
-      date: editModal.data.date,
-      start_time: editModal.data.start_time,
-      end_time: editModal.data.end_time,
-      room: editModal.data.room,
-      pic: editModal.data.pic,
-      dept: editModal.data.dept,
-      layout: editModal.data.layout,
-      status: editModal.data.status,
-    };
+    setIsSubmittingEdit(true);
+    try {
+      const payload = {
+        id: editModal.data.id,
+        title: editModal.data.title,
+        date: editModal.data.date,
+        start_time: editModal.data.start_time,
+        end_time: editModal.data.end_time,
+        room: editModal.data.room,
+        pic: editModal.data.pic,
+        dept: editModal.data.dept,
+        layout: editModal.data.layout,
+        status: editModal.data.status,
+      };
 
-    console.log("Payload yang dikirim:", payload); // Cek F12 di browser saat klik simpan
+      const res = await fetch("/api/agendas", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    const res = await fetch("/api/agendas", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+      const result = await res.json();
 
-    const result = await res.json();
-    console.log("Respon dari backend:", result);
-
-    if (res.ok) {
-      setEditModal({ isOpen: false, data: null });
-      fetchAgendas();
-    } else {
-      alert(
-        `Gagal memperbarui agenda: ${result.message || result.error || "Unknown error"}`,
-      );
+      if (res.ok) {
+        setEditModal({ isOpen: false, data: null });
+        fetchAgendas();
+      } else {
+        alert(
+          `Gagal memperbarui agenda: ${result.message || result.error || "Unknown error"}`,
+        );
+      }
+    } catch (error) {
+      console.error("Gagal memperbarui agenda:", error);
+    } finally {
+      setIsSubmittingEdit(false);
     }
-  } catch (error) {
-    console.error("Gagal memperbarui agenda:", error);
-  } finally {
-    setIsSubmittingEdit(false);
-  }
-};
+  };
 
   return (
     <motion.div
@@ -469,8 +542,8 @@ const handleSaveEdit = async (e: React.FormEvent) => {
         </div>
       </div>
 
-      {/* 2. FILTER & SEARCH BAR */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* 2. FILTER & SEARCH BAR (Ditambahkan Filter Bulan) */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <div className="relative sm:col-span-1">
           <Search
             size={16}
@@ -483,6 +556,21 @@ const handleSaveEdit = async (e: React.FormEvent) => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100 shadow-sm"
           />
+        </div>
+
+        <div>
+          <select
+            value={monthFilter}
+            onChange={(e) => setMonthFilter(e.target.value)}
+            className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer shadow-sm"
+          >
+            <option value="Semua Bulan">Semua Bulan</option>
+            {monthOptions.map((m) => (
+              <option key={m} value={m}>
+                {formatMonthName(m)}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>
