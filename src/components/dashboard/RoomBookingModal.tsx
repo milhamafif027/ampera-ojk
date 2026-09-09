@@ -344,8 +344,16 @@ export default function RoomBookingModal({
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error("Gagal menyimpan ke database server.");
+      // UBAHAN UTAMA DI SINI: Tangkap pesan asli dari API Backend
+      const result = await res.json();
 
+      if (!res.ok) {
+        throw new Error(
+          result.message || "Gagal menyimpan ke database server.",
+        );
+      }
+
+      // Lanjutkan pengiriman notifikasi jika sukses...
       await fetch("/api/notifikasi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -388,9 +396,10 @@ export default function RoomBookingModal({
 
       setShowSuccessPopup(true);
     } catch (error: any) {
+      // Menampilkan pesan spesifik yang dikirim backend (misal: pesan jadwal bentrok)
       setCustomAlert({
         isOpen: true,
-        title: "Gagal!",
+        title: "Gagal Mengajukan Jadwal, Jadwal tersebut sudah terisi!",
         message: error.message || "Terjadi kesalahan saat menghubungi server.",
         type: "error",
       });
