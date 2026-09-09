@@ -43,6 +43,7 @@ export default function AgendaPage() {
   const [statusFilter, setStatusFilter] = useState<string>("Semua Status");
   const [roomFilter, setRoomFilter] = useState<string>("Semua Ruangan");
   const [monthFilter, setMonthFilter] = useState<string>("Semua Bulan");
+  const [yearFilter, setYearFilter] = useState<string>("Semua Tahun");
 
   const [isExporting, setIsExporting] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -170,29 +171,41 @@ export default function AgendaPage() {
     Boolean,
   );
 
-  // Daftar opsi bulan yang tersedia dari data agenda
+  // Daftar opsi tahun yang tersedia dari data agenda
+  const yearOptions = useMemo(() => {
+    const yearsSet = new Set<string>();
+    agendas.forEach((a) => {
+      if (a.date) {
+        const year = a.date.slice(0, 4); // Format "YYYY"
+        yearsSet.add(year);
+      }
+    });
+    return Array.from(yearsSet).sort().reverse();
+  }, [agendas]);
+
+  // Daftar opsi bulan (hanya angka bulan "01" s.d "12") yang tersedia
   const monthOptions = useMemo(() => {
     const monthsSet = new Set<string>();
     agendas.forEach((a) => {
       if (a.date) {
-        const yearMonth = a.date.slice(0, 7); // Format "YYYY-MM"
-        monthsSet.add(yearMonth);
+        // Filter berdasarkan tahun yang sedang dipilih jika tidak "Semua Tahun"
+        const year = a.date.slice(0, 4);
+        if (yearFilter === "Semua Tahun" || year === yearFilter) {
+          const month = a.date.slice(5, 7); // Format "MM"
+          monthsSet.add(month);
+        }
       }
     });
-    return Array.from(monthsSet).sort().reverse(); // Urutkan dari bulan terbaru
-  }, [agendas]);
+    return Array.from(monthsSet).sort();
+  }, [agendas, yearFilter]);
 
-  // Helper untuk format nama bulan agar mudah dibaca di dropdown
-  const formatMonthName = (yearMonth: string) => {
+  // Helper untuk format angka bulan menjadi nama bulan lengkap (Januari, Februari, dst.)
+  const formatMonthName = (monthNum: string) => {
     try {
-      const [year, month] = yearMonth.split("-");
-      const date = new Date(parseInt(year), parseInt(month) - 1, 1);
-      return date.toLocaleDateString("id-ID", {
-        month: "long",
-        year: "numeric",
-      });
+      const date = new Date(2026, parseInt(monthNum) - 1, 1);
+      return date.toLocaleDateString("id-ID", { month: "long" });
     } catch {
-      return yearMonth;
+      return monthNum;
     }
   };
 
@@ -209,25 +222,32 @@ export default function AgendaPage() {
           statusFilter === "Semua Status" || a.smartStatus === statusFilter;
         const matchRoom =
           roomFilter === "Semua Ruangan" || a.room === roomFilter;
-        const matchMonth =
-          monthFilter === "Semua Bulan" ||
-          (a.date && a.date.startsWith(monthFilter));
 
-        return matchSearch && matchStatus && matchRoom && matchMonth;
+        // Pisahkan filter berdasarkan Tahun dan Bulan
+        const itemYear = a.date ? a.date.slice(0, 4) : "";
+        const itemMonth = a.date ? a.date.slice(5, 7) : "";
+
+        const matchYear =
+          yearFilter === "Semua Tahun" || itemYear === yearFilter;
+        const matchMonth =
+          monthFilter === "Semua Bulan" || itemMonth === monthFilter;
+
+        return (
+          matchSearch && matchStatus && matchRoom && matchYear && matchMonth
+        );
       })
       .sort((a, b) => {
-        // Urutkan dari yang terbaru ke yang lama (Descending: Tanggal besar/baru di atas)
+        // Urutkan dari yang terbaru ke yang lama (Descending)
         const dateA = a.date || "";
         const dateB = b.date || "";
         if (dateA !== dateB) {
           return dateB.localeCompare(dateA);
         }
-        // Jika tanggal sama, urutkan berdasarkan waktu mulai terbaru menggunakan 'as any'
         const timeA = (a as any).start_time || "";
         const timeB = (b as any).start_time || "";
         return timeB.localeCompare(timeA);
       });
-  }, [agendas, searchTerm, statusFilter, roomFilter, monthFilter]);
+  }, [agendas, searchTerm, statusFilter, roomFilter, monthFilter, yearFilter]);
 
   const handleExportExcel = () => {
     setIsExporting(true);
@@ -236,7 +256,7 @@ export default function AgendaPage() {
       let csvContent = "\uFEFF";
       csvContent += `"KANTOR OJK PROVINSI SUMATERA SELATAN"\n`;
       csvContent += `"LAPORAN REKAPITULASI AGENDA & KEGIATAN RUANGAN"\n`;
-      csvContent += `"Tanggal Cetak: ${currentDate} | Filter Status: ${statusFilter} | Filter Ruangan: ${roomFilter} | Filter Bulan: ${monthFilter}"\n\n`;
+      csvContent += `"Tanggal Cetak: ${currentDate} | Filter Status: ${statusFilter} | Filter Ruangan: ${roomFilter} | Filter Tahun: ${yearFilter} | Filter Bulan: ${monthFilter}"\n\n`;
       csvContent += `"No","Tanggal","Waktu","Nama Kegiatan / Acara","Penanggung Jawab (PIC)","Satuan Kerja (Satker)","Ruangan","Tata Letak","Status Pengajuan"\n`;
 
       filteredAgendas.forEach((a, index) => {
@@ -278,11 +298,8 @@ export default function AgendaPage() {
       const doc = new jsPDF("landscape", "mm", "a4");
       const currentDate = new Date().toISOString().split("T")[0];
 
-      // Fungsi bantuan untuk membuat dan mencetak PDF setelah gambar dimuat
       const generatePDFWithLogo = (imgData?: string) => {
-        // Jika logo berhasil dimuat, tambahkan di pojok kanan atas kop surat
         if (imgData) {
-          // parameter: (img, format, x, y, width, height)
           doc.addImage(imgData, "PNG", 240, 10, 32, 16);
         }
 
@@ -299,7 +316,7 @@ export default function AgendaPage() {
           28,
         );
         doc.text(
-          `Tanggal Cetak: ${currentDate} | Status: ${statusFilter} | Ruangan: ${roomFilter} | Bulan: ${monthFilter}`,
+          `Tanggal Cetak: ${currentDate} | Status: ${statusFilter} | Ruangan: ${roomFilter} | Tahun: ${yearFilter} | Bulan: ${monthFilter}`,
           14,
           33,
         );
@@ -355,7 +372,6 @@ export default function AgendaPage() {
         setIsExporting(false);
       };
 
-      // Load gambar logo OJK dari public folder
       const img = new Image();
       img.src = "/otoritas-jasa-keuangan-logo.png";
       img.onload = () => {
@@ -372,7 +388,6 @@ export default function AgendaPage() {
         }
       };
       img.onerror = () => {
-        // Tetap cetak PDF meskipun logo gagal dimuat
         generatePDFWithLogo();
       };
     } catch (error) {
@@ -542,8 +557,8 @@ export default function AgendaPage() {
         </div>
       </div>
 
-      {/* 2. FILTER & SEARCH BAR (Ditambahkan Filter Bulan) */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+      {/* 2. FILTER & SEARCH BAR (Dipisah Filter Tahun & Filter Bulan) */}
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
         <div className="relative sm:col-span-1">
           <Search
             size={16}
@@ -558,6 +573,26 @@ export default function AgendaPage() {
           />
         </div>
 
+        {/* Filter Tahun */}
+        <div>
+          <select
+            value={yearFilter}
+            onChange={(e) => {
+              setYearFilter(e.target.value);
+              setMonthFilter("Semua Bulan"); 
+            }}
+            className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer shadow-sm"
+          >
+            <option value="Semua Tahun">Semua Tahun</option>
+            {yearOptions.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Filter Bulan (Hanya Nama Bulan Tanpa Tahun) */}
         <div>
           <select
             value={monthFilter}
