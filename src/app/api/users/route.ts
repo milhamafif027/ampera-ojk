@@ -6,9 +6,9 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    // Sertakan kolom password agar terbaca oleh frontend
+    // Ambil kolom utama termasuk password agar terbaca oleh frontend
     const users: any = await db.$queryRaw`
-      SELECT id, name, email, role, nip, password 
+      SELECT id, name, email, role, password 
       FROM users 
       ORDER BY id ASC
     `;

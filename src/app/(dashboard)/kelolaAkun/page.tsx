@@ -22,7 +22,6 @@ interface UserItem {
   name: string;
   email: string;
   role: string;
-  nip?: string;
   password?: string;
   kata_sandi?: string;
   sandi?: string;
@@ -47,14 +46,13 @@ export default function KelolaAkunPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // State modal Edit Akun (Informasi Umum)
+  // State modal Edit Akun (Informasi Umum - NIP Dihilangkan)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
     id: "",
     name: "",
     email: "",
     role: "internal",
-    nip: "",
   });
 
   // State alert sukses/gagal
@@ -86,7 +84,6 @@ export default function KelolaAkunPage() {
             name: "Administrator OJK",
             email: "admin@timlms.com",
             role: "admin",
-            nip: "19850101...",
             password: "adminpassword123",
           },
           {
@@ -94,15 +91,7 @@ export default function KelolaAkunPage() {
             name: "Pegawai Internal Sumsel",
             email: "internal@ojk.go.id",
             role: "internal",
-            nip: "19920304...",
             password: "internalpassword123",
-          },
-          {
-            id: 3,
-            name: "Tamu Eksternal Vendor",
-            email: "eksternal@vendor.com",
-            role: "eksternal",
-            password: "tampaseksternal123",
           },
         ]);
       }
@@ -149,7 +138,6 @@ export default function KelolaAkunPage() {
       name: userItem.name,
       email: userItem.email,
       role: userItem.role,
-      nip: userItem.nip || "",
     });
     setModalError("");
     setIsEditModalOpen(true);
@@ -349,11 +337,6 @@ export default function KelolaAkunPage() {
                       </div>
                       <div>
                         <div>{u.name}</div>
-                        {u.nip && (
-                          <span className="text-[10px] text-slate-400 font-normal">
-                            NIP: {u.nip}
-                          </span>
-                        )}
                       </div>
                     </td>
                     <td className="p-3">{u.email}</td>
@@ -452,7 +435,7 @@ export default function KelolaAkunPage() {
         </table>
       </div>
 
-      {/* MODAL EDIT INFORMASI AKUN */}
+      {/* MODAL EDIT INFORMASI AKUN (NIP DIHILANGKAN) */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
@@ -518,37 +501,21 @@ export default function KelolaAkunPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                    Hak Akses (Role)
-                  </label>
-                  <select
-                    value={editFormData.role}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, role: e.target.value })
-                    }
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100"
-                  >
-                    <option value="admin">Admin</option>
-                    <option value="internal">Internal</option>
-                    <option value="eksternal">Eksternal</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                    NIP / ID Pegawai
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Nomor Induk Pegawai"
-                    value={editFormData.nip}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, nip: e.target.value })
-                    }
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100"
-                  />
-                </div>
+              <div>
+                <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                  Hak Akses (Role)
+                </label>
+                <select
+                  value={editFormData.role}
+                  onChange={(e) =>
+                    setEditFormData({ ...editFormData, role: e.target.value })
+                  }
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100"
+                >
+                  <option value="admin">Admin</option>
+                  <option value="internal">Internal</option>
+                  <option value="eksternal">Eksternal</option>
+                </select>
               </div>
 
               <div className="pt-3 flex justify-end gap-2">

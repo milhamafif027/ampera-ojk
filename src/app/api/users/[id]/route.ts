@@ -6,12 +6,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    // Gunakan await untuk mengambil id dari params karena berupa Promise di Next.js terbaru
     const resolvedParams = await params;
     const userId = resolvedParams.id;
 
     const body = await req.json();
-    const { name, email, role, nip } = body;
+    const { name, email, role } = body;
 
     if (!userId || !name || !email || !role) {
       return NextResponse.json(
@@ -22,10 +21,10 @@ export async function PUT(
 
     const uId = Number(userId);
 
-    // Eksekusi Update menggunakan Prisma $executeRaw ke tabel users
+    // Eksekusi Update tanpa kolom nip
     const affectedRows = await db.$executeRaw`
       UPDATE users 
-      SET name = ${name}, email = ${email}, role = ${role}, nip = ${nip || null} 
+      SET name = ${name}, email = ${email}, role = ${role} 
       WHERE id = ${uId}
     `;
 
