@@ -68,7 +68,7 @@ export async function GET(request: Request) {
   }
 }
 
-// 2. POST: Tambah reservasi
+// 2. POST: Tambah reservasi dengan validasi bentrok ketat
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -99,9 +99,6 @@ export async function POST(request: Request) {
 
     const cleanRole = role?.toLowerCase() || "";
 
-    // PERBAIKAN UTAMA:
-    // Anggap sebagai Disetujui jika rolenya admin, internal, pegawai,
-    // atau jika user_id ada dan rolenya bukan secara eksplisit 'eksternal'
     const isAutoApprove =
       cleanRole === "admin" ||
       cleanRole === "internal" ||
@@ -110,12 +107,14 @@ export async function POST(request: Request) {
 
     const finalStatus = isAutoApprove ? "Disetujui" : "Pending";
 
+    // Pengecekan Bentrok (Overlap Formula: (StartA < EndB) AND (EndA > StartB))
+    // Hanya mengecek jadwal yang statusnya bukan 'Ditolak'
     const conflicts: any = await db.$queryRaw`
       SELECT id FROM agendas 
-      WHERE room_name = ${room_name} AND date = ${date}::date AND status != 'Ditolak'
-      AND ((start_time < ${end_time} AND end_time > ${start_time}) 
-        OR (start_time >= ${start_time} AND start_time < ${end_time}) 
-        OR (end_time > ${start_time} AND end_time <= ${end_time}))
+      WHERE room_name = ${room_name} 
+        AND date = ${date}::date 
+        AND status != 'Ditolak'
+        AND (start_time < ${end_time} AND end_time > ${start_time})
     `;
 
     if (conflicts.length > 0) {
@@ -188,7 +187,7 @@ export async function POST(request: Request) {
   }
 }
 
-// 3. PUT: Update data agenda (Mendukung Edit Data Lengkap & Quick Approve/Status)
+// 3. PUT: Update data agenda (Dilengkapi validasi bentrok saat edit jadwal lengkap)
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
@@ -217,8 +216,29 @@ export async function PUT(request: Request) {
     const safeStatus = String(status);
     const safeNotes = String(notes || "");
 
-    // Jika request membawa data lengkap dari form Edit Modal Admin
+    // Jika request membawa data lengkap dari form Edit Modal Admin (artinya mengubah jadwal/waktu/ruangan)
     if (title && date && start_time && end_time && room) {
+      // CEK BENTROK KECUALI UNTUK AGENDA ITU SENDIRI (id != agendaId)
+      const conflicts: any = await db.$queryRaw`
+        SELECT id FROM agendas 
+        WHERE room_name = ${room} 
+          AND date = ${date}::date 
+          AND id != ${agendaId}
+          AND status != 'Ditolak'
+          AND (start_time < ${end_time} AND end_time > ${start_time})
+      `;
+
+      if (conflicts.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Gagal memperbarui: Jadwal bentrok dengan agenda lain pada ruangan dan rentang waktu tersebut.",
+          },
+          { status: 400 },
+        );
+      }
+
       await db.$executeRaw`
         UPDATE agendas 
         SET title = ${title},
