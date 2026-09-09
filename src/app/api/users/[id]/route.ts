@@ -3,10 +3,13 @@ import { db } from "@/lib/db";
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const userId = params.id;
+    // Gunakan await untuk mengambil id dari params karena berupa Promise di Next.js terbaru
+    const resolvedParams = await params;
+    const userId = resolvedParams.id;
+
     const body = await req.json();
     const { name, email, role, nip } = body;
 
