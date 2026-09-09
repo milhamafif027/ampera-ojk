@@ -6,17 +6,17 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    // Ambil kolom utama yang aman dan pasti ada di tabel users
+    // Sertakan kolom password agar terbaca oleh frontend
     const users: any = await db.$queryRaw`
-      SELECT id, name, email, role, nip 
+      SELECT id, name, email, role, nip, password 
       FROM users 
       ORDER BY id ASC
     `;
 
-    // Mapping tambahan untuk memastikan properti password aman untuk frontend
+    // Mapping untuk memastikan properti password tersedia
     const sanitizedUsers = users.map((u: any) => ({
       ...u,
-      password: u.password || u.kata_sandi || u.sandi || "••••••••••••",
+      password: u.password || "••••••••••••",
     }));
 
     return NextResponse.json({
