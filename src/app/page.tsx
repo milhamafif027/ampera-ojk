@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "@/components/landingPage/Navbar";
 import Hero from "@/components/landingPage/Hero";
-import PanduanSection from "@/components/landingPage/PanduanSection"; // <-- Ganti QuickHelp dengan PanduanSection
+import QuickHelp from "@/components/landingPage/QuickHelp";
 import LandingRooms from "@/components/landingPage/LandingRooms";
 import LandingPartners from "@/components/landingPage/LandingPartners";
 import { AlertCircle } from "lucide-react";
@@ -112,8 +112,8 @@ export default function LandingPage() {
         />
       </motion.div>
 
-      {/* 5. PUSAT BANTUAN & SOP (Ganti QuickHelp dengan PanduanSection) */}
-      <PanduanSection />
+      {/* 5. PUSAT BANTUAN & VENDOR */}
+      <QuickHelp />
 
       {/* FOOTER */}
       <footer className="mt-auto bg-slate-900 text-slate-400 text-xs py-8 border-t border-slate-800">
@@ -127,7 +127,7 @@ export default function LandingPage() {
               Portal Pegawai
             </Link>
             <Link
-              href="/#panduan"
+              href="/panduan"
               className="hover:text-white transition-colors"
             >
               Panduan SOP
