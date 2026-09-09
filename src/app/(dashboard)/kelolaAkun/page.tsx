@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Copy,
   Check,
+  Edit3,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -38,13 +39,23 @@ export default function KelolaAkunPage() {
   }>({});
   const [copiedId, setCopiedId] = useState<number | string | null>(null);
 
-  // State untuk modal ganti password
+  // State modal ganti password
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserItem | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // State modal Edit Akun (Informasi Umum)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    id: "",
+    name: "",
+    email: "",
+    role: "internal",
+    nip: "",
+  });
 
   // State alert sukses/gagal
   const [alertInfo, setAlertInfo] = useState<{
@@ -130,6 +141,62 @@ export default function KelolaAkunPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  // Handler Buka Modal Edit Akun
+  const handleOpenEditModal = (userItem: UserItem) => {
+    setSelectedUser(userItem);
+    setEditFormData({
+      id: String(userItem.id),
+      name: userItem.name,
+      email: userItem.email,
+      role: userItem.role,
+      nip: userItem.nip || "",
+    });
+    setModalError("");
+    setIsEditModalOpen(true);
+  };
+
+  // Handler Submit Edit Informasi Akun
+  const handleEditFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setModalError("");
+
+    if (!editFormData.name || !editFormData.email || !editFormData.role) {
+      setModalError("Nama, email, dan role wajib diisi.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/users/${editFormData.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editFormData),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          result.message || "Gagal memperbarui data akun ke database.",
+        );
+      }
+
+      setIsEditModalOpen(false);
+      setAlertInfo({
+        isOpen: true,
+        message: `Informasi akun ${editFormData.name} berhasil diperbarui.`,
+        type: "success",
+      });
+      fetchUsers();
+    } catch (error: any) {
+      console.error(error);
+      setModalError(error.message || "Terjadi kesalahan saat menyimpan data.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handler Buka Modal Ganti Password
   const handleOpenPasswordModal = (userItem: UserItem) => {
     setSelectedUser(userItem);
     setNewPassword("");
@@ -139,6 +206,7 @@ export default function KelolaAkunPage() {
     setIsPasswordModalOpen(true);
   };
 
+  // Handler Submit Ganti Password
   const handleChangePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
@@ -223,8 +291,8 @@ export default function KelolaAkunPage() {
             Akses
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-            Pusat kontrol admin untuk memantau daftar pengguna, melihat sandi,
-            dan mereset akun.
+            Pusat kontrol admin untuk memantau daftar pengguna, mengedit
+            informasi akun, dan mereset sandi.
           </p>
         </div>
 
@@ -279,7 +347,14 @@ export default function KelolaAkunPage() {
                       <div className="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-950 text-[#9f1521] dark:text-rose-300 flex items-center justify-center font-black text-xs shrink-0">
                         {u.name.charAt(0).toUpperCase()}
                       </div>
-                      <span>{u.name}</span>
+                      <div>
+                        <div>{u.name}</div>
+                        {u.nip && (
+                          <span className="text-[10px] text-slate-400 font-normal">
+                            NIP: {u.nip}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3">{u.email}</td>
 
@@ -343,12 +418,22 @@ export default function KelolaAkunPage() {
                       </span>
                     </td>
                     <td className="p-3 text-center">
-                      <button
-                        onClick={() => handleOpenPasswordModal(u)}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 mx-auto transition-colors shadow-sm cursor-pointer"
-                      >
-                        <Lock size={13} /> Ganti Sandi
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => handleOpenEditModal(u)}
+                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Edit Informasi Akun"
+                        >
+                          <Edit3 size={13} /> Edit
+                        </button>
+                        <button
+                          onClick={() => handleOpenPasswordModal(u)}
+                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition-colors shadow-sm cursor-pointer"
+                          title="Ganti Sandi"
+                        >
+                          <Lock size={13} /> Sandi
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -366,6 +451,126 @@ export default function KelolaAkunPage() {
           </tbody>
         </table>
       </div>
+
+      {/* MODAL EDIT INFORMASI AKUN */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-md w-full shadow-2xl space-y-4"
+          >
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
+                  KONTROL ADMIN SUPERIOR
+                </span>
+                <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                  Edit Informasi Akun
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {modalError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 rounded-xl text-xs font-bold flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0" />
+                <span>{modalError}</span>
+              </div>
+            )}
+
+            <form
+              onSubmit={handleEditFormSubmit}
+              className="space-y-3 text-xs font-medium"
+            >
+              <div>
+                <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                  Nama Lengkap
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editFormData.name}
+                  onChange={(e) =>
+                    setEditFormData({ ...editFormData, name: e.target.value })
+                  }
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                  Email Akun
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={editFormData.email}
+                  onChange={(e) =>
+                    setEditFormData({ ...editFormData, email: e.target.value })
+                  }
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                    Hak Akses (Role)
+                  </label>
+                  <select
+                    value={editFormData.role}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, role: e.target.value })
+                    }
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100"
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="internal">Internal</option>
+                    <option value="eksternal">Eksternal</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                    NIP / ID Pegawai
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Nomor Induk Pegawai"
+                    value={editFormData.nip}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, nip: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-6 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl font-bold transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmitting ? "Menyimpan..." : "Simpan Perubahan"}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
 
       {/* MODAL GANTI PASSWORD OLEH ADMIN */}
       {isPasswordModalOpen && selectedUser && (
