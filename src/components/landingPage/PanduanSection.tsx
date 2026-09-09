@@ -16,7 +16,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 
-export default function PanduanPage() {
+export default function PanduanSection() {
   const [openAccordion, setExpandedAccordion] = useState<number | null>(0);
 
   const toggleAccordion = (index: number) => {
@@ -52,22 +52,21 @@ export default function PanduanPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans p-6 sm:p-10">
-      <div className="max-w-4xl mx-auto space-y-8">
-        {/* Header Navigation */}
+    <section
+      id="panduan"
+      className="py-12 sm:py-16 lg:py-24 bg-slate-50 text-slate-800 font-sans"
+    >
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 space-y-8">
+        {/* Header Navigation / Intro */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
           <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-red-700 hover:bg-red-50 transition-colors shadow-sm"
-              title="Kembali ke Login"
-            >
-              <ArrowLeft size={18} />
-            </Link>
+            <div className="p-2.5 rounded-xl bg-white border border-slate-200 text-[#9f1521] shadow-sm">
+              <BookOpen size={20} />
+            </div>
             <div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
                 Panduan System & SOP
-              </h1>
+              </h2>
               <p className="text-xs text-slate-500 font-medium">
                 Sistem Operasional AMPERA — OJK Provinsi Sumatera Selatan
               </p>
@@ -78,7 +77,7 @@ export default function PanduanPage() {
             href="/rating-harga-ojk.pdf"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-red-900/10 shrink-0"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/10 shrink-0"
           >
             <Download size={15} /> Unduh PDF SOP
           </a>
@@ -90,26 +89,26 @@ export default function PanduanPage() {
             <span className="px-3 py-1 bg-white/20 border border-white/30 backdrop-blur-md rounded-full text-[10px] font-extrabold uppercase tracking-widest text-rose-200">
               PUSAT INFORMASI PEGAWAI
             </span>
-            <h2 className="text-xl md:text-2xl font-bold leading-snug">
+            <h3 className="text-xl md:text-2xl font-bold leading-snug">
               Butuh Bantuan Akses atau Penggunaan Sistem?
-            </h2>
+            </h3>
             <p className="text-xs text-rose-100 font-medium max-w-lg leading-relaxed">
               Pelajari petunjuk penggunaan atau hubungi Layanan Helpdesk TIM
               LMSt Kantor OJK Provinsi Sumatera Selatan.
             </p>
           </div>
           <Link
-            href="/"
+            href="/login"
             className="px-5 py-3 bg-white text-slate-900 hover:bg-slate-100 rounded-xl text-xs font-bold transition-colors shrink-0 shadow-md"
           >
-            Lihat Landing Page
+            Masuk ke Portal
           </Link>
         </div>
 
         {/* Accordion FAQ Section */}
         <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm space-y-6">
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <div className="p-2.5 bg-red-50 text-red-700 rounded-xl">
+            <div className="p-2.5 bg-rose-50 text-[#9f1521] rounded-xl">
               <HelpCircle size={20} />
             </div>
             <div>
@@ -132,17 +131,17 @@ export default function PanduanPage() {
                   key={idx}
                   className={`border rounded-2xl transition-all overflow-hidden ${
                     isOpen
-                      ? "border-red-200 bg-red-50/20"
+                      ? "border-rose-200 bg-rose-50/20"
                       : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
                   <button
                     onClick={() => toggleAccordion(idx)}
-                    className="w-full p-4 text-left flex items-center justify-between gap-4"
+                    className="w-full p-4 text-left flex items-center justify-between gap-4 cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
                       <div
-                        className={`p-2 rounded-lg ${isOpen ? "bg-red-700 text-white" : "bg-slate-100 text-slate-500"}`}
+                        className={`p-2 rounded-lg ${isOpen ? "bg-[#9f1521] text-white" : "bg-slate-100 text-slate-500"}`}
                       >
                         <Icon size={16} />
                       </div>
@@ -152,12 +151,12 @@ export default function PanduanPage() {
                     </div>
                     <ChevronDown
                       size={18}
-                      className={`text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180 text-red-700" : ""}`}
+                      className={`text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180 text-[#9f1521]" : ""}`}
                     />
                   </button>
 
                   {isOpen && (
-                    <div className="px-4 pb-4 pt-1 text-xs text-slate-600 leading-relaxed border-t border-red-100/50">
+                    <div className="px-4 pb-4 pt-1 text-xs text-slate-600 leading-relaxed border-t border-rose-100/50">
                       {item.a}
                     </div>
                   )}
@@ -171,7 +170,7 @@ export default function PanduanPage() {
         <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-red-50 text-red-700 rounded-xl">
+              <div className="p-2.5 bg-rose-50 text-[#9f1521] rounded-xl">
                 <FileText size={20} />
               </div>
               <div>
@@ -187,7 +186,7 @@ export default function PanduanPage() {
 
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <BookOpen size={24} className="text-red-700 shrink-0" />
+              <BookOpen size={24} className="text-[#9f1521] shrink-0" />
               <div>
                 <p className="text-xs font-bold text-slate-800">
                   SOP Peminjaman Ruang & Kendaraan Dinas.pdf
@@ -198,7 +197,7 @@ export default function PanduanPage() {
               </div>
             </div>
             <a
-              href="/rating-harga-ojk.pdf"
+              href="/"
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-colors shadow-sm shrink-0"
@@ -213,6 +212,6 @@ export default function PanduanPage() {
           © 2026 Tim LMSt • Kantor OJK Provinsi Sumatera Selatan
         </p>
       </div>
-    </div>
+    </section>
   );
 }

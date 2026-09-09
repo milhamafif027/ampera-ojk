@@ -9,7 +9,6 @@ import {
   Moon,
   Sun,
   User,
-  AlertCircle,
   Search,
   ChevronDown,
   Loader2,
@@ -20,6 +19,7 @@ import { getFilteredNavItems } from "@/lib/auth";
 import NotificationDropdown, {
   NotificationItem,
 } from "@/components/dashboard/NotificationDropdown";
+import SessionExpiredModal from "@/components/dashboard/SessionExpiredModal";
 import { useAuth } from "@/hooks/useAuth";
 
 interface LocalUser {
@@ -427,7 +427,7 @@ export default function DashboardLayout({
 
           <div className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl text-center space-y-4 z-10">
             <div className="w-14 h-14 bg-rose-100 dark:bg-rose-900/40 text-rose-600 rounded-full flex items-center justify-center mx-auto">
-              <AlertCircle size={28} />
+              <LogOut size={28} />
             </div>
 
             <div className="space-y-1">
@@ -469,35 +469,8 @@ export default function DashboardLayout({
         </div>
       )}
 
-      {/* MODAL PERINGATAN KARENA TIDAK AKTIF (30 MENIT) */}
-      {isSessionExpired && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl text-center space-y-5 border border-slate-100 dark:border-slate-800">
-            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/40 text-amber-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-              <AlertCircle size={32} className="animate-bounce" />
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="font-black text-slate-900 dark:text-white text-lg">
-                Sesi Berakhir karena Tidak Aktif
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Demi keamanan data instansi OJK Sumsel, Anda telah otomatis
-                dikeluarkan dari sistem karena tidak ada aktivitas selama 30
-                menit.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={logout}
-              className="w-full py-3.5 rounded-xl text-xs font-bold bg-[#9f1521] hover:bg-[#7a1019] text-white transition-all shadow-lg shadow-rose-900/20 cursor-pointer"
-            >
-              Masuk Kembali ke Halaman Login
-            </button>
-          </div>
-        </div>
-      )}
+      {/* MODAL PERINGATAN KARENA TIDAK AKTIF (30 MENIT) MENGGUNAKAN KOMPONEN TERPISAH */}
+      <SessionExpiredModal isOpen={isSessionExpired} onLogout={logout} />
     </div>
   );
 }
