@@ -38,7 +38,7 @@ export const navItemsConfig = [
     label: "Daftar Agenda",
     href: "/agenda",
     icon: ClipboardList,
-    roles: ["admin", "internal_kopg"],
+    roles: ["admin", "internal_kopg", "internal"],
   },
   {
     key: "ruangan",

@@ -87,6 +87,9 @@ export default function RoomBookingModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
+  // State untuk menyimpan role user yang sedang aktif
+  const [currentUserRole, setCurrentUserRole] = useState<string>("eksternal");
+
   const [existingBookings, setExistingBookings] = useState<any[]>([]);
   const [isCheckingConflict, setIsCheckingConflict] = useState(false);
 
@@ -112,14 +115,16 @@ export default function RoomBookingModal({
       const timer = setTimeout(() => {
         setShowSuccessPopup(false);
 
-        // Ambil data user yang sedang login untuk otomatisasi satker
+        // Ambil data user yang sedang login untuk otomatisasi satker & role
         const storedUser =
           sessionStorage.getItem("local_user") ||
           localStorage.getItem("local_user");
         const currentUser = storedUser ? JSON.parse(storedUser) : null;
         const userRole = (currentUser?.role || "eksternal").toLowerCase();
 
-        // Jika internal atau admin, set default dept menjadi "OJK Sumsel"
+        setCurrentUserRole(userRole);
+
+        // Jika internal atau admin, set default dept menjadi "OJK Sumsel". Jika eksternal, biarkan kosong atau ambil dari editData
         const defaultDept =
           userRole === "internal" || userRole === "admin"
             ? "OJK Sumsel"
@@ -142,8 +147,8 @@ export default function RoomBookingModal({
 
         setFormData({
           title: editData?.title || "",
-          pic: editData?.pic || currentUser?.name || "", // Bisa otomatis isi nama PIC dari user login jika mau
-          dept: defaultDept, // <-- Otomatis terisi "OJK Sumsel" untuk internal
+          pic: editData?.pic || currentUser?.name || "",
+          dept: defaultDept,
           phone:
             (editData as any)?.phone || (editData as any)?.phone_pemohon || "",
           total_participants: String(
@@ -291,7 +296,6 @@ export default function RoomBookingModal({
     setIsSubmitting(true);
 
     try {
-      // Ambil data user dari sessionStorage (atau fallback ke localStorage)
       const storedUser =
         sessionStorage.getItem("local_user") ||
         localStorage.getItem("local_user");
@@ -299,7 +303,6 @@ export default function RoomBookingModal({
 
       const userRole = (currentUser?.role || "eksternal").toLowerCase();
 
-      // AUTO-APPROVE: Jika role admin atau internal, status langsung Disetujui
       const finalStatus =
         userRole === "admin" || userRole === "internal"
           ? "Disetujui"
@@ -331,7 +334,7 @@ export default function RoomBookingModal({
         notes: formData.notes,
         status: finalStatus,
         user_id: currentUser?.id ? Number(currentUser.id) : null,
-        role: userRole, // Kirim role agar backend mengenali auto-approve
+        role: userRole,
       };
 
       const method = editData?.id ? "PUT" : "POST";
@@ -343,7 +346,6 @@ export default function RoomBookingModal({
 
       if (!res.ok) throw new Error("Gagal menyimpan ke database server.");
 
-      // 1. Kirim notifikasi untuk Admin (masuk ke notifikasi_admin)
       await fetch("/api/notifikasi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -359,7 +361,6 @@ export default function RoomBookingModal({
         }),
       });
 
-      // 2. Kirim notifikasi personal untuk User yang bersangkutan
       if (currentUser?.id) {
         const isApproved = finalStatus === "Disetujui";
 
@@ -402,6 +403,10 @@ export default function RoomBookingModal({
     "w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium focus:bg-white dark:focus:bg-slate-900 focus:border-[#9f1521] outline-none text-slate-800 dark:text-slate-100 shadow-sm transition-colors disabled:opacity-50";
   const labelClassName =
     "text-[10px] font-extrabold text-slate-500 dark:text-slate-400 mb-1.5 block tracking-wider uppercase";
+
+  // Cek apakah user saat ini adalah admin atau internal
+  const isInternalOrAdmin =
+    currentUserRole === "admin" || currentUserRole === "internal";
 
   const isViewMode = Boolean(editData && editData.id);
 
@@ -500,9 +505,18 @@ export default function RoomBookingModal({
                       name="dept"
                       value={formData.dept}
                       onChange={handleChange}
-                      disabled={true} 
-                      className={`${inputClassName} opacity-80 cursor-not-allowed`}
-                      placeholder="OJK Sumsel"
+                      // Jika role admin/internal, kunci input. Jika eksternal, biarkan aktif bisa diketik bebas.
+                      disabled={isInternalOrAdmin || isSubmitting}
+                      className={`${inputClassName} ${
+                        isInternalOrAdmin
+                          ? "opacity-80 cursor-not-allowed bg-slate-100 dark:bg-slate-800/80"
+                          : ""
+                      }`}
+                      placeholder={
+                        isInternalOrAdmin
+                          ? "OJK Sumsel"
+                          : "Contoh: PT Bank Mandiri / Instansi Luar"
+                      }
                       required
                     />
                   </div>
