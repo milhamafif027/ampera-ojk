@@ -74,7 +74,7 @@ export default function PanduanSection() {
           </div>
 
           <a
-            href="/rating-harga-ojk.pdf"
+            href="/Eksternal-PANDUAN PENGGUNAAN APLIKASI PORTAL AMPERA OJK SUMSEL.pdf"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/10 shrink-0"
@@ -197,7 +197,7 @@ export default function PanduanSection() {
               </div>
             </div>
             <a
-              href="/"
+              href="/Eksternal-PANDUAN PENGGUNAAN APLIKASI PORTAL AMPERA OJK SUMSEL.pdf"
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-colors shadow-sm shrink-0"
