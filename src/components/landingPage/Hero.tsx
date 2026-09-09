@@ -113,7 +113,7 @@ export default function Hero() {
               className="w-full sm:w-auto"
             >
               <Link
-                href="/Panduan"
+                href="/panduan"
                 className="inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-bold px-6 py-3.5 rounded-xl transition-all shadow-sm w-full sm:w-auto"
               >
                 <BookOpen className="w-4 h-4 text-slate-500 shrink-0" /> Panduan
