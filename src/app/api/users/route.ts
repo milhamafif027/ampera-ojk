@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
+// Mencegah Next.js melakukan caching pada endpoint ini agar data selalu sinkron dengan database
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET() {
   try {
     // Ambil semua data pengguna dari tabel users menggunakan query mentah
