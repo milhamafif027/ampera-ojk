@@ -155,7 +155,7 @@ export async function PUT(request: Request) {
   }
 }
 
-// 3. POST: Menambahkan kendaraan via FormData atau Peminjaman via JSON
+// 3. POST: Menambahkan kendaraan via FormData atau Peminjaman via JSON (Dilengkapi Validasi Bentrok Tanggal)
 export async function POST(request: Request) {
   try {
     const contentType = request.headers.get("content-type") || "";
@@ -204,6 +204,17 @@ export async function POST(request: Request) {
         role,
       } = body;
 
+      if (!tanggal_mulai || !tanggal_selesai || !nama_kendaraan) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Nama kendaraan, tanggal mulai, dan tanggal selesai wajib diisi.",
+          },
+          { status: 400 },
+        );
+      }
+
       const cleanRole = role?.toLowerCase() || "eksternal";
 
       const bookingStatus =
@@ -211,6 +222,28 @@ export async function POST(request: Request) {
         (cleanRole === "admin" || cleanRole === "internal"
           ? "Disetujui"
           : "Pending");
+
+      // --- LOGIKA PENGAMAN BENTROK TANGGAL KENDARAAN ---
+      // Mengecek apakah kendaraan sudah dipesan/diajukan (status != 'Ditolak', mencakup 'Pending' & 'Disetujui')
+      // Formula overlap tanggal: (start_date <= tanggal_selesai) AND (end_date >= tanggal_mulai)
+      const vehicleConflicts: any = await db.$queryRaw`
+        SELECT id FROM vehicle_bookings 
+        WHERE vehicle_name = ${nama_kendaraan} 
+          AND status != 'Ditolak' 
+          AND (start_date <= ${tanggal_selesai}::date AND end_date >= ${tanggal_mulai}::date)
+      `;
+
+      if (vehicleConflicts.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Jadwal bentrok! Kendaraan tersebut sudah dipesan atau sedang diajukan pada rentang tanggal tersebut.",
+          },
+          { status: 400 },
+        );
+      }
+      // ------------------------------------------------
 
       await db.$executeRaw`
         INSERT INTO vehicle_bookings (vehicle_name, destination, borrower, dept, start_date, end_date, status, user_id)
