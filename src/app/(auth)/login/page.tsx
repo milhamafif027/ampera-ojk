@@ -27,6 +27,10 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
 
+  // State baru untuk Modal Peringatan Sesi Ganda (Duplicate Login / 403)
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  const [duplicateMessage, setDuplicateMessage] = useState("");
+
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -45,6 +49,16 @@ export default function LoginPage() {
       });
 
       const data = await res.json();
+
+      // Tangkap penolakan status 403 karena akun sedang aktif di perangkat lain
+      if (res.status === 403) {
+        setIsLoading(false);
+        setDuplicateMessage(
+          data.message || "Akun sedang digunakan oleh pengguna lain.",
+        );
+        setIsDuplicateModalOpen(true);
+        return;
+      }
 
       if (!res.ok) {
         throw new Error(
@@ -290,6 +304,38 @@ export default function LoginPage() {
                 Tutup Panduan
               </button>
             </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* MODAL PERINGATAN KARENA AKUN SEDANG DIGUNAKAN DI PERANGKAT LAIN */}
+      {isDuplicateModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4 relative border border-slate-100"
+          >
+            <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+              <ShieldAlert size={28} />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="font-black text-slate-900 text-base">
+                Akun Sedang Digunakan
+              </h3>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                {duplicateMessage}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsDuplicateModalOpen(false)}
+              className="w-full py-3 bg-[#9f1521] hover:bg-[#7a1019] text-white font-bold text-xs rounded-xl transition-colors shadow-lg shadow-rose-900/20 cursor-pointer"
+            >
+              Mengerti & Kembali
+            </button>
           </motion.div>
         </div>
       )}

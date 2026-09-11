@@ -60,7 +60,7 @@ export default function DashboardLayout({
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [hasUnread, setHasUnread] = useState(false);
 
-  // Cek Session User dari sessionStorage
+  // Cek Session User dari sessionStorage & Validasi Single Active Session
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!authLoading) {
@@ -82,6 +82,39 @@ export default function DashboardLayout({
 
     return () => clearTimeout(timer);
   }, [authUser, authLoading, router]);
+
+  // VALIDASI SESI AKTIF & TIMEOUT 10 MENIT KE API
+  useEffect(() => {
+    if (authLoading) return;
+
+    const verifySession = async () => {
+      try {
+        const res = await fetch("/api/auth/check-session");
+        const data = await res.json();
+
+        // Jika API mengembalikan status tidak valid (bisa karena token hilang, diganti, atau timeout 10 menit)
+        if (!res.ok || !data.valid) {
+          sessionStorage.removeItem("local_user");
+
+          // Arahkan ke login dengan membawa parameter pesan error jika timeout atau diganti
+          const reason = data.message?.includes("aktivitas")
+            ? "timeout"
+            : "session_replaced";
+          router.push(`/login?error=${reason}`);
+        }
+      } catch (err) {
+        console.error("Gagal memvalidasi sesi aktif:", err);
+      }
+    };
+
+    // Cek pertama kali saat halaman dimuat
+    verifySession();
+
+    // Lakukan pengecekan berkala setiap 10 detik
+    const interval = setInterval(verifySession, 10000);
+
+    return () => clearInterval(interval);
+  }, [authLoading, router]);
 
   // Fungsi Fetch Data Notifikasi dari Database
   const fetchNotifications = useCallback(async (currentUserData: LocalUser) => {

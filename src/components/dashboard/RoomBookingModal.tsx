@@ -52,25 +52,33 @@ const getRoomLayouts = (room: any): string[] => {
   return ["Ruang Rapat"];
 };
 
-// Helper untuk membaca Kapasitas spesifik per layout
+// Helper untuk membaca Kapasitas spesifik per layout tanpa dobel kata "Orang"
 const getRoomCapacity = (room: any, layout: string): string | number => {
   if (!room) return "-";
 
+  let capacityVal = "";
   if (room.layout_config) {
     try {
       const config =
         typeof room.layout_config === "string"
           ? JSON.parse(room.layout_config)
           : room.layout_config;
-      if (config[layout]) return `${config[layout]} Orang`;
-      const firstVal = Object.values(config)[0];
-      if (firstVal) return `${firstVal} Orang`;
+      if (config[layout]) capacityVal = config[layout];
+      else {
+        const firstVal = Object.values(config)[0];
+        if (firstVal) capacityVal = String(firstVal);
+      }
     } catch (e) {
       // Abaikan error parse
     }
   }
 
-  return room.capacity ? `${room.capacity} Orang` : "-";
+  if (!capacityVal) {
+    capacityVal = room.capacity ? String(room.capacity) : "-";
+  }
+
+  const cleanCapacity = capacityVal.replace(/orang/gi, "").trim();
+  return cleanCapacity !== "-" ? `${cleanCapacity} Orang` : "-";
 };
 
 export default function RoomBookingModal({
@@ -102,7 +110,9 @@ export default function RoomBookingModal({
     meeting_leader: "",
     room_id: "",
     roomName: "",
-    date: "",
+    isMultiDay: false, // Opsi checkbox untuk multi-hari
+    date: "", // Tanggal Mulai
+    endDate: "", // Tanggal Selesai (jika multi-hari)
     startTime: "08:00",
     endTime: "10:00",
     layout: "",
@@ -157,7 +167,9 @@ export default function RoomBookingModal({
           meeting_leader: (editData as any)?.meeting_leader || "",
           room_id: activeRoom ? String(activeRoom.id) : "",
           roomName: activeRoom?.name || "",
+          isMultiDay: false,
           date: editData?.date || "",
+          endDate: "",
           startTime: editData?.time?.split(" - ")[0] || "08:00",
           endTime:
             editData?.time?.split(" - ")[1]?.replace(" WIB", "") || "10:00",
@@ -232,7 +244,12 @@ export default function RoomBookingModal({
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >,
   ) => {
-    const { name, value } = e.target;
+    const target = e.target;
+    const name = target.name;
+    const value =
+      target.type === "checkbox"
+        ? (target as HTMLInputElement).checked
+        : target.value;
 
     if (name === "room_id") {
       const selected = rooms.find((r) => String(r.id) === String(value));
@@ -240,7 +257,7 @@ export default function RoomBookingModal({
 
       setFormData((prev) => ({
         ...prev,
-        room_id: value,
+        room_id: String(value),
         roomName: selected ? selected.name : prev.roomName,
         layout: layouts[0],
       }));
@@ -275,6 +292,7 @@ export default function RoomBookingModal({
   const isStep2Valid = Boolean(
     (formData.room_id || formData.roomName) &&
     formData.date &&
+    (!formData.isMultiDay || formData.endDate) &&
     formData.startTime &&
     formData.endTime &&
     !hasConflict &&
@@ -317,43 +335,68 @@ export default function RoomBookingModal({
         }
       }
 
-      const payload = {
-        id: editData?.id,
-        title: formData.title,
-        pic: formData.pic,
-        dept: formData.dept,
-        phone: formData.phone,
-        total_participants: Number(formData.total_participants) || 1,
-        meeting_leader: formData.meeting_leader,
-        room_id: formData.room_id ? Number(formData.room_id) : null,
-        room_name: formData.roomName,
-        date: cleanDate,
-        start_time: formData.startTime,
-        end_time: formData.endTime,
-        layout: formData.layout,
-        notes: formData.notes,
-        status: finalStatus,
-        user_id: currentUser?.id ? Number(currentUser.id) : null,
-        role: userRole,
-      };
-
-      const method = editData?.id ? "PUT" : "POST";
-      const res = await fetch("/api/agendas", {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      // UBAHAN UTAMA DI SINI: Tangkap pesan asli dari API Backend
-      const result = await res.json();
-
-      if (!res.ok) {
-        throw new Error(
-          result.message || "Gagal menyimpan ke database server.",
-        );
+      let cleanEndDate = formData.endDate;
+      if (cleanEndDate) {
+        if (cleanEndDate.includes("T")) {
+          cleanEndDate = cleanEndDate.split("T")[0];
+        } else if (cleanEndDate.length >= 10) {
+          cleanEndDate = cleanEndDate.slice(0, 10);
+        }
       }
 
-      // Lanjutkan pengiriman notifikasi jika sukses...
+      // Tentukan daftar tanggal yang akan dipesan (1 hari atau looping multi-hari)
+      const datesToBook: string[] = [cleanDate];
+      if (formData.isMultiDay && cleanEndDate && cleanEndDate >= cleanDate) {
+        let currentDate = new Date(cleanDate);
+        const lastDate = new Date(cleanEndDate);
+
+        datesToBook.length = 0; // reset
+        while (currentDate <= lastDate) {
+          datesToBook.push(currentDate.toISOString().split("T")[0]);
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      }
+
+      // Kirim pemesanan untuk setiap tanggal dalam rentang
+      for (const d of datesToBook) {
+        const payload = {
+          id:
+            editData?.id && datesToBook.length === 1 ? editData.id : undefined,
+          title: formData.title,
+          pic: formData.pic,
+          dept: formData.dept,
+          phone: formData.phone,
+          total_participants: Number(formData.total_participants) || 1,
+          meeting_leader: formData.meeting_leader,
+          room_id: formData.room_id ? Number(formData.room_id) : null,
+          room_name: formData.roomName,
+          date: d,
+          start_time: formData.startTime,
+          end_time: formData.endTime,
+          layout: formData.layout,
+          notes: formData.notes,
+          status: finalStatus,
+          user_id: currentUser?.id ? Number(currentUser.id) : null,
+          role: userRole,
+        };
+
+        const method =
+          editData?.id && datesToBook.length === 1 ? "PUT" : "POST";
+        const res = await fetch("/api/agendas", {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const result = await res.json();
+        if (!res.ok) {
+          throw new Error(
+            result.message || "Gagal menyimpan ke database server.",
+          );
+        }
+      }
+
+      // Notifikasi Admin & User
       await fetch("/api/notifikasi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -365,41 +408,35 @@ export default function RoomBookingModal({
               : "Pengajuan Ruangan Baru",
           type: "room",
           status: finalStatus,
-          info: `Ruangan ${formData.roomName} dipesan oleh ${formData.pic} (${formData.dept}) untuk tanggal ${cleanDate} (${formData.startTime} - ${formData.endTime}). Status: ${finalStatus}`,
+          info: `Ruangan ${formData.roomName} dipesan oleh ${formData.pic} (${formData.dept}) untuk ${datesToBook.length} hari (${cleanDate} s.d. ${formData.isMultiDay ? cleanEndDate : cleanDate}). Status: ${finalStatus}`,
         }),
       });
 
       if (currentUser?.id) {
         const isApproved = finalStatus === "Disetujui";
-
-        const userNotifTitle = isApproved
-          ? "Reservasi Disetujui Otomatis"
-          : "Pengajuan Menunggu Verifikasi";
-
-        const userNotifInfo = isApproved
-          ? `Reservasi ruangan ${formData.roomName} tanggal ${cleanDate} berhasil dan langsung disetujui.`
-          : `Pengajuan ruangan ${formData.roomName} Anda telah dikirim dan sedang ditinjau oleh Admin.`;
-
         await fetch("/api/notifikasi", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             user_id: currentUser.id,
             role: userRole,
-            title: userNotifTitle,
+            title: isApproved
+              ? "Reservasi Disetujui Otomatis"
+              : "Pengajuan Menunggu Verifikasi",
             type: "room",
             status: finalStatus,
-            info: userNotifInfo,
+            info: isApproved
+              ? `Reservasi ruangan ${formData.roomName} berhasil dan langsung disetujui.`
+              : `Pengajuan ruangan ${formData.roomName} Anda telah dikirim dan sedang ditinjau oleh Admin.`,
           }),
         });
       }
 
       setShowSuccessPopup(true);
     } catch (error: any) {
-      // Menampilkan pesan spesifik yang dikirim backend (misal: pesan jadwal bentrok)
       setCustomAlert({
         isOpen: true,
-        title: "Gagal Mengajukan Jadwal, Jadwal tersebut sudah terisi!",
+        title: "Gagal Mengajukan Jadwal!",
         message: error.message || "Terjadi kesalahan saat menghubungi server.",
         type: "error",
       });
@@ -413,7 +450,6 @@ export default function RoomBookingModal({
   const labelClassName =
     "text-[10px] font-extrabold text-slate-500 dark:text-slate-400 mb-1.5 block tracking-wider uppercase";
 
-  // Cek apakah user saat ini adalah admin atau internal
   const isInternalOrAdmin =
     currentUserRole === "admin" || currentUserRole === "internal";
 
@@ -514,7 +550,6 @@ export default function RoomBookingModal({
                       name="dept"
                       value={formData.dept}
                       onChange={handleChange}
-                      // Jika role admin/internal, kunci input. Jika eksternal, biarkan aktif bisa diketik bebas.
                       disabled={isInternalOrAdmin || isSubmitting}
                       className={`${inputClassName} ${
                         isInternalOrAdmin
@@ -613,7 +648,11 @@ export default function RoomBookingModal({
                       <option value="">-- Pilih Ruangan --</option>
                       {rooms.map((r) => (
                         <option key={r.id} value={r.id}>
-                          {r.name} - Kapasitas: {r.capacity || "-"} Orang
+                          {r.name} - Kapasitas:{" "}
+                          {String(r.capacity || "-")
+                            .replace(/orang/gi, "")
+                            .trim()}{" "}
+                          Orang
                         </option>
                       ))}
                     </select>
@@ -630,44 +669,128 @@ export default function RoomBookingModal({
                   )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className={labelClassName}>Tanggal</label>
-                    <input
-                      type="date"
-                      name="date"
-                      value={formData.date}
-                      onChange={handleChange}
-                      disabled={isSubmitting}
-                      className={inputClassName}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClassName}>Jam Mulai</label>
-                    <input
-                      type="time"
-                      name="startTime"
-                      value={formData.startTime}
-                      onChange={handleChange}
-                      disabled={isSubmitting}
-                      className={inputClassName}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClassName}>Jam Selesai</label>
-                    <input
-                      type="time"
-                      name="endTime"
-                      value={formData.endTime}
-                      onChange={handleChange}
-                      disabled={isSubmitting}
-                      className={inputClassName}
-                      required
-                    />
-                  </div>
+                {/* CHECKBOX MULTI-HARI */}
+                <div className="flex items-center gap-2.5 pt-1">
+                  <input
+                    type="checkbox"
+                    id="isMultiDay"
+                    name="isMultiDay"
+                    checked={formData.isMultiDay}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className="w-4 h-4 rounded border-slate-300 text-[#9f1521] focus:ring-[#9f1521] cursor-pointer"
+                  />
+                  <label
+                    htmlFor="isMultiDay"
+                    className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none"
+                  >
+                    Pemesanan lebih dari satu hari (Multi-Hari)
+                  </label>
                 </div>
+
+                {/* KONDISI TAMPILAN TANGGAL & JAM */}
+                {!formData.isMultiDay ? (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className={labelClassName}>Tanggal</label>
+                      <input
+                        type="date"
+                        name="date"
+                        value={formData.date}
+                        onChange={handleChange}
+                        disabled={isSubmitting}
+                        className={inputClassName}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClassName}>Jam Mulai</label>
+                      <input
+                        type="time"
+                        name="startTime"
+                        value={formData.startTime}
+                        onChange={handleChange}
+                        disabled={isSubmitting}
+                        className={inputClassName}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClassName}>Jam Selesai</label>
+                      <input
+                        type="time"
+                        name="endTime"
+                        value={formData.endTime}
+                        onChange={handleChange}
+                        disabled={isSubmitting}
+                        className={inputClassName}
+                        required
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 animate-in fade-in duration-200">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelClassName}>Tanggal Mulai</label>
+                        <input
+                          type="date"
+                          name="date"
+                          value={formData.date}
+                          onChange={handleChange}
+                          disabled={isSubmitting}
+                          className={inputClassName}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClassName}>
+                          Tanggal Selesai
+                        </label>
+                        <input
+                          type="date"
+                          name="endDate"
+                          value={formData.endDate}
+                          min={formData.date}
+                          onChange={handleChange}
+                          disabled={isSubmitting}
+                          className={inputClassName}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelClassName}>
+                          Jam Mulai (Harian)
+                        </label>
+                        <input
+                          type="time"
+                          name="startTime"
+                          value={formData.startTime}
+                          onChange={handleChange}
+                          disabled={isSubmitting}
+                          className={inputClassName}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClassName}>
+                          Jam Selesai (Harian)
+                        </label>
+                        <input
+                          type="time"
+                          name="endTime"
+                          value={formData.endTime}
+                          onChange={handleChange}
+                          disabled={isSubmitting}
+                          className={inputClassName}
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {isCheckingConflict && (
                   <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs flex items-center gap-2 text-slate-500">
