@@ -1,130 +1,218 @@
 "use client";
 
-import React from "react";
-import {
-  Building2,
-  MapPin,
-  Coffee,
-  Dumbbell,
-  Compass,
-  Landmark,
-} from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import Image from "next/image";
+import { X } from "lucide-react";
 
-// Data card yang diadaptasi dari ringkasan Booklet Wisata & Profil OJK Sumsel
-const highlightCards = [
+// Seluruh aset gambar dari halaman booklet
+const allBookletImages = [
   {
     id: 1,
-    title: "Green Building OJK Sumsel",
-    category: "Profil & Sejarah Kantor",
-    description:
-      "Gedung 8 lantai di Jl. Jend. Sudirman No. 1025 ini merupakan satu-satunya gedung bersertifikat Green Building kategori Gold di Sumatera Selatan[cite: 1].",
-    icon: <Building2 className="w-5 h-5 text-[#9f1521] dark:text-rose-400" />,
-    badge: "Fasilitas Utama",
-    location: "Jl. Jend. Sudirman No. 1025",
+    title: "Cover & Sambutan",
+    image: "/Cetak-Booklet Wisata Palembang/1.png",
   },
   {
     id: 2,
-    title: "Work-Life Balance Area (Lantai 8)",
-    category: "Fasilitas Internal KOPG",
-    description:
-      "Dilengkapi fasilitas mini golf dengan pemandangan Kota Palembang, ruang gym lengkap, studio band CETO, hingga area billiard[cite: 1].",
-    icon: (
-      <Dumbbell className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-    ),
-    badge: "Area Rekreasi",
-    location: "Lantai 8 Gedung KOPG",
+    title: "Pemerintah Provinsi & Kota",
+    image: "/Cetak-Booklet Wisata Palembang/2.png",
   },
   {
     id: 3,
-    title: "Wisata Kuliner Legendaris",
-    category: "Kuliner & Oleh-Oleh",
-    description:
-      "Nikmati kelezatan Pindang Musi Rawas/Sarinande, Pempek Vico & Beringin, Martabak HAR, hingga berburu durian di Demang City[cite: 1].",
-    icon: <Coffee className="w-5 h-5 text-amber-600 dark:text-amber-400" />,
-    badge: "Wajib Coba",
-    location: "Kota Palembang",
+    title: "Letak Geografis Sumsel",
+    image: "/Cetak-Booklet Wisata Palembang/3.png",
   },
   {
     id: 4,
-    title: "Jembatan Ampera & BKB",
-    category: "Destinasi Wisata",
-    description:
-      "Menyusuri Sungai Musi menggunakan Musi Cruise, atau menikmati suasana malam di Benteng Kuto Besak (BKB)[cite: 1].",
-    icon: <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400" />,
-    badge: "Ikon Kota",
-    location: "Tepi Sungai Musi",
+    title: "Pimpinan OJK Sumsel",
+    image: "/Cetak-Booklet Wisata Palembang/4.png",
   },
   {
     id: 5,
-    title: "Sultan Muda Sumsel Center (SMSC)",
-    category: "Pusat Kolaborasi",
-    description:
-      "Berada di lantai 3 sebagai pusat inkubasi pembelajaran, business matching, dan pembinaan pengusaha muda di Sumatera Selatan[cite: 1].",
-    icon: <Landmark className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />,
-    badge: "Lantai 3 KOPG",
-    location: "Kandang Kolaborasi",
+    title: "Fakta & Sejarah Kantor",
+    image: "/Cetak-Booklet Wisata Palembang/5.png",
+  },
+  {
+    id: 6,
+    title: "Gedung Green Building OJK",
+    image: "/Cetak-Booklet Wisata Palembang/6.png",
+  },
+  {
+    id: 7,
+    title: "Work-Life Balance Area",
+    image: "/Cetak-Booklet Wisata Palembang/7.png",
+  },
+  {
+    id: 8,
+    title: "Navigasi Wisata Palembang",
+    image: "/Cetak-Booklet Wisata Palembang/8.png",
+  },
+  {
+    id: 9,
+    title: "Panduan Aktivitas & Destinasi",
+    image: "/Cetak-Booklet Wisata Palembang/9.png",
+  },
+  {
+    id: 10,
+    title: "Alternatif Transportasi",
+    image: "/Cetak-Booklet Wisata Palembang/10.png",
+  },
+  {
+    id: 11,
+    title: "Kuliner Pindang Legendaris",
+    image: "/Cetak-Booklet Wisata Palembang/11.png",
+  },
+  {
+    id: 12,
+    title: "Peta & Rute Wisata",
+    image: "/Cetak-Booklet Wisata Palembang/12.png",
+  },
+  {
+    id: 13,
+    title: "Tempat Wisata Sejarah",
+    image: "/Cetak-Booklet Wisata Palembang/13.png",
+  },
+  {
+    id: 14,
+    title: "Jakabaring Sport City",
+    image: "/Cetak-Booklet Wisata Palembang/14.png",
+  },
+  {
+    id: 15,
+    title: "Ampera & Punti Kayu",
+    image: "/Cetak-Booklet Wisata Palembang/15.png",
+  },
+  {
+    id: 16,
+    title: "Wisata Modern & Kopi Lokal",
+    image: "/Cetak-Booklet Wisata Palembang/16.png",
+  },
+  {
+    id: 17,
+    title: "Makan Durian & Duku",
+    image: "/Cetak-Booklet Wisata Palembang/17.png",
+  },
+  {
+    id: 18,
+    title: "Kuliner & Oleh-Oleh Sekitar Kantor",
+    image: "/Cetak-Booklet Wisata Palembang/18.png",
+  },
+  {
+    id: 19,
+    title: "Pempek Khas Palembang",
+    image: "/Cetak-Booklet Wisata Palembang/19.png",
+  },
+  {
+    id: 20,
+    title: "Mie Celor & Martabak HAR",
+    image: "/Cetak-Booklet Wisata Palembang/20.png",
+  },
+  {
+    id: 21,
+    title: "Oleh-Oleh Kopi & Songket",
+    image: "/Cetak-Booklet Wisata Palembang/21.png",
+  },
+  {
+    id: 22,
+    title: "Akomodasi Hotel Pilihan",
+    image: "/Cetak-Booklet Wisata Palembang/22.png",
+  },
+  {
+    id: 23,
+    title: "Kamus Bahaso Palembang",
+    image: "/Cetak-Booklet Wisata Palembang/23.png",
+  },
+  {
+    id: 24,
+    title: "Terima Kasih",
+    image: "/Cetak-Booklet Wisata Palembang/24.png",
   },
 ];
 
 export default function SlidingCardsSection() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [activeImage, setActiveImage] = useState<string | null>(null);
+
+  // Efek berjalan otomatis (auto-scroll)
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    let animationFrameId: number;
+    const scrollSpeed = 0.6;
+
+    const autoScroll = () => {
+      if (!isPaused && container) {
+        container.scrollLeft += scrollSpeed;
+        if (container.scrollLeft >= container.scrollWidth / 2) {
+          container.scrollLeft = 0;
+        }
+      }
+      animationFrameId = requestAnimationFrame(autoScroll);
+    };
+
+    animationFrameId = requestAnimationFrame(autoScroll);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [isPaused]);
+
+  // Gandakan array agar perputaran auto-scroll terlihat tanpa jeda
+  const duplicatedCards = [...allBookletImages, ...allBookletImages];
+
   return (
-    <div className="w-full py-2 space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 px-1">
-        <div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521] dark:text-rose-400 flex items-center gap-1.5">
-            <Compass size={14} /> EKSPLORASI OJK & WONG KITO GALO
-          </span>
-          <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white mt-0.5">
-            Informasi Kantor & Destinasi Pilihan
-          </h2>
-        </div>
-        <span className="text-xs text-slate-400 font-medium hidden sm:block">
-          Geser untuk melihat info lainnya →
-        </span>
+    <div className="w-full py-6 space-y-4 overflow-hidden">
+      <div className="px-1 text-center sm:text-left">
+        <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white">
+          Booklet Wisata & Profil OJK Sumsel
+        </h2>
       </div>
 
-      {/* Container Card Berjalan / Horizontal Scroll */}
-      <div className="flex gap-4 overflow-x-auto pb-4 pt-1 custom-scrollbar px-1 snap-x">
-        {highlightCards.map((card) => (
+      {/* Container Card Berjalan Otomatis (Pause saat di-hover) */}
+      <div
+        ref={scrollRef}
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        className="flex gap-4 overflow-x-hidden py-2 px-1 select-none cursor-pointer"
+      >
+        {duplicatedCards.map((item, index) => (
           <div
-            key={card.id}
-            className="min-w-[280px] sm:min-w-[320px] max-w-[340px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between shrink-0 snap-start group"
+            key={`${item.id}-${index}`}
+            onClick={() => setActiveImage(item.image)}
+            className="min-w-[180px] sm:min-w-[220px] h-[260px] sm:h-[300px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative shrink-0 group transform hover:-translate-y-1"
           >
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-2xl group-hover:scale-105 transition-transform">
-                  {card.icon}
-                </div>
-                <span className="text-[10px] font-bold px-2.5 py-1 bg-rose-50 dark:bg-rose-950/40 text-[#9f1521] dark:text-rose-400 rounded-full border border-rose-100 dark:border-rose-900/50">
-                  {card.badge}
-                </span>
-              </div>
-
-              <div>
-                <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">
-                  {card.category}
-                </span>
-                <h3 className="font-bold text-slate-900 dark:text-white text-sm leading-snug">
-                  {card.title}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed line-clamp-3">
-                  {card.description}
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-3 mt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
-              <span className="font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1 truncate max-w-[180px]">
-                <MapPin size={12} className="text-[#9f1521] shrink-0" />
-                {card.location}
-              </span>
-              <span className="text-rose-600 dark:text-rose-400 font-bold shrink-0">
-                OJK Sumsel
-              </span>
-            </div>
+            <Image
+              src={item.image}
+              alt={item.title}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
+            />
           </div>
         ))}
       </div>
+
+      {/* MODAL POP-UP GAMBAR UTUH SAAT DIKLIK */}
+      {activeImage && (
+        <div
+          onClick={() => setActiveImage(null)}
+          className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+        >
+          <div className="relative max-w-4xl w-full max-h-[90vh] flex items-center justify-center">
+            <button
+              onClick={() => setActiveImage(null)}
+              className="absolute -top-12 right-0 p-2 rounded-full bg-white/20 hover:bg-white/40 text-white transition-colors cursor-pointer"
+            >
+              <X size={24} />
+            </button>
+            <div className="relative w-full h-[80vh] rounded-2xl overflow-hidden shadow-2xl bg-black">
+              <Image
+                src={activeImage}
+                alt="Booklet Preview"
+                fill
+                className="object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
