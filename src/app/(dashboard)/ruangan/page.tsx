@@ -173,20 +173,18 @@ export default function RuanganPage() {
     );
   }, [sortedRooms, searchTerm]);
 
-  // KATEGORI RUANGAN PERTEMUAN (Hanya untuk Auditorium atau Ballroom)
+  // Ruangan Pertemuan HANYA untuk Auditorium dan Ballroom
   const conferenceRooms = useMemo(
     () =>
       filteredRooms.filter(
         (r: any) =>
-          (r.type === "pertemuan" ||
-            r.type === "auditorium" ||
-            r.name.toLowerCase().includes("ballroom")) &&
-          r.name.toLowerCase() !== "komunal",
+          r.name.toLowerCase().includes("ballroom") ||
+          r.name.toLowerCase().includes("auditorium"),
       ),
     [filteredRooms],
   );
 
-  // KATEGORI RUANGAN RAPAT (Mencakup Komunal dan ruangan lainnya)
+  // Ruangan Rapat mencakup sisanya (termasuk Komunal, Ampera, Monpera, dll)
   const meetingRooms = useMemo(
     () => filteredRooms.filter((r: any) => !conferenceRooms.includes(r)),
     [filteredRooms, conferenceRooms],
