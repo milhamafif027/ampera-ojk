@@ -192,6 +192,19 @@ export default function DashboardPage() {
   const totalPending = pendingAgendas.length;
   const totalRuanganTerpakai = new Set(agendas.map((a) => a.room)).size;
 
+  // Hitung jumlah ruangan tersedia hari ini
+  const todayStr = new Date().toISOString().split("T")[0];
+  const bookedRoomsToday = new Set(
+    agendas
+      .filter((item) => item.date === todayStr && item.status !== "Ditolak")
+      .map((item) => item.room),
+  );
+  const totalMasterRooms = 9; // Total default ruangan master
+  const availableRoomsCount = Math.max(
+    0,
+    totalMasterRooms - bookedRoomsToday.size,
+  );
+
   // 4. Helper untuk Membuka WhatsApp Otomatis
   const sendWhatsAppNotification = (
     agendaData: any,
@@ -487,10 +500,10 @@ Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${ag
                   ]
                 : []),
               {
-                title: "Ruangan Terpakai",
-                value: totalRuanganTerpakai,
-                icon: <Building2 size={18} className="text-blue-600" />,
-                textColor: "text-slate-800 dark:text-white",
+                title: "Ruangan Tersedia",
+                value: availableRoomsCount,
+                icon: <CheckCircle2 size={18} className="text-emerald-600" />,
+                textColor: "text-emerald-600 dark:text-emerald-400",
               },
             ].map((stat, idx) => (
               <motion.div
