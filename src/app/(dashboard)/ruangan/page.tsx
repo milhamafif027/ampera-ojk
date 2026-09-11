@@ -99,7 +99,6 @@ export default function RuanganPage() {
           .map((item: any) => {
             const formattedDate = item.date ? item.date.split("T")[0] : "";
 
-            // Pastikan pembersihan waktu ini ada agar tidak muncul 1970
             let formattedTime = "";
             if (item.start_time && item.end_time) {
               const startStr = String(item.start_time);
@@ -174,6 +173,7 @@ export default function RuanganPage() {
     );
   }, [sortedRooms, searchTerm]);
 
+  // KATEGORI RUANGAN PERTEMUAN (Hanya untuk Auditorium atau Ballroom)
   const conferenceRooms = useMemo(
     () =>
       filteredRooms.filter(
@@ -186,6 +186,7 @@ export default function RuanganPage() {
     [filteredRooms],
   );
 
+  // KATEGORI RUANGAN RAPAT (Mencakup Komunal dan ruangan lainnya)
   const meetingRooms = useMemo(
     () => filteredRooms.filter((r: any) => !conferenceRooms.includes(r)),
     [filteredRooms, conferenceRooms],
