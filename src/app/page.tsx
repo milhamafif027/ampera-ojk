@@ -7,6 +7,7 @@ import Hero from "@/components/landingPage/Hero";
 import QuickHelp from "@/components/landingPage/QuickHelp";
 import LandingRooms from "@/components/landingPage/LandingRooms";
 import LandingPartners from "@/components/landingPage/LandingPartners";
+import SlidingCardsSection from "@/components/dashboard/SlidingCardsSection"; // <-- Import komponen card berjalan
 import { AlertCircle } from "lucide-react";
 import { motion, Variants } from "framer-motion";
 
@@ -79,6 +80,11 @@ export default function LandingPage() {
       {/* 2. HERO SECTION */}
       <Hero />
 
+      {/* 3. SECTION INFORMASI WISATA & PROFIL (CARD BERJALAN) */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full pt-8">
+        <SlidingCardsSection />
+      </div>
+
       {hasError && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full pt-6">
           <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between text-xs text-amber-800 shadow-sm">
@@ -90,7 +96,7 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* 3. FASILITAS & KATALOG RUANGAN UTAMA */}
+      {/* 4. FASILITAS & KATALOG RUANGAN UTAMA */}
       <motion.div
         initial="hidden"
         whileInView="visible"
@@ -104,7 +110,7 @@ export default function LandingPage() {
           itemVariants={itemVariants}
         />
 
-        {/* 4. HOTEL REKANAN OJK */}
+        {/* 5. HOTEL REKANAN OJK */}
         <LandingPartners
           partners={partners}
           isLoading={isLoading}
@@ -112,7 +118,7 @@ export default function LandingPage() {
         />
       </motion.div>
 
-      {/* 5. PUSAT BANTUAN & VENDOR */}
+      {/* 6. PUSAT BANTUAN & VENDOR */}
       <QuickHelp />
 
       {/* FOOTER */}
