@@ -173,18 +173,21 @@ export default function RuanganPage() {
     );
   }, [sortedRooms, searchTerm]);
 
-  // Ruangan Pertemuan HANYA untuk Auditorium dan Ballroom
+  // KATEGORI RUANGAN PERTEMUAN (Mencakup Komunal, Auditorium, dan Ballroom)
   const conferenceRooms = useMemo(
     () =>
       filteredRooms.filter(
         (r: any) =>
+          r.type === "pertemuan" ||
+          r.type === "auditorium" ||
+          r.name.toLowerCase() === "komunal" ||
           r.name.toLowerCase().includes("ballroom") ||
           r.name.toLowerCase().includes("auditorium"),
       ),
     [filteredRooms],
   );
 
-  // Ruangan Rapat mencakup sisanya (termasuk Komunal, Ampera, Monpera, dll)
+  // KATEGORI RUANGAN RAPAT (Mencakup Ampera, Belido, Kemaro, Monpera, Musi, Siguntang, dll)
   const meetingRooms = useMemo(
     () => filteredRooms.filter((r: any) => !conferenceRooms.includes(r)),
     [filteredRooms, conferenceRooms],
