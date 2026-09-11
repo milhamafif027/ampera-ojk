@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { X } from "lucide-react";
 
-// Seluruh aset gambar dari halaman booklet
 const allBookletImages = [
   {
     id: 1,
@@ -13,116 +12,111 @@ const allBookletImages = [
   },
   {
     id: 2,
-    title: "Pemerintah Provinsi & Kota",
-    image: "/Cetak-Booklet Wisata Palembang/2.png",
-  },
-  {
-    id: 3,
     title: "Letak Geografis Sumsel",
     image: "/Cetak-Booklet Wisata Palembang/3.png",
   },
   {
-    id: 4,
+    id: 3,
     title: "Pimpinan OJK Sumsel",
     image: "/Cetak-Booklet Wisata Palembang/4.png",
   },
   {
-    id: 5,
+    id: 4,
     title: "Fakta & Sejarah Kantor",
     image: "/Cetak-Booklet Wisata Palembang/5.png",
   },
   {
-    id: 6,
+    id: 5,
     title: "Gedung Green Building OJK",
     image: "/Cetak-Booklet Wisata Palembang/6.png",
   },
   {
-    id: 7,
+    id: 6,
     title: "Work-Life Balance Area",
     image: "/Cetak-Booklet Wisata Palembang/7.png",
   },
   {
-    id: 8,
+    id: 7,
     title: "Navigasi Wisata Palembang",
     image: "/Cetak-Booklet Wisata Palembang/8.png",
   },
   {
-    id: 9,
+    id: 8,
     title: "Panduan Aktivitas & Destinasi",
     image: "/Cetak-Booklet Wisata Palembang/9.png",
   },
   {
-    id: 10,
+    id: 9,
     title: "Alternatif Transportasi",
     image: "/Cetak-Booklet Wisata Palembang/10.png",
   },
   {
-    id: 11,
+    id: 10,
     title: "Kuliner Pindang Legendaris",
     image: "/Cetak-Booklet Wisata Palembang/11.png",
   },
   {
-    id: 12,
+    id: 11,
     title: "Peta & Rute Wisata",
     image: "/Cetak-Booklet Wisata Palembang/12.png",
   },
   {
-    id: 13,
+    id: 12,
     title: "Tempat Wisata Sejarah",
     image: "/Cetak-Booklet Wisata Palembang/13.png",
   },
   {
-    id: 14,
+    id: 13,
     title: "Jakabaring Sport City",
     image: "/Cetak-Booklet Wisata Palembang/14.png",
   },
   {
-    id: 15,
+    id: 14,
     title: "Ampera & Punti Kayu",
     image: "/Cetak-Booklet Wisata Palembang/15.png",
   },
   {
-    id: 16,
+    id: 15,
     title: "Wisata Modern & Kopi Lokal",
     image: "/Cetak-Booklet Wisata Palembang/16.png",
   },
   {
-    id: 17,
+    id: 16,
     title: "Makan Durian & Duku",
     image: "/Cetak-Booklet Wisata Palembang/17.png",
   },
   {
-    id: 18,
+    id: 17,
     title: "Kuliner & Oleh-Oleh Sekitar Kantor",
     image: "/Cetak-Booklet Wisata Palembang/18.png",
   },
   {
-    id: 19,
+    id: 18,
     title: "Pempek Khas Palembang",
     image: "/Cetak-Booklet Wisata Palembang/19.png",
   },
   {
-    id: 20,
+    id: 19,
     title: "Mie Celor & Martabak HAR",
     image: "/Cetak-Booklet Wisata Palembang/20.png",
   },
   {
-    id: 21,
+    id: 20,
     title: "Oleh-Oleh Kopi & Songket",
     image: "/Cetak-Booklet Wisata Palembang/21.png",
   },
   {
-    id: 22,
+    id: 21,
     title: "Akomodasi Hotel Pilihan",
     image: "/Cetak-Booklet Wisata Palembang/22.png",
   },
   {
-    id: 23,
+    id: 22,
     title: "Kamus Bahaso Palembang",
     image: "/Cetak-Booklet Wisata Palembang/23.png",
   },
   {
-    id: 24,
+    id: 23,
     title: "Terima Kasih",
     image: "/Cetak-Booklet Wisata Palembang/24.png",
   },
@@ -133,13 +127,12 @@ export default function SlidingCardsSection() {
   const [isPaused, setIsPaused] = useState(false);
   const [activeImage, setActiveImage] = useState<string | null>(null);
 
-  // Efek berjalan otomatis (auto-scroll)
   useEffect(() => {
     const container = scrollRef.current;
     if (!container) return;
 
     let animationFrameId: number;
-    const scrollSpeed = 0.6;
+    const scrollSpeed = 0.5;
 
     const autoScroll = () => {
       if (!isPaused && container) {
@@ -155,38 +148,46 @@ export default function SlidingCardsSection() {
     return () => cancelAnimationFrame(animationFrameId);
   }, [isPaused]);
 
-  // Gandakan array agar perputaran auto-scroll terlihat tanpa jeda
   const duplicatedCards = [...allBookletImages, ...allBookletImages];
 
   return (
-    <div className="w-full py-6 space-y-4 overflow-hidden">
-      <div className="px-1 text-center sm:text-left">
+    <div className="w-full py-6 space-y-4 relative">
+      <div className="px-4 max-w-7xl mx-auto">
         <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white">
           Booklet Wisata & Profil OJK Sumsel
         </h2>
       </div>
 
-      {/* Container Card Berjalan Otomatis (Pause saat di-hover) */}
-      <div
-        ref={scrollRef}
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-        className="flex gap-4 overflow-x-hidden py-2 px-1 select-none cursor-pointer"
-      >
-        {duplicatedCards.map((item, index) => (
-          <div
-            key={`${item.id}-${index}`}
-            onClick={() => setActiveImage(item.image)}
-            className="min-w-[180px] sm:min-w-[220px] h-[260px] sm:h-[300px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative shrink-0 group transform hover:-translate-y-1"
-          >
-            <Image
-              src={item.image}
-              alt={item.title}
-              fill
-              className="object-cover group-hover:scale-105 transition-transform duration-500"
-            />
-          </div>
-        ))}
+      {/* Container utama dengan efek gradasi halus (fade-out) di sisi kiri dan kanan */}
+      <div className="relative w-full overflow-hidden">
+        {/* Gradient Overlay Kiri */}
+        <div className="absolute left-0 top-0 bottom-0 w-16 sm:w-28 bg-gradient-to-r from-slate-50 dark:from-[#0B1120] to-transparent z-10 pointer-events-none" />
+
+        {/* Gradient Overlay Kanan */}
+        <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-28 bg-gradient-to-l from-slate-50 dark:from-[#0B1120] to-transparent z-10 pointer-events-none" />
+
+        <div
+          ref={scrollRef}
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+          className="flex gap-4 overflow-x-hidden py-3 px-4 select-none cursor-pointer scroll-smooth"
+          style={{ WebkitOverflowScrolling: "touch" }}
+        >
+          {duplicatedCards.map((item, index) => (
+            <div
+              key={`${item.id}-${index}`}
+              onClick={() => setActiveImage(item.image)}
+              className="min-w-[180px] sm:min-w-[220px] h-[260px] sm:h-[300px] bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative shrink-0 group transform hover:-translate-y-1"
+            >
+              <Image
+                src={item.image}
+                alt={item.title}
+                fill
+                className="object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* MODAL POP-UP GAMBAR UTUH SAAT DIKLIK */}
