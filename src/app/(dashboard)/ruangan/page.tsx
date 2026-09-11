@@ -178,9 +178,10 @@ export default function RuanganPage() {
     () =>
       filteredRooms.filter(
         (r: any) =>
-          r.type === "pertemuan" ||
-          r.type === "auditorium" ||
-          r.name.toLowerCase().includes("ballroom"),
+          (r.type === "pertemuan" ||
+            r.type === "auditorium" ||
+            r.name.toLowerCase().includes("ballroom")) &&
+          r.name.toLowerCase() !== "komunal",
       ),
     [filteredRooms],
   );
