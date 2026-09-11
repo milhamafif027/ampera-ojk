@@ -205,7 +205,7 @@ export default function DashboardPage() {
     totalMasterRooms - bookedRoomsToday.size,
   );
 
-  // 4. Helper untuk Membuka WhatsApp Otomatis
+  // 4. Helper untuk Membuka WhatsApp Otomatis dengan Format yang Diminta
   const sendWhatsAppNotification = (
     agendaData: any,
     status: "Disetujui" | "Ditolak",
@@ -222,9 +222,11 @@ export default function DashboardPage() {
     }
 
     const statusText = status === "Disetujui" ? "DISETUJUI ✅" : "DITOLAK ❌";
-    let message = `Halo ${agendaData.pic || "Bapak/Ibu"},
 
-Pengajuan reservasi ruangan *${agendaData.room || "Rapat"}* untuk kegiatan *${agendaData.title || "Agenda"}* pada tanggal ${agendaData.date || "-"} telah *${statusText}*.`;
+    // Format pesan sesuai permintaan Anda
+    let message = `Halo ${agendaData.pic || "Farin"},
+
+Pengajuan reservasi ruangan *${agendaData.room || "Ballroom Sriwidjaya"}* untuk kegiatan *${agendaData.title || "Sosialisasi & Edukasi Reksa Dana Syariah..."}* pada tanggal ${agendaData.date || "2026-09-30"} telah *${statusText}*.`;
 
     if (status === "Ditolak" && reason) {
       message += `\n\n📝 *Alasan Penolakan:* ${reason}`;
