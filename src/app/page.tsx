@@ -7,7 +7,7 @@ import Hero from "@/components/landingPage/Hero";
 import QuickHelp from "@/components/landingPage/QuickHelp";
 import LandingRooms from "@/components/landingPage/LandingRooms";
 import LandingPartners from "@/components/landingPage/LandingPartners";
-import SlidingCardsSection from "@/components/dashboard/SlidingCardsSection"; // <-- Import komponen card berjalan
+import SlidingCardsSection from "@/components/landingPage/SlidingCardsSection"; // <-- Import komponen card berjalan
 import { AlertCircle } from "lucide-react";
 import { motion, Variants } from "framer-motion";
 
