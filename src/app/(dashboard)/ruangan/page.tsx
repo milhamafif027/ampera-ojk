@@ -173,7 +173,6 @@ export default function RuanganPage() {
     );
   }, [sortedRooms, searchTerm]);
 
-  // KATEGORI RUANGAN PERTEMUAN (Mencakup Komunal, Auditorium, dan Ballroom)
   const conferenceRooms = useMemo(
     () =>
       filteredRooms.filter(
@@ -187,7 +186,6 @@ export default function RuanganPage() {
     [filteredRooms],
   );
 
-  // KATEGORI RUANGAN RAPAT (Mencakup Ampera, Belido, Kemaro, Monpera, Musi, Siguntang, dll)
   const meetingRooms = useMemo(
     () => filteredRooms.filter((r: any) => !conferenceRooms.includes(r)),
     [filteredRooms, conferenceRooms],
@@ -269,10 +267,19 @@ export default function RuanganPage() {
     const currentImgs = editingRoom.imgs
       ? editingRoom.imgs.filter(Boolean)
       : [];
-    if (
-      currentImgs.length === 0 &&
-      (!editingRoom.newFiles || editingRoom.newFiles.length === 0)
-    ) {
+
+    // Filter gambar lama yang sah (bukan hasil preview blob lokal)
+    const existingImgs = currentImgs.filter(
+      (img: string) =>
+        typeof img === "string" &&
+        img.trim() !== "" &&
+        !img.startsWith("blob:"),
+    );
+
+    const totalImagesCount =
+      existingImgs.length + (editingRoom.newFiles?.length || 0);
+
+    if (totalImagesCount === 0) {
       setCustomAlert({
         isOpen: true,
         title: "Perhatian",
@@ -285,17 +292,15 @@ export default function RuanganPage() {
     setIsSubmitting(true);
 
     const formData = new FormData();
-    if (editingRoom.id) formData.append("id", editingRoom.id);
-    formData.append("name", editingRoom.name);
-    formData.append("capacity", editingRoom.capacity);
+    if (editingRoom.id) formData.append("id", String(editingRoom.id));
+    formData.append("name", editingRoom.name || "");
+    formData.append("capacity", editingRoom.capacity || "");
     formData.append("description", editingRoom.description || "");
     formData.append("type", editingRoom.type || "rapat");
     formData.append("floor", editingRoom.floor || "Lantai 2");
     formData.append("status", editingRoom.status || "Tersedia");
 
-    const existingImgs = currentImgs.filter(
-      (img: string) => img && !img.startsWith("blob:"),
-    );
+    // Kirim data foto lama sebagai string JSON agar terbaca oleh backend
     formData.append("existingImgs", JSON.stringify(existingImgs));
 
     if (editingRoom.newFiles && editingRoom.newFiles.length > 0) {
@@ -313,13 +318,13 @@ export default function RuanganPage() {
 
       const result = await res.json();
 
-      if (res.ok) {
+      if (res.ok && result.success) {
         setIsEditModalOpen(false);
         await fetchData();
         setCustomAlert({
           isOpen: true,
           title: "Berhasil!",
-          message: result.message || `Data ruangan berhasil disimpan.`,
+          message: result.message || "Data ruangan berhasil disimpan.",
           type: "success",
         });
       } else {

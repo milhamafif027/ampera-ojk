@@ -141,6 +141,27 @@ function RoomCard({
     }
   };
 
+  // Fungsi helper internal untuk menangani edit dengan aman & menyertakan existingImgs jika form submit induk membutuhkan FormData
+  const handleEditClick = () => {
+    // Jika room.imgs berisi string JSON atau array, pastikan aman dikirim
+    let existingImages = roomImages;
+    if (typeof roomImgs === "string") {
+      try {
+        existingImages = JSON.parse(roomImgs);
+      } catch {
+        existingImages = [defaultImage];
+      }
+    }
+
+    // Inject atau pastikan properti existingImgs terbawa ke modal edit
+    const roomWithExistingImgs = {
+      ...room,
+      existingImgs: existingImages,
+    };
+
+    handleOpenEditModal(roomWithExistingImgs as Room);
+  };
+
   // Filter Jadwal Berdasarkan Ruangan Ini (Hanya menampilkan yang Sedang Berlangsung atau Akan Datang)
   const roomAgendas = agendas.filter((a) => {
     if (!a.room || a.room.toLowerCase() !== room.name.toLowerCase())
@@ -340,7 +361,7 @@ function RoomCard({
             {isAdmin && (
               <div className="flex items-center gap-1 shrink-0">
                 <button
-                  onClick={() => handleOpenEditModal(room)}
+                  onClick={handleEditClick}
                   className="p-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 hover:text-amber-600 text-slate-600 dark:text-slate-300 rounded-lg transition-colors cursor-pointer"
                   title="Edit Ruangan"
                   type="button"
