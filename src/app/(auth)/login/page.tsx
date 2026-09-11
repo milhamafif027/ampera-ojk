@@ -216,7 +216,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* SISI KANAN: Visual Gambar Menyesuaikan Otomatis */}
+        {/* SISI KANAN: Visual Gambar Menyesuaikan Otomatis dengan Teks Baru */}
         <div className="hidden lg:col-span-6 lg:flex relative p-4 items-center justify-center">
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
@@ -241,12 +241,11 @@ export default function LoginPage() {
               <span className="text-[10px] font-extrabold text-rose-300 uppercase tracking-widest mb-1">
                 Kantor OJK Provinsi Sumatera Selatan
               </span>
-              <h3 className="text-xl sm:text-2xl font-black mb-2 tracking-tight">
-                AMPERA Portal Pegawai
+              <h3 className="text-2xl sm:text-3xl font-black mb-2 tracking-tight">
+                AMPERA
               </h3>
-              <p className="text-xs text-slate-200 font-medium leading-relaxed max-w-md">
-                Sistem terpadu manajemen peminjaman fasilitas ruangan dan
-                kendaraan operasional berstandar gedung hijau bersertifikasi.
+              <p className="text-sm text-rose-200 font-bold leading-relaxed max-w-md">
+                Aplikasi Manajemen Peminjaman Ruangan & Kendaraan
               </p>
             </div>
           </motion.div>
