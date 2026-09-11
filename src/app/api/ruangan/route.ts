@@ -25,7 +25,7 @@ async function handleImageUploads(formData: FormData): Promise<string[]> {
 
         // Upload ke Supabase Storage Bucket ('room-images')
         const { data, error } = await supabase.storage
-          .from("room-images") // <-- Ganti dengan nama bucket Anda di Supabase
+          .from("room-images")
           .upload(filename, buffer, {
             contentType: file.type,
             upsert: false,
@@ -113,6 +113,13 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const formData = await req.formData();
+
+    // 🔍 TAMBAHKAN DEBUG LOG UNTUK MELACAK REQUEST DARI FRONTEND
+    console.log("=== API PUT /api/ruangan HIT ===");
+    console.log("ID Ruangan:", formData.get("id"));
+    console.log("Raw existingImgs:", formData.get("existingImgs"));
+    console.log("Total new image files:", formData.getAll("images").length);
+
     const id = formData.get("id");
 
     if (!id) {
@@ -135,16 +142,25 @@ export async function PUT(req: Request) {
 
     const existingImgsRaw = formData.get("existingImgs");
     let savedImageUrls: string[] = [];
+
     if (existingImgsRaw) {
       try {
-        savedImageUrls = JSON.parse(String(existingImgsRaw)).filter(Boolean);
-      } catch {
+        const parsed = JSON.parse(String(existingImgsRaw));
+        if (Array.isArray(parsed)) {
+          savedImageUrls = parsed.filter(
+            (item) => typeof item === "string" && item.trim() !== "",
+          );
+        }
+      } catch (err) {
+        console.error("Gagal parse existingImgs:", err);
         savedImageUrls = [];
       }
     }
 
     const newImageUrls = await handleImageUploads(formData);
     savedImageUrls = [...savedImageUrls, ...newImageUrls];
+
+    console.log("Final savedImageUrls length:", savedImageUrls.length);
 
     if (savedImageUrls.length === 0) {
       return NextResponse.json(
