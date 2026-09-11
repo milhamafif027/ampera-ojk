@@ -1,29 +1,49 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import fs from "fs";
-import path from "path";
+import { createClient } from "@supabase/supabase-js";
 
-// Helper untuk menangani proses upload file gambar ruangan
+// Inisialisasi Supabase Client untuk Storage
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  "";
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Helper baru: Menangani upload file gambar langsung ke Supabase Storage (Cloud)
 async function handleImageUploads(formData: FormData): Promise<string[]> {
   const files = formData.getAll("images") as File[];
   const savedImageUrls: string[] = [];
 
   if (files && files.length > 0) {
-    const uploadDir = path.join(process.cwd(), "public/uploads/rooms");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
     for (const file of files) {
       if (file && typeof file === "object" && file.size > 0) {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
         const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-        const filename = `${uniqueSuffix}-${file.name.replace(/\s+/g, "_")}`;
-        const filepath = path.join(uploadDir, filename);
+        const filename = `rooms/${uniqueSuffix}-${file.name.replace(/\s+/g, "_")}`;
 
-        fs.writeFileSync(filepath, buffer);
-        savedImageUrls.push(`/uploads/rooms/${filename}`);
+        // Upload ke Supabase Storage Bucket ('room-images')
+        const { data, error } = await supabase.storage
+          .from("room-images") // <-- Ganti dengan nama bucket Anda di Supabase
+          .upload(filename, buffer, {
+            contentType: file.type,
+            upsert: false,
+          });
+
+        if (error) {
+          console.error("Supabase Storage Upload Error:", error.message);
+          continue;
+        }
+
+        // Ambil Public URL dari file yang berhasil di-upload
+        const { data: publicUrlData } = supabase.storage
+          .from("room-images")
+          .getPublicUrl(data.path);
+
+        if (publicUrlData?.publicUrl) {
+          savedImageUrls.push(publicUrlData.publicUrl);
+        }
       }
     }
   }
@@ -52,16 +72,12 @@ export async function POST(req: Request) {
   try {
     const formData = await req.formData();
     const name = String(formData.get("name") || "");
-
-    // Kapasitas diambil utuh sebagai string (mendukung teks dan rentang angka)
     const capacity = String(formData.get("capacity") || "30 Orang");
-
     const description = String(formData.get("description") || "");
     const type = String(formData.get("type") || "rapat");
     const floor = String(formData.get("floor") || "Lantai 2");
     const status = String(formData.get("status") || "Tersedia");
 
-    // Proses upload gambar menggunakan helper
     const newImageUrls = await handleImageUploads(formData);
 
     if (newImageUrls.length === 0) {
@@ -111,10 +127,7 @@ export async function PUT(req: Request) {
 
     const roomId = Number(id);
     const name = String(formData.get("name") || "");
-
-    // Kapasitas diambil utuh sebagai string (mendukung teks dan rentang angka)
     const capacity = String(formData.get("capacity") || "30 Orang");
-
     const description = String(formData.get("description") || "");
     const type = String(formData.get("type") || "rapat");
     const floor = String(formData.get("floor") || "Lantai 2");
