@@ -31,9 +31,8 @@ export async function GET(request: Request) {
     const lastActive = new Date(user.last_active_at);
     const diffMinutes = (now.getTime() - lastActive.getTime()) / (1000 * 60);
 
-    // Jika tidak ada aktivitas selama lebih dari 10 menit, anggap *expired* (inactivity timeout)
+    // Jika tidak ada aktivitas selama lebih dari 10 menit, anggap expired
     if (diffMinutes > 10) {
-      // Hapus token sesi di database karena kedaluwarsa
       await db.$queryRaw`
         UPDATE users SET current_session_token = NULL, last_active_at = NULL 
         WHERE id = ${user.id}
@@ -44,9 +43,9 @@ export async function GET(request: Request) {
       );
     }
 
-    // Perbarui waktu aktif terakhir (ping aktivitas)
+    // --- (DI GABUNG DI SINI) SEKALIGUS UPDATE HEARTBEAT TERAKHIR ---
     await db.$queryRaw`
-      UPDATE users SET last_active_at = ${now} WHERE id = ${user.id}
+      UPDATE users SET last_active_at = CURRENT_TIMESTAMP WHERE id = ${user.id}
     `;
 
     return NextResponse.json({ valid: true });

@@ -83,7 +83,7 @@ export default function DashboardLayout({
     return () => clearTimeout(timer);
   }, [authUser, authLoading, router]);
 
-  // VALIDASI SESI AKTIF & TIMEOUT 10 MENIT KE API
+  // VALIDASI SESI AKTIF & TIMEOUT KE API (Sekaligus menjalankan heartbeat otomatis)
   useEffect(() => {
     if (authLoading) return;
 
@@ -92,11 +92,9 @@ export default function DashboardLayout({
         const res = await fetch("/api/auth/check-session");
         const data = await res.json();
 
-        // Jika API mengembalikan status tidak valid (bisa karena token hilang, diganti, atau timeout 10 menit)
         if (!res.ok || !data.valid) {
           sessionStorage.removeItem("local_user");
 
-          // Arahkan ke login dengan membawa parameter pesan error jika timeout atau diganti
           const reason = data.message?.includes("aktivitas")
             ? "timeout"
             : "session_replaced";
@@ -107,14 +105,38 @@ export default function DashboardLayout({
       }
     };
 
-    // Cek pertama kali saat halaman dimuat
     verifySession();
-
-    // Lakukan pengecekan berkala setiap 10 detik
     const interval = setInterval(verifySession, 10000);
 
     return () => clearInterval(interval);
   }, [authLoading, router]);
+
+  // IMPLEMENTASI BEACON API SAAT TAB/BROWSER DITUTUP PAKSA TANPA LOGOUT
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const storedUser = sessionStorage.getItem("local_user");
+      if (storedUser) {
+        try {
+          const currentUser = JSON.parse(storedUser);
+          if (currentUser?.id) {
+            // Menggunakan navigator.sendBeacon agar request logout tetap terkirim meski tab ditutup mendadak
+            navigator.sendBeacon(
+              "/api/auth/logout-beacon",
+              JSON.stringify({ userId: currentUser.id }),
+            );
+          }
+        } catch (e) {
+          // Abaikan error parse
+        }
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
 
   // Fungsi Fetch Data Notifikasi dari Database
   const fetchNotifications = useCallback(async (currentUserData: LocalUser) => {
@@ -502,7 +524,7 @@ export default function DashboardLayout({
         </div>
       )}
 
-      {/* MODAL PERINGATAN KARENA TIDAK AKTIF (30 MENIT) MENGGUNAKAN KOMPONEN TERPISAH */}
+      {/* MODAL PERINGATAN KARENA TIDAK AKTIF MENGGUNAKAN KOMPONEN TERPISAH */}
       <SessionExpiredModal isOpen={isSessionExpired} onLogout={logout} />
     </div>
   );
