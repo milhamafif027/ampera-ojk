@@ -137,7 +137,6 @@ export default function RuanganPage() {
 
         setAgendas(mappedAgendas);
       }
-      
     } catch (error) {
       console.error("Gagal mengambil data:", error);
       setRooms([]);
@@ -176,13 +175,19 @@ export default function RuanganPage() {
   }, [sortedRooms, searchTerm]);
 
   const conferenceRooms = useMemo(
-    () => filteredRooms.filter((r: any) => r.type === "pertemuan"),
+    () =>
+      filteredRooms.filter(
+        (r: any) =>
+          r.type === "pertemuan" ||
+          r.type === "auditorium" ||
+          r.name.toLowerCase().includes("ballroom"),
+      ),
     [filteredRooms],
   );
 
   const meetingRooms = useMemo(
-    () => filteredRooms.filter((r: any) => r.type === "rapat" || !r.type),
-    [filteredRooms],
+    () => filteredRooms.filter((r: any) => !conferenceRooms.includes(r)),
+    [filteredRooms, conferenceRooms],
   );
 
   const getRoomLiveStatus = useCallback(
