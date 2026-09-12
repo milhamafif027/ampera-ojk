@@ -15,9 +15,22 @@ export function useAuth() {
   const router = useRouter();
 
   const handleLogout = useCallback(async () => {
-    sessionStorage.removeItem("local_user");
-    localStorage.removeItem("local_user");
-    router.push("/login");
+    try {
+      // Panggil API backend untuk menghapus token di database dan membersihkan cookie
+      await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+    } catch (err) {
+      console.error("Gagal memanggil API logout:", err);
+    } finally {
+      // Bersihkan penyimpanan lokal
+      sessionStorage.removeItem("local_user");
+      localStorage.removeItem("local_user");
+
+      // Arahkan kembali ke halaman login
+      router.push("/login");
+      router.refresh();
+    }
   }, [router]);
 
   // Efek Inaktivitas 30 Menit
@@ -48,7 +61,7 @@ export function useAuth() {
       clearTimeout(timeoutId);
       events.forEach((event) => window.removeEventListener(event, resetTimer));
     };
-  }, []); // Kosongkan dependency jika timer cukup diinisialisasi sekali saat mount
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -68,7 +81,7 @@ export function useAuth() {
   return {
     user,
     loading,
-    isSessionExpired, // Diekspor agar bisa dibaca di layout utama
+    isSessionExpired,
     logout: handleLogout,
   };
 }
