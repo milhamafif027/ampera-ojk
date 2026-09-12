@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     const sessionToken = cookieStore.get("session_token")?.value;
 
     if (sessionToken) {
-      // 1. Kosongkan session token di database secara mutlak
+      // 1. Kosongkan session token dan waktu aktif di database berdasarkan token cookie yang aktif
       await db.$queryRaw`
         UPDATE users 
         SET current_session_token = NULL, last_active_at = NULL 
@@ -16,17 +16,17 @@ export async function POST(request: Request) {
       `;
     }
 
-    // 2. Buat response sukses
+    // 2. Buat respons sukses
     const response = NextResponse.json({
       success: true,
-      message: "Berhasil keluar",
+      message: "Berhasil keluar dan membersihkan sesi.",
     });
 
-    // 3. Hapus cookie session_token dari browser secara total
+    // 3. Hapus cookie session_token dari browser secara mutlak
     response.cookies.set({
       name: "session_token",
       value: "",
-      expires: new Date(0), // Set kadaluarsa ke masa lalu
+      expires: new Date(0),
       path: "/",
     });
 

@@ -34,9 +34,16 @@ export async function POST(request: Request) {
     if (user.current_session_token && user.last_active_at) {
       const lastActiveTime = new Date(user.last_active_at).getTime();
       const now = new Date().getTime();
-      const tenMinutes = 10 * 60 * 1000;
 
-      if (now - lastActiveTime < tenMinutes) {
+      // PERBAIKAN: Turunkan durasi kunci sesi gantung menjadi 2 menit saja (2 * 60 * 1000)
+      // agar jika user salah/keluar mendadak, dalam 2 menit bisa langsung login lagi.
+      const lockDuration = 2 * 60 * 1000;
+
+      // Tambahkan pengaman tambahan: Jika selisih waktu bernilai negatif (karena beda zona waktu UTC/WIB),
+      // abaikan kunci dan langsung izinkan login.
+      const timeDifference = now - lastActiveTime;
+
+      if (timeDifference > 0 && timeDifference < lockDuration) {
         return NextResponse.json(
           {
             message:
@@ -47,7 +54,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Buat sesi baru dan timpa sesi lama yang sudah kedaluwarsa/gantung
+    // Buat sesi baru dan timpa sesi lama secara paksa
     const sessionToken = crypto.randomUUID();
     const nowTimestamp = new Date();
 
