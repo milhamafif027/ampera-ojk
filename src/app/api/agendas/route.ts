@@ -19,10 +19,12 @@ export async function GET(request: Request) {
       const rows = await db.$queryRaw`
         SELECT id, title, pic, dept, phone, room_id, room_name, 
                TO_CHAR(date, 'YYYY-MM-DD') AS date, 
+               TO_CHAR(end_date, 'YYYY-MM-DD') AS end_date, 
                start_time, end_time, layout, notes, status, user_id,
                total_participants, meeting_leader
         FROM agendas 
-        WHERE date = ${dateParam}::date AND room_name = ${roomParam}
+        WHERE room_name = ${roomParam} 
+          AND ${dateParam}::date BETWEEN date AND COALESCE(end_date, date)
         ORDER BY date ASC, start_time ASC
       `;
       return NextResponse.json({ success: true, data: rows });
@@ -30,10 +32,11 @@ export async function GET(request: Request) {
       const rows = await db.$queryRaw`
         SELECT id, title, pic, dept, phone, room_id, room_name, 
                TO_CHAR(date, 'YYYY-MM-DD') AS date, 
+               TO_CHAR(end_date, 'YYYY-MM-DD') AS end_date, 
                start_time, end_time, layout, notes, status, user_id,
                total_participants, meeting_leader
         FROM agendas 
-        WHERE date = ${dateParam}::date
+        WHERE ${dateParam}::date BETWEEN date AND COALESCE(end_date, date)
         ORDER BY date ASC, start_time ASC
       `;
       return NextResponse.json({ success: true, data: rows });
@@ -41,6 +44,7 @@ export async function GET(request: Request) {
       const rows = await db.$queryRaw`
         SELECT id, title, pic, dept, phone, room_id, room_name, 
                TO_CHAR(date, 'YYYY-MM-DD') AS date, 
+               TO_CHAR(end_date, 'YYYY-MM-DD') AS end_date, 
                start_time, end_time, layout, notes, status, user_id,
                total_participants, meeting_leader
         FROM agendas 
@@ -52,6 +56,7 @@ export async function GET(request: Request) {
       const rows = await db.$queryRaw`
         SELECT id, title, pic, dept, phone, room_id, room_name, 
                TO_CHAR(date, 'YYYY-MM-DD') AS date, 
+               TO_CHAR(end_date, 'YYYY-MM-DD') AS end_date, 
                start_time, end_time, layout, notes, status, user_id,
                total_participants, meeting_leader
         FROM agendas 
@@ -68,7 +73,7 @@ export async function GET(request: Request) {
   }
 }
 
-// 2. POST: Tambah reservasi dengan validasi bentrok ketat
+// 2. POST: Tambah reservasi dengan dukungan Multi-Hari & validasi bentrok ketat
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -81,7 +86,8 @@ export async function POST(request: Request) {
       meeting_leader,
       room_id,
       room_name,
-      date,
+      date, // Tanggal Mulai
+      end_date, // Tanggal Selesai (opsional dari frontend)
       start_time,
       end_time,
       layout,
@@ -92,10 +98,19 @@ export async function POST(request: Request) {
 
     if (!date || typeof date !== "string" || date.trim() === "") {
       return NextResponse.json(
-        { success: false, message: "Tanggal agenda wajib diisi dengan benar." },
+        {
+          success: false,
+          message: "Tanggal mulai agenda wajib diisi dengan benar.",
+        },
         { status: 400 },
       );
     }
+
+    // Jika end_date tidak diisi / kosong, samakan dengan date (1 hari)
+    const finalEndDate =
+      end_date && typeof end_date === "string" && end_date.trim() !== ""
+        ? end_date
+        : date;
 
     const cleanRole = role?.toLowerCase() || "";
 
@@ -107,13 +122,14 @@ export async function POST(request: Request) {
 
     const finalStatus = isAutoApprove ? "Disetujui" : "Pending";
 
-    // Pengecekan Bentrok (Overlap Formula: (StartA < EndB) AND (EndA > StartB))
-    // Hanya mengecek jadwal yang statusnya bukan 'Ditolak'
+    // Pengecekan Bentrok Multi-Hari & Jam
+    // Rumus overlap rentang tanggal: (StartDateA <= EndDateB) AND (EndDateA >= StartDateB)
+    // Serta overlap jam: (start_time < end_time) AND (end_time > start_time)
     const conflicts: any = await db.$queryRaw`
       SELECT id FROM agendas 
       WHERE room_name = ${room_name} 
-        AND date = ${date}::date 
         AND status != 'Ditolak'
+        AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${date}::date)
         AND (start_time < ${end_time} AND end_time > ${start_time})
     `;
 
@@ -122,7 +138,7 @@ export async function POST(request: Request) {
         {
           success: false,
           message:
-            "Jadwal bentrok! Ruangan sudah dipesan pada rentang waktu tersebut.",
+            "Jadwal bentrok! Ruangan sudah dipesan pada rentang tanggal dan waktu tersebut.",
         },
         { status: 400 },
       );
@@ -130,8 +146,8 @@ export async function POST(request: Request) {
 
     const result: any = await db.$queryRaw`
       INSERT INTO agendas 
-      (title, pic, dept, phone, total_participants, meeting_leader, room_id, room_name, date, start_time, end_time, layout, notes, status, user_id) 
-      VALUES (${title}, ${pic}, ${dept}, ${phone || null}, ${Number(total_participants) || 1}, ${meeting_leader || "-"}, ${room_id ? Number(room_id) : null}, ${room_name}, ${date}::date, ${start_time}, ${end_time}, ${layout}, ${notes || ""}, ${finalStatus}, ${user_id ? Number(user_id) : null})
+      (title, pic, dept, phone, total_participants, meeting_leader, room_id, room_name, date, end_date, start_time, end_time, layout, notes, status, user_id) 
+      VALUES (${title}, ${pic}, ${dept}, ${phone || null}, ${Number(total_participants) || 1}, ${meeting_leader || "-"}, ${room_id ? Number(room_id) : null}, ${room_name}, ${date}::date, ${finalEndDate}::date, ${start_time}, ${end_time}, ${layout}, ${notes || ""}, ${finalStatus}, ${user_id ? Number(user_id) : null})
       RETURNING id
     `;
 
@@ -141,7 +157,11 @@ export async function POST(request: Request) {
       finalStatus === "Disetujui"
         ? "Reservasi Otomatis (Internal/Admin)"
         : "Pengajuan Ruangan Baru";
-    const adminNotifInfo = `Ruangan ${room_name} dipesan oleh ${pic} (${dept}) untuk tanggal ${date} (${start_time} - ${end_time}). Status: ${finalStatus}`;
+    const dateInfoStr =
+      date === finalEndDate
+        ? `tanggal ${date}`
+        : `tanggal ${date} s.d. ${finalEndDate}`;
+    const adminNotifInfo = `Ruangan ${room_name} dipesan oleh ${pic} (${dept}) untuk ${dateInfoStr} (${start_time} - ${end_time}). Status: ${finalStatus}`;
 
     await db.$executeRaw`
       INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
@@ -156,8 +176,8 @@ export async function POST(request: Request) {
           : "Pengajuan Menunggu Verifikasi";
       const userNotifInfo =
         finalStatus === "Disetujui"
-          ? `Reservasi ruangan ${room_name} tanggal ${date} berhasil dan langsung disetujui.`
-          : `Pengajuan ruangan ${room_name} Anda telah dikirim dan sedang ditinjau oleh Admin.`;
+          ? `Reservasi ruangan ${room_name} (${dateInfoStr}) berhasil dan langsung disetujui.`
+          : `Pengajuan ruangan ${room_name} (${dateInfoStr}) Anda telah dikirim dan sedang ditinjau oleh Admin.`;
 
       const uIdNum = Number(user_id);
       if (targetTable === "notifikasi_internal") {
@@ -187,7 +207,7 @@ export async function POST(request: Request) {
   }
 }
 
-// 3. PUT: Update data agenda (Dilengkapi validasi bentrok saat edit jadwal lengkap)
+// 3. PUT: Update data agenda (Mendukung rentang tanggal baru)
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
@@ -195,6 +215,7 @@ export async function PUT(request: Request) {
       id,
       title,
       date,
+      end_date,
       start_time,
       end_time,
       room,
@@ -215,16 +236,15 @@ export async function PUT(request: Request) {
     const agendaId = Number(id);
     const safeStatus = String(status);
     const safeNotes = String(notes || "");
+    const finalEndDate = end_date ? end_date : date;
 
-    // Jika request membawa data lengkap dari form Edit Modal Admin (artinya mengubah jadwal/waktu/ruangan)
     if (title && date && start_time && end_time && room) {
-      // CEK BENTROK KECUALI UNTUK AGENDA ITU SENDIRI (id != agendaId)
       const conflicts: any = await db.$queryRaw`
         SELECT id FROM agendas 
         WHERE room_name = ${room} 
-          AND date = ${date}::date 
           AND id != ${agendaId}
           AND status != 'Ditolak'
+          AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${date}::date)
           AND (start_time < ${end_time} AND end_time > ${start_time})
       `;
 
@@ -243,6 +263,7 @@ export async function PUT(request: Request) {
         UPDATE agendas 
         SET title = ${title},
             date = ${date}::date,
+            end_date = ${finalEndDate}::date,
             start_time = ${start_time},
             end_time = ${end_time},
             room_name = ${room},
@@ -254,7 +275,6 @@ export async function PUT(request: Request) {
         WHERE id = ${agendaId}
       `;
     } else {
-      // Fallback untuk update cepat (seperti tombol centang persetujuan admin)
       if (safeStatus === "Ditolak" && !title) {
         await db.$executeRaw`DELETE FROM agendas WHERE id = ${agendaId}`;
         return NextResponse.json({
