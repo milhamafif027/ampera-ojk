@@ -1,41 +1,42 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { cookies } from "next/headers";
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get("session_token")?.value;
+    let userId;
 
-    if (sessionToken) {
-      // 1. Kosongkan session token dan waktu aktif di database berdasarkan token cookie yang aktif
+    // Menangani format data yang dikirim oleh navigator.sendBeacon (bisa berupa text string JSON)
+    const contentType = request.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const body = await request.json();
+      userId = body?.userId;
+    } else {
+      const text = await request.text();
+      if (text) {
+        const parsed = JSON.parse(text);
+        userId = parsed?.userId;
+      }
+    }
+
+    if (userId) {
+      // Kosongkan sesi di database berdasarkan ID user yang dikirim saat tab ditutup paksa
       await db.$queryRaw`
         UPDATE users 
         SET current_session_token = NULL, last_active_at = NULL 
-        WHERE current_session_token = ${sessionToken}
+        WHERE id = ${Number(userId)}
       `;
     }
 
-    // 2. Buat respons sukses
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
-      message: "Berhasil keluar dan membersihkan sesi.",
+      message: "Beacon logout berhasil diproses",
     });
-
-    // 3. Hapus cookie session_token dari browser secara mutlak
-    response.cookies.set({
-      name: "session_token",
-      value: "",
-      expires: new Date(0),
-      path: "/",
-    });
-
-    return response;
   } catch (error: any) {
-    console.error("Logout API Error:", error);
+    console.error("Logout Beacon Error:", error);
+    // Menggunakan status 200/OK agar tidak memicu error log yang mengganggu di konsol browser saat tab ditutup
     return NextResponse.json(
       { success: false, error: error.message },
-      { status: 500 },
+      { status: 200 },
     );
   }
 }
