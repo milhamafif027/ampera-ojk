@@ -328,13 +328,24 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsDuplicateModalOpen(false)}
-              className="w-full py-3 bg-[#9f1521] hover:bg-[#7a1019] text-white font-bold text-xs rounded-xl transition-colors shadow-lg shadow-rose-900/20 cursor-pointer"
-            >
-              Mengerti & Kembali
-            </button>
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDuplicateModalOpen(false);
+                  // Opsional: Anda bisa mengosongkan password agar user bisa input ulang
+                  setPassword("");
+                }}
+                className="w-full py-3 bg-[#9f1521] hover:bg-[#7a1019] text-white font-bold text-xs rounded-xl transition-colors shadow-lg shadow-rose-900/20 cursor-pointer"
+              >
+                Mengerti & Coba Lagi
+              </button>
+
+              <p className="text-[10px] text-slate-400 leading-normal">
+                Jika Anda yakin tidak sedang membuka di perangkat lain, tunggu
+                1-2 menit atau tutup paksa tab sebelumnya.
+              </p>
+            </div>
           </motion.div>
         </div>
       )}
