@@ -10,7 +10,7 @@ const supabaseKey =
   "";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Helper baru: Menangani upload file gambar langsung ke Supabase Storage (Cloud)
+// Helper: Menangani upload file gambar langsung ke Supabase Storage (Cloud)
 async function handleImageUploads(formData: FormData): Promise<string[]> {
   const files = formData.getAll("images") as File[];
   const savedImageUrls: string[] = [];
@@ -114,7 +114,6 @@ export async function PUT(req: Request) {
   try {
     const formData = await req.formData();
 
-    // 🔍 TAMBAHKAN DEBUG LOG UNTUK MELACAK REQUEST DARI FRONTEND
     console.log("=== API PUT /api/ruangan HIT ===");
     console.log("ID Ruangan:", formData.get("id"));
     console.log("Raw existingImgs:", formData.get("existingImgs"));
@@ -183,6 +182,38 @@ export async function PUT(req: Request) {
     });
   } catch (error: any) {
     console.error("PUT Ruangan Error:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || String(error) },
+      { status: 500 },
+    );
+  }
+}
+
+// 4. DELETE: Hapus data ruangan berdasarkan ID (Mengatasi error 405 Method Not Allowed)
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "ID ruangan diperlukan untuk menghapus." },
+        { status: 400 },
+      );
+    }
+
+    const roomId = Number(id);
+
+    await db.$executeRaw`
+      DELETE FROM ruangan WHERE id = ${roomId}
+    `;
+
+    return NextResponse.json({
+      success: true,
+      message: "Ruangan berhasil dihapus dari sistem.",
+    });
+  } catch (error: any) {
+    console.error("DELETE Ruangan Error:", error);
     return NextResponse.json(
       { success: false, error: error.message || String(error) },
       { status: 500 },
