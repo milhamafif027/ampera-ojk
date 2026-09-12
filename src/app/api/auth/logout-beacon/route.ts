@@ -1,23 +1,34 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { cookies } from "next/headers";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const userId = body?.userId;
+    const cookieStore = await cookies();
+    const sessionToken = cookieStore.get("session_token")?.value;
 
-    if (!userId) {
-      return NextResponse.json({ success: false }, { status: 400 });
+    if (sessionToken) {
+      // Kosongkan sesi di database berdasarkan session_token yang sedang aktif
+      await db.$queryRaw`
+        UPDATE users 
+        SET current_session_token = NULL, last_active_at = NULL 
+        WHERE current_session_token = ${sessionToken}
+      `;
     }
 
-    // Kosongkan sesi seketika saat browser/tab ditutup tanpa tombol logout
-    await db.$queryRaw`
-      UPDATE users 
-      SET current_session_token = NULL, last_active_at = NULL 
-      WHERE id = ${Number(userId)}
-    `;
+    // Hapus cookie
+    const response = NextResponse.json({
+      success: true,
+      message: "Berhasil keluar",
+    });
+    response.cookies.set({
+      name: "session_token",
+      value: "",
+      maxAge: 0,
+      path: "/",
+    });
 
-    return NextResponse.json({ success: true });
+    return response;
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message },

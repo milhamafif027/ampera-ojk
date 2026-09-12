@@ -13,14 +13,17 @@ export async function POST(request: Request) {
       );
     }
 
+    const cleanInput = email.trim();
+    const cleanPassword = password.trim();
+
     const rows: any = await db.$queryRaw`
       SELECT id, name, email, role, nip, current_session_token, last_active_at FROM users 
-      WHERE email = ${email.trim()} AND password = ${password.trim()}
+      WHERE (email = ${cleanInput} OR nip = ${cleanInput}) AND password = ${cleanPassword}
     `;
 
     if (rows.length === 0) {
       return NextResponse.json(
-        { message: "Email atau kata sandi yang Anda masukkan salah." },
+        { message: "Email/NIP atau kata sandi yang Anda masukkan salah." },
         { status: 401 },
       );
     }
@@ -28,7 +31,6 @@ export async function POST(request: Request) {
     const user = rows[0];
 
     // Cek apakah akun sedang aktif di perangkat lain
-    // Kita anggap sesi aktif jika last_active_at kurang dari 10 menit yang lalu (600000 ms)
     if (user.current_session_token && user.last_active_at) {
       const lastActiveTime = new Date(user.last_active_at).getTime();
       const now = new Date().getTime();
@@ -40,12 +42,12 @@ export async function POST(request: Request) {
             message:
               "Akun sedang digunakan oleh pengguna lain. Silakan tunggu beberapa saat atau pastikan perangkat sebelumnya sudah keluar.",
           },
-          { status: 403 }, // Forbidden / Ditolak karena sedang aktif
+          { status: 403 },
         );
       }
     }
 
-    // Jika aman (tidak ada sesi aktif / sudah lebih dari 10 menit tidak aktif), buat sesi baru
+    // Buat sesi baru dan timpa sesi lama yang sudah kedaluwarsa/gantung
     const sessionToken = crypto.randomUUID();
     const nowTimestamp = new Date();
 
