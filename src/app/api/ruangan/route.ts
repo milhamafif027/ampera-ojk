@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createClient } from "@supabase/supabase-js";
 
-// Inisialisasi Supabase Client untuk Storage
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -10,7 +9,6 @@ const supabaseKey =
   "";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Helper: Menangani upload file gambar langsung ke Supabase Storage (Cloud)
 async function handleImageUploads(formData: FormData): Promise<string[]> {
   const files = formData.getAll("images") as File[];
   const savedImageUrls: string[] = [];
@@ -23,7 +21,6 @@ async function handleImageUploads(formData: FormData): Promise<string[]> {
         const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
         const filename = `rooms/${uniqueSuffix}-${file.name.replace(/\s+/g, "_")}`;
 
-        // Upload ke Supabase Storage Bucket ('room-images')
         const { data, error } = await supabase.storage
           .from("room-images")
           .upload(filename, buffer, {
@@ -36,7 +33,6 @@ async function handleImageUploads(formData: FormData): Promise<string[]> {
           continue;
         }
 
-        // Ambil Public URL dari file yang berhasil di-upload
         const { data: publicUrlData } = supabase.storage
           .from("room-images")
           .getPublicUrl(data.path);
@@ -51,7 +47,6 @@ async function handleImageUploads(formData: FormData): Promise<string[]> {
   return savedImageUrls;
 }
 
-// 1. GET: Ambil daftar ruangan
 export async function GET() {
   try {
     const rows = await db.$queryRaw`
@@ -67,7 +62,6 @@ export async function GET() {
   }
 }
 
-// 2. POST: Tambah ruangan baru
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -75,8 +69,9 @@ export async function POST(req: Request) {
     const capacity = String(formData.get("capacity") || "30 Orang");
     const description = String(formData.get("description") || "");
     const type = String(formData.get("type") || "rapat");
-    const floor = String(formData.get("floor") || "Lantai 2");
+    const floor = String(formData.get("floor") || "2");
     const status = String(formData.get("status") || "Tersedia");
+    const layout = String(formData.get("layout") || "Theater"); // Ditambahkan sesuai kolom database
 
     const newImageUrls = await handleImageUploads(formData);
 
@@ -90,8 +85,8 @@ export async function POST(req: Request) {
     const imgsJson = JSON.stringify(newImageUrls);
 
     const result: any = await db.$queryRaw`
-      INSERT INTO ruangan (name, capacity, description, type, floor, status, imgs) 
-      VALUES (${name}, ${capacity}, ${description}, ${type}, ${floor}, ${status}, ${imgsJson})
+      INSERT INTO ruangan (name, capacity, description, type, floor, status, imgs, layout) 
+      VALUES (${name}, ${capacity}, ${description}, ${type}, ${floor}, ${status}, ${imgsJson}, ${layout})
       RETURNING id
     `;
 
@@ -109,16 +104,9 @@ export async function POST(req: Request) {
   }
 }
 
-// 3. PUT: Update data ruangan
 export async function PUT(req: Request) {
   try {
     const formData = await req.formData();
-
-    console.log("=== API PUT /api/ruangan HIT ===");
-    console.log("ID Ruangan:", formData.get("id"));
-    console.log("Raw existingImgs:", formData.get("existingImgs"));
-    console.log("Total new image files:", formData.getAll("images").length);
-
     const id = formData.get("id");
 
     if (!id) {
@@ -136,8 +124,9 @@ export async function PUT(req: Request) {
     const capacity = String(formData.get("capacity") || "30 Orang");
     const description = String(formData.get("description") || "");
     const type = String(formData.get("type") || "rapat");
-    const floor = String(formData.get("floor") || "Lantai 2");
+    const floor = String(formData.get("floor") || "2");
     const status = String(formData.get("status") || "Tersedia");
+    const layout = String(formData.get("layout") || "Theater"); // Ditambahkan sesuai kolom database
 
     const existingImgsRaw = formData.get("existingImgs");
     let savedImageUrls: string[] = [];
@@ -159,8 +148,6 @@ export async function PUT(req: Request) {
     const newImageUrls = await handleImageUploads(formData);
     savedImageUrls = [...savedImageUrls, ...newImageUrls];
 
-    console.log("Final savedImageUrls length:", savedImageUrls.length);
-
     if (savedImageUrls.length === 0) {
       return NextResponse.json(
         { success: false, error: "Ruangan wajib memiliki minimal 1 foto." },
@@ -172,7 +159,7 @@ export async function PUT(req: Request) {
 
     await db.$executeRaw`
       UPDATE ruangan 
-      SET name = ${name}, capacity = ${capacity}, description = ${description}, type = ${type}, floor = ${floor}, status = ${status}, imgs = ${imgsJson} 
+      SET name = ${name}, capacity = ${capacity}, description = ${description}, type = ${type}, floor = ${floor}, status = ${status}, imgs = ${imgsJson}, layout = ${layout}
       WHERE id = ${roomId}
     `;
 
@@ -189,7 +176,6 @@ export async function PUT(req: Request) {
   }
 }
 
-// 4. DELETE: Hapus data ruangan berdasarkan ID (Mengatasi error 405 Method Not Allowed)
 export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
