@@ -86,6 +86,8 @@ export default function RuanganPage() {
             imgs: parsedImgs.filter(Boolean),
             description:
               r.description || "Perlengkapan: Proyektor | Sound System | AC",
+            layout: r.layout || "Theater",
+            floor: r.floor || "2",
           };
         });
         setRooms(mappedRooms);
@@ -216,6 +218,8 @@ export default function RuanganPage() {
       name: "",
       capacity: "",
       type: "pertemuan",
+      floor: "2",
+      layout: "Theater",
       description: "",
       imgs: [],
       newFiles: [],
@@ -226,6 +230,8 @@ export default function RuanganPage() {
   const handleOpenEditModal = (room: any) => {
     setEditingRoom({
       ...room,
+      floor: room.floor || "2",
+      layout: room.layout || "Theater",
       imgs:
         room.imgs && room.imgs.length > 0 ? [...room.imgs].filter(Boolean) : [],
       newFiles: [],
@@ -268,7 +274,6 @@ export default function RuanganPage() {
       ? editingRoom.imgs.filter(Boolean)
       : [];
 
-    // Filter gambar lama yang sah (bukan hasil preview blob lokal)
     const existingImgs = currentImgs.filter(
       (img: string) =>
         typeof img === "string" &&
@@ -297,10 +302,10 @@ export default function RuanganPage() {
     formData.append("capacity", editingRoom.capacity || "");
     formData.append("description", editingRoom.description || "");
     formData.append("type", editingRoom.type || "rapat");
-    formData.append("floor", editingRoom.floor || "Lantai 2");
+    formData.append("floor", editingRoom.floor || "2");
+    formData.append("layout", editingRoom.layout || "Theater");
     formData.append("status", editingRoom.status || "Tersedia");
 
-    // Kirim data foto lama sebagai string JSON agar terbaca oleh backend
     formData.append("existingImgs", JSON.stringify(existingImgs));
 
     if (editingRoom.newFiles && editingRoom.newFiles.length > 0) {
@@ -642,6 +647,43 @@ export default function RuanganPage() {
                       Ruangan Pertemuan / Ballroom
                     </option>
                     <option value="rapat">Ruangan Rapat</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Lantai
+                  </label>
+                  <input
+                    type="text"
+                    value={editingRoom.floor || ""}
+                    onChange={(e) =>
+                      setEditingRoom({ ...editingRoom, floor: e.target.value })
+                    }
+                    disabled={isSubmitting}
+                    placeholder="Contoh: 2 atau 3"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] disabled:opacity-50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Layout Ruangan
+                  </label>
+                  <select
+                    value={editingRoom.layout || "Theater"}
+                    disabled={isSubmitting}
+                    onChange={(e) =>
+                      setEditingRoom({ ...editingRoom, layout: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] disabled:opacity-50"
+                  >
+                    <option value="Theater">Theater</option>
+                    <option value="Klasikal">Klasikal</option>
+                    <option value="U-Shape">U-Shape</option>
+                    <option value="Round Table">Round Table</option>
+                    <option value="Ruang Rapat">Ruang Rapat</option>
                   </select>
                 </div>
               </div>
