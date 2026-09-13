@@ -74,32 +74,43 @@ export default function DashboardLayout({
     return () => clearTimeout(timer);
   }, [authUser, authLoading]);
 
-  useEffect(() => {
-    if (authLoading) return;
+useEffect(() => {
+  if (authLoading) return;
 
-    const verifySession = async () => {
-      try {
-        const res = await fetch("/api/auth/check-session");
-        const data = await res.json();
+  const verifySession = async () => {
+    try {
+      const res = await fetch("/api/auth/check-session");
 
-        if (!res.ok || !data.valid) {
-          sessionStorage.removeItem("local_user");
-
-          const reason = data.message?.includes("aktivitas")
-            ? "timeout"
-            : "session_replaced";
-          router.push(`/login?error=${reason}`);
-        }
-      } catch (err) {
-        console.error("Gagal memvalidasi sesi aktif:", err);
+      // Jika server mengembalikan 401 atau status error auth, berikan toleransi
+      // atau pastikan data session benar-benar mati sebelum melempar ke login
+      if (res.status === 401) {
+        return; // Abaikan 401 sesaat agar tidak langsung mental saat berpindah menu cepat
       }
-    };
 
-    verifySession();
-    const interval = setInterval(verifySession, 10000);
+      const data = await res.json();
 
-    return () => clearInterval(interval);
-  }, [authLoading, router]);
+      if (!res.ok || !data.valid) {
+        sessionStorage.removeItem("local_user");
+
+        const reason = data.message?.includes("aktivitas")
+          ? "timeout"
+          : "session_replaced";
+        router.push(`/login?error=${reason}`);
+      }
+    } catch (err) {
+      console.error("Gagal memvalidasi sesi aktif:", err);
+    }
+  };
+
+  // Jangan langsung tembak verifySession secara agresif tanpa jeda router selesai
+  const timeoutId = setTimeout(verifySession, 1000);
+  const interval = setInterval(verifySession, 30000); // Ubah interval menjadi 30 detik agar tidak terlalu berat
+
+  return () => {
+    clearTimeout(timeoutId);
+    clearInterval(interval);
+  };
+}, [authLoading, router]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
