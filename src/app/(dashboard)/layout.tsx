@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -74,43 +75,47 @@ export default function DashboardLayout({
     return () => clearTimeout(timer);
   }, [authUser, authLoading]);
 
-useEffect(() => {
-  if (authLoading) return;
+  // Validasi sesi yang aman dan tidak gampang mental saat navigasi cepat
+  useEffect(() => {
+    if (authLoading) return;
 
-  const verifySession = async () => {
-    try {
-      const res = await fetch("/api/auth/check-session");
+    const verifySession = async () => {
+      try {
+        const res = await fetch("/api/auth/check-session");
 
-      // Jika server mengembalikan 401 atau status error auth, berikan toleransi
-      // atau pastikan data session benar-benar mati sebelum melempar ke login
-      if (res.status === 401) {
-        return; // Abaikan 401 sesaat agar tidak langsung mental saat berpindah menu cepat
+        // Jika endpoint mengembalikan 401, abaikan atau cek keberadaan session lokal dulu
+        // agar tidak langsung menendang keluar pengguna yang sedang aktif
+        if (res.status === 401) {
+          const storedUser = sessionStorage.getItem("local_user");
+          if (!storedUser) {
+            router.push("/login?error=unauthorized");
+          }
+          return;
+        }
+
+        const data = await res.json();
+
+        if (!res.ok || !data.valid) {
+          sessionStorage.removeItem("local_user");
+
+          const reason = data.message?.includes("aktivitas")
+            ? "timeout"
+            : "session_replaced";
+          router.push(`/login?error=${reason}`);
+        }
+      } catch (err) {
+        console.error("Gagal memvalidasi sesi aktif:", err);
       }
+    };
 
-      const data = await res.json();
+    const timeoutId = setTimeout(verifySession, 2000);
+    const interval = setInterval(verifySession, 45000); // Interval diperpanjang ke 45 detik agar ringan
 
-      if (!res.ok || !data.valid) {
-        sessionStorage.removeItem("local_user");
-
-        const reason = data.message?.includes("aktivitas")
-          ? "timeout"
-          : "session_replaced";
-        router.push(`/login?error=${reason}`);
-      }
-    } catch (err) {
-      console.error("Gagal memvalidasi sesi aktif:", err);
-    }
-  };
-
-  // Jangan langsung tembak verifySession secara agresif tanpa jeda router selesai
-  const timeoutId = setTimeout(verifySession, 1000);
-  const interval = setInterval(verifySession, 30000); // Ubah interval menjadi 30 detik agar tidak terlalu berat
-
-  return () => {
-    clearTimeout(timeoutId);
-    clearInterval(interval);
-  };
-}, [authLoading, router]);
+    return () => {
+      clearTimeout(timeoutId);
+      clearInterval(interval);
+    };
+  }, [authLoading, router]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -320,14 +325,14 @@ useEffect(() => {
             </div>
           </div>
 
-          {/* Menu Navigasi Utama - Menggunakan tag <a> standar untuk Hard Navigation */}
+          {/* Menu Navigasi Utama - Kembali menggunakan <Link> agar perpindahan instan & mulus */}
           <nav className="px-3 space-y-1.5 overflow-y-auto flex-1 custom-scrollbar overflow-x-hidden">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
 
               return (
-                <a
+                <Link
                   key={item.href}
                   href={item.href}
                   title={
@@ -363,7 +368,7 @@ useEffect(() => {
                       {item.label}
                     </span>
                   </div>
-                </a>
+                </Link>
               );
             })}
           </nav>
