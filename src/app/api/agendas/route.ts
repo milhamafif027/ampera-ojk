@@ -123,8 +123,6 @@ export async function POST(request: Request) {
     const finalStatus = isAutoApprove ? "Disetujui" : "Pending";
 
     // Pengecekan Bentrok Multi-Hari & Jam
-    // Rumus overlap rentang tanggal: (StartDateA <= EndDateB) AND (EndDateA >= StartDateB)
-    // Serta overlap jam: (start_time < end_time) AND (end_time > start_time)
     const conflicts: any = await db.$queryRaw`
       SELECT id FROM agendas 
       WHERE room_name = ${room_name} 
@@ -153,6 +151,7 @@ export async function POST(request: Request) {
 
     const insertedId = result[0]?.id;
 
+    // Pembuatan Notifikasi Otomatis untuk POST
     const adminNotifTitle =
       finalStatus === "Disetujui"
         ? "Reservasi Otomatis (Internal/Admin)"
@@ -207,7 +206,7 @@ export async function POST(request: Request) {
   }
 }
 
-// 3. PUT: Update data agenda (Mendukung rentang tanggal baru)
+// 3. PUT: Update data agenda (Mendukung rentang tanggal baru & Notifikasi Status)
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
@@ -237,6 +236,15 @@ export async function PUT(request: Request) {
     const safeStatus = String(status);
     const safeNotes = String(notes || "");
     const finalEndDate = end_date ? end_date : date;
+
+    // Ambil data agenda lama untuk keperluan info notifikasi
+    const existingAgenda: any = await db.$queryRaw`
+      SELECT room_name, date, user_id FROM agendas WHERE id = ${agendaId}
+    `;
+    const targetRoomName = room || existingAgenda[0]?.room_name || "Ruangan";
+    const agendaUserId = existingAgenda[0]?.user_id
+      ? Number(existingAgenda[0]?.user_id)
+      : null;
 
     if (title && date && start_time && end_time && room) {
       const conflicts: any = await db.$queryRaw`
@@ -289,6 +297,41 @@ export async function PUT(request: Request) {
             notes = ${safeNotes}
         WHERE id = ${agendaId}
       `;
+    }
+
+    // Pembuatan Notifikasi Otomatis saat Status Diperbarui (Approve/Reject)
+    const adminNotifTitle = `Pembaruan Status Reservasi: ${safeStatus}`;
+    const adminNotifInfo = `Status reservasi ruangan ${targetRoomName} diubah menjadi: ${safeStatus}`;
+
+    await db.$executeRaw`
+      INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
+      VALUES (${adminNotifTitle}, 'room', ${safeStatus}, ${adminNotifInfo}, 0, CURRENT_TIMESTAMP)
+    `;
+
+    if (agendaUserId) {
+      const userRows: any = await db.$queryRaw`
+        SELECT role FROM users WHERE id = ${agendaUserId}
+      `;
+      const userRole = (userRows[0]?.role || "eksternal").toLowerCase();
+      const targetTable =
+        userRole === "internal"
+          ? "notifikasi_internal"
+          : "notifikasi_eksternal";
+
+      const userNotifTitle = `Status Reservasi ${safeStatus}`;
+      const userNotifInfo = `Pengajuan reservasi ruangan ${targetRoomName} Anda telah ${safeStatus.toLowerCase()} oleh Admin.`;
+
+      if (targetTable === "notifikasi_internal") {
+        await db.$executeRaw`
+          INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
+          VALUES (${agendaUserId}, ${userNotifTitle}, 'room', ${safeStatus}, ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
+        `;
+      } else {
+        await db.$executeRaw`
+          INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
+          VALUES (${agendaUserId}, ${userNotifTitle}, 'room', ${safeStatus}, ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
+        `;
+      }
     }
 
     return NextResponse.json({

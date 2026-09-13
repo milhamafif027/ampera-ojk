@@ -371,6 +371,7 @@ export default function RoomBookingModal({
           room_id: formData.room_id ? Number(formData.room_id) : null,
           room_name: formData.roomName,
           date: d,
+          end_date: formData.isMultiDay ? cleanEndDate : d,
           start_time: formData.startTime,
           end_time: formData.endTime,
           layout: formData.layout,
@@ -396,41 +397,7 @@ export default function RoomBookingModal({
         }
       }
 
-      // Notifikasi Admin & User
-      await fetch("/api/notifikasi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          role: "admin",
-          title:
-            finalStatus === "Disetujui"
-              ? "Reservasi Otomatis (Internal/Admin)"
-              : "Pengajuan Ruangan Baru",
-          type: "room",
-          status: finalStatus,
-          info: `Ruangan ${formData.roomName} dipesan oleh ${formData.pic} (${formData.dept}) untuk ${datesToBook.length} hari (${cleanDate} s.d. ${formData.isMultiDay ? cleanEndDate : cleanDate}). Status: ${finalStatus}`,
-        }),
-      });
-
-      if (currentUser?.id) {
-        const isApproved = finalStatus === "Disetujui";
-        await fetch("/api/notifikasi", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: currentUser.id,
-            role: userRole,
-            title: isApproved
-              ? "Reservasi Disetujui Otomatis"
-              : "Pengajuan Menunggu Verifikasi",
-            type: "room",
-            status: finalStatus,
-            info: isApproved
-              ? `Reservasi ruangan ${formData.roomName} berhasil dan langsung disetujui.`
-              : `Pengajuan ruangan ${formData.roomName} Anda telah dikirim dan sedang ditinjau oleh Admin.`,
-          }),
-        });
-      }
+      // Catatan: Pembuatan notifikasi admin & user sudah ditangani sepenuhnya oleh backend API (/api/agendas) secara otomatis.
 
       setShowSuccessPopup(true);
     } catch (error: any) {
