@@ -5,25 +5,17 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const lowerPath = pathname.toLowerCase();
 
-  const protectedPrefixes = [
-    "/dashboard",
-    "/dashboardutama",
-    "/kalender",
-    "/agenda",
-    "/ruangan",
-    "/kendaraan",
-    "/partner",
-    "/bantuan",
-    "/kelolaakun",
-  ];
+  // Cek apakah URL yang diakses mengandung kata dashboard atau dashboardutama
+  const isDashboardRoute =
+    lowerPath.includes("dashboard") ||
+    lowerPath.includes("kalender") ||
+    lowerPath.includes("agenda") ||
+    lowerPath.includes("ruangan");
 
-  const isProtected = protectedPrefixes.some((prefix) =>
-    lowerPath.startsWith(prefix),
-  );
-
-  if (isProtected) {
+  if (isDashboardRoute) {
     const sessionToken = request.cookies.get("session_token")?.value;
 
+    // Jika token tidak ada, tendang langsung sebelum halaman dirender sama sekali
     if (!sessionToken) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("error", "unauthorized");
@@ -35,17 +27,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/dashboard",
-    "/dashboardutama/:path*",
-    "/dashboardutama",
-    "/kalender/:path*",
-    "/agenda/:path*",
-    "/ruangan/:path*",
-    "/kendaraan/:path*",
-    "/partner/:path*",
-    "/bantuan/:path*",
-    "/kelolaakun/:path*",
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|login).*)"],
 };

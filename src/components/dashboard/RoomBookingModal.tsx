@@ -157,7 +157,7 @@ export default function RoomBookingModal({
 
         setFormData({
           title: editData?.title || "",
-          pic: editData?.pic || currentUser?.name || "",
+          pic: editData?.pic || "", // <-- Disini diubah menjadi blank (kosong)
           dept: defaultDept,
           phone:
             (editData as any)?.phone || (editData as any)?.phone_pemohon || "",
