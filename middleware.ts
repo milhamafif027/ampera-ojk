@@ -4,15 +4,17 @@ import type { NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Cek apakah rute yang diakses adalah area dashboard/admin
+  // Ubah ke lowercase agar aman dari perbedaan huruf besar/kecil pada URL
+  const lowerPath = pathname.toLowerCase();
+
+  // Cek apakah rute berawalan dashboard atau dashboardutama
   const isDashboardRoute =
-    pathname.startsWith("/dashboard") || pathname.startsWith("/dashboardutama");
+    lowerPath.startsWith("/dashboard") ||
+    lowerPath.startsWith("/dashboardutama");
 
   if (isDashboardRoute) {
-    // Ambil cookie session_token dari browser
     const sessionToken = request.cookies.get("session_token")?.value;
 
-    // Jika token tidak ada di cookie, langsung tendang ke /login dari server (0 detik)
     if (!sessionToken) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("error", "unauthorized");
@@ -23,7 +25,12 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Pastikan matcher mencakup semua variasi penulisan URL dashboard Anda
+// Perbarui matcher agar menangkap halaman utama DAN sub-path-nya sekaligus
 export const config = {
-  matcher: ["/dashboard/:path*", "/dashboardutama/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/dashboard",
+    "/dashboardutama/:path*",
+    "/dashboardutama",
+  ],
 };
