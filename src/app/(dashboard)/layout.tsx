@@ -38,7 +38,6 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
 
-  // Mengambil state isSessionExpired dan fungsi logout dari useAuth
   const {
     user: authUser,
     loading: authLoading,
@@ -51,16 +50,12 @@ export default function DashboardLayout({
   const [isHovered, setIsHovered] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-
-  // State untuk indikator loading logout
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // State & Ref untuk Dropdown Notifikasi
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [hasUnread, setHasUnread] = useState(false);
 
-  // Inisialisasi data user dari sessionStorage atau auth hook tanpa redirect paksa (karena sudah di-handle Middleware)
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!authLoading) {
@@ -80,7 +75,6 @@ export default function DashboardLayout({
     return () => clearTimeout(timer);
   }, [authUser, authLoading]);
 
-  // VALIDASI SESI AKTIF & TIMEOUT KE API (Sekaligus menjalankan heartbeat otomatis)
   useEffect(() => {
     if (authLoading) return;
 
@@ -108,7 +102,6 @@ export default function DashboardLayout({
     return () => clearInterval(interval);
   }, [authLoading, router]);
 
-  // IMPLEMENTASI BEACON API SAAT TAB/BROWSER DITUTUP PAKSA TANPA LOGOUT
   useEffect(() => {
     const handleBeforeUnload = () => {
       const storedUser = sessionStorage.getItem("local_user");
@@ -116,7 +109,6 @@ export default function DashboardLayout({
         try {
           const currentUser = JSON.parse(storedUser);
           if (currentUser?.id) {
-            // Menggunakan navigator.sendBeacon agar request logout tetap terkirim meski tab ditutup mendadak
             navigator.sendBeacon(
               "/api/auth/logout-beacon",
               JSON.stringify({ userId: currentUser.id }),
@@ -135,7 +127,6 @@ export default function DashboardLayout({
     };
   }, []);
 
-  // Fungsi Fetch Data Notifikasi dari Database
   const fetchNotifications = useCallback(async (currentUserData: LocalUser) => {
     try {
       const res = await fetch(
@@ -169,7 +160,6 @@ export default function DashboardLayout({
     }
   }, []);
 
-  // Panggil fetchNotifications saat user sudah siap
   useEffect(() => {
     if (!user) return;
     const timer = setTimeout(() => {
@@ -178,7 +168,6 @@ export default function DashboardLayout({
     return () => clearTimeout(timer);
   }, [user, fetchNotifications]);
 
-  // Tutup menu mobile otomatis saat berpindah halaman
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsMobileMenuOpen(false);
@@ -195,7 +184,6 @@ export default function DashboardLayout({
     }
   };
 
-  // Fungsi Logout dengan efek loading yang rapi
   const handleConfirmLogout = async () => {
     setIsLoggingOut(true);
     try {
