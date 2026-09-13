@@ -13,7 +13,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  ChevronDown, 
 } from "lucide-react";
+
 import { Room } from "@/types";
 
 interface LocalUser {
@@ -63,14 +65,58 @@ function RoomCard({
     (room as any).description || "Perlengkapan: Proyektor | Sound System | AC";
   const roomLayout = (room as any).layout;
 
+  // --- LOGIKA MENGURUSI LAYOUT & KAPASITAS DINAMIS BERDASARKAN DROPDOWN ---
+  // Parsing layouts jika disimpan sebagai string JSON, atau gunakan langsung jika sudah array, atau buat fallback dari layout/capacity tunggal
+  let availableLayouts: { layoutName: string; capacity: number }[] = [];
+  const rawLayouts = (room as any).layouts;
+
+  if (rawLayouts) {
+    if (typeof rawLayouts === "string") {
+      try {
+        const parsed = JSON.parse(rawLayouts);
+        if (Array.isArray(parsed)) availableLayouts = parsed;
+      } catch {
+        availableLayouts = [];
+      }
+    } else if (Array.isArray(rawLayouts)) {
+      availableLayouts = rawLayouts;
+    }
+  }
+
+  // Jika tidak ada array layouts yang valid, buat fallback dari properti tunggal room
+  if (availableLayouts.length === 0) {
+    availableLayouts = [
+      {
+        layoutName: roomLayout || "Standard / Default",
+        capacity: room.capacity
+          ? Number(String(room.capacity).replace(/\D/g, "")) || 30
+          : 30,
+      },
+    ];
+  }
+
+  // State untuk melacak layout yang sedang dipilih user di dropdown kartu
+  const [selectedLayout, setSelectedLayout] = useState(availableLayouts[0]);
+
   const defaultImage =
     "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80";
 
   const roomImgs = (room as any).imgs;
-  const roomImages: string[] =
-    roomImgs && Array.isArray(roomImgs) && roomImgs.length > 0
-      ? roomImgs.filter(Boolean)
-      : [defaultImage];
+  let roomImages: string[] = [defaultImage];
+  if (roomImgs) {
+    if (Array.isArray(roomImgs) && roomImgs.length > 0) {
+      roomImages = roomImgs.filter(Boolean);
+    } else if (typeof roomImgs === "string") {
+      try {
+        const parsed = JSON.parse(roomImgs);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          roomImages = parsed.filter(Boolean);
+        }
+      } catch {
+        roomImages = [defaultImage];
+      }
+    }
+  }
 
   // Perhitungan Tanggal yang Aman di Luar JSX
   const todayObj = new Date();
@@ -341,22 +387,45 @@ function RoomCard({
         {/* Informasi Isi Card */}
         <div className="p-3.5 flex flex-col space-y-2.5">
           <div className="flex justify-between items-start gap-2">
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 space-y-1">
               <h3
                 className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm truncate"
                 title={room.name}
               >
                 {room.name}
               </h3>
-              {roomLayout && (
-                <span className="inline-block mt-0.5 px-2 py-0.5 bg-rose-50 dark:bg-rose-950/40 text-[#9f1521] dark:text-rose-400 text-[9px] font-black rounded-md border border-rose-200 dark:border-rose-900/50 truncate max-w-full">
-                  Layout: {roomLayout}
-                </span>
-              )}
+
+              {/* DROPDOWN PILIHAN LAYOUT DENGAN KAPASITAS DINAMIS */}
+              <div className="relative inline-block w-full">
+                <select
+                  value={selectedLayout.layoutName}
+                  onChange={(e) => {
+                    const found = availableLayouts.find(
+                      (l) => l.layoutName === e.target.value,
+                    );
+                    if (found) setSelectedLayout(found);
+                  }}
+                  className="w-full appearance-none bg-rose-50 dark:bg-rose-950/40 text-[#9f1521] dark:text-rose-400 text-[10px] font-black py-1 pl-2.5 pr-7 rounded-lg border border-rose-200 dark:border-rose-900/50 focus:outline-none cursor-pointer truncate"
+                >
+                  {availableLayouts.map((item, idx) => (
+                    <option
+                      key={idx}
+                      value={item.layoutName}
+                      className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                    >
+                      Layout: {item.layoutName} ({item.capacity} Orang)
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={12}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#9f1521] dark:text-rose-400 pointer-events-none"
+                />
+              </div>
             </div>
 
             {isAdmin && (
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex items-center gap-1 shrink-0 pt-0.5">
                 <button
                   onClick={handleEditClick}
                   className="p-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 hover:text-amber-600 text-slate-600 dark:text-slate-300 rounded-lg transition-colors cursor-pointer"
@@ -378,10 +447,12 @@ function RoomCard({
             )}
           </div>
 
+          {/* MENAMPILKAN KAPASITAS YANG BERUBAH SECARA REAKTIF SESUAI PILIHAN DROPDOWN */}
           <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-            <Users size={12} className="text-[#9f1521] shrink-0" /> Kapasitas:{" "}
-            <strong className="text-slate-700 dark:text-slate-200 truncate">
-              {room.capacity}
+            <Users size={12} className="text-[#9f1521] shrink-0" /> Kapasitas
+            Muatan:{" "}
+            <strong className="text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md text-[10px]">
+              {selectedLayout.capacity} Orang
             </strong>
           </p>
 
