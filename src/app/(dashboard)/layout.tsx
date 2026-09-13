@@ -60,19 +60,16 @@ export default function DashboardLayout({
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [hasUnread, setHasUnread] = useState(false);
 
-  // Cek Session User dari sessionStorage & Validasi Single Active Session
+  // Inisialisasi data user dari sessionStorage atau auth hook tanpa redirect paksa (karena sudah di-handle Middleware)
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!authLoading) {
         const storedUser = sessionStorage.getItem("local_user");
-        if (!storedUser && !authUser) {
-          router.push("/login");
-        } else if (storedUser) {
+        if (storedUser) {
           try {
             setUser(JSON.parse(storedUser));
           } catch (err) {
             console.error("Gagal membaca session user:", err);
-            router.push("/login");
           }
         } else if (authUser) {
           setUser(authUser);
@@ -81,7 +78,7 @@ export default function DashboardLayout({
     }, 0);
 
     return () => clearTimeout(timer);
-  }, [authUser, authLoading, router]);
+  }, [authUser, authLoading]);
 
   // VALIDASI SESI AKTIF & TIMEOUT KE API (Sekaligus menjalankan heartbeat otomatis)
   useEffect(() => {
