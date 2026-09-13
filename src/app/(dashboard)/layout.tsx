@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -310,14 +309,14 @@ export default function DashboardLayout({
             </div>
           </div>
 
-          {/* Menu Navigasi Utama */}
+          {/* Menu Navigasi Utama - Menggunakan tag <a> standar untuk Hard Navigation */}
           <nav className="px-3 space-y-1.5 overflow-y-auto flex-1 custom-scrollbar overflow-x-hidden">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
 
               return (
-                <Link
+                <a
                   key={item.href}
                   href={item.href}
                   title={
@@ -353,7 +352,7 @@ export default function DashboardLayout({
                       {item.label}
                     </span>
                   </div>
-                </Link>
+                </a>
               );
             })}
           </nav>
