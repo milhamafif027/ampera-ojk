@@ -9,7 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { motion, Variants } from "framer-motion";
+import { Variants } from "framer-motion";
 
 interface LandingRoomsProps {
   rooms: any[];
@@ -17,7 +17,7 @@ interface LandingRoomsProps {
   itemVariants: Variants;
 }
 
-function LandingRooms({ rooms, isLoading, itemVariants }: LandingRoomsProps) {
+function LandingRooms({ rooms, isLoading }: LandingRoomsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: "left" | "right") => {
@@ -35,9 +35,8 @@ function LandingRooms({ rooms, isLoading, itemVariants }: LandingRoomsProps) {
   };
 
   return (
-    <motion.section
+    <section
       id="fasilitas"
-      variants={itemVariants}
       className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24 w-full space-y-8 sm:space-y-12 overflow-hidden"
     >
       <div className="text-center max-w-2xl mx-auto space-y-3">
@@ -75,7 +74,7 @@ function LandingRooms({ rooms, isLoading, itemVariants }: LandingRoomsProps) {
               DATABASE SYNC
             </div>
 
-            {/* Tombol Navigasi Geser Kiri / Kanan (Hanya tampil di mobile/tablet) */}
+            {/* Tombol Navigasi Geser Kiri / Kanan */}
             {!isLoading && rooms.length > 0 && (
               <div className="hidden sm:flex lg:hidden items-center gap-1.5">
                 <button
@@ -97,7 +96,7 @@ function LandingRooms({ rooms, isLoading, itemVariants }: LandingRoomsProps) {
           </div>
         </div>
 
-        {/* Wadah Tampilan: Scroll horizontal di HP/Tablet, Grid maksimal 3 kolom ke bawah di Desktop */}
+        {/* Wadah Tampilan Grid / Scroll */}
         <div
           ref={scrollRef}
           className="flex lg:grid lg:grid-cols-3 gap-6 overflow-x-auto lg:overflow-x-visible custom-scrollbar pb-4 lg:pb-0 snap-x lg:snap-none snap-mandatory"
@@ -129,7 +128,7 @@ function LandingRooms({ rooms, isLoading, itemVariants }: LandingRoomsProps) {
               return (
                 <div
                   key={room.id}
-                  className="group bg-slate-50/60 hover:bg-white border border-slate-200/90 hover:border-[#9f1521]/40 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col sm:flex-row lg:flex-col min-w-[300px] sm:min-w-[480px] lg:min-w-0 max-w-[520px] lg:max-w-none shrink-0 lg:shrink snap-start"
+                  className="group bg-slate-50/60 hover:bg-white border border-slate-200/90 hover:border-[#9f1521]/40 rounded-3xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col sm:flex-row lg:flex-col min-w-[300px] sm:min-w-[480px] lg:min-w-0 max-w-[520px] lg:max-w-none shrink-0 lg:shrink snap-start transform-gpu"
                   style={{
                     contentVisibility: "auto",
                     containIntrinsicSize: "auto 350px",
@@ -142,7 +141,7 @@ function LandingRooms({ rooms, isLoading, itemVariants }: LandingRoomsProps) {
                       alt={room.name}
                       loading="lazy"
                       decoding="async"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="w-full h-full object-cover transform-gpu group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute top-3 left-3">
                       <span className="px-2.5 py-1 bg-black/60 text-white text-[10px] font-bold rounded-lg shadow-md uppercase tracking-wider">
@@ -194,7 +193,7 @@ function LandingRooms({ rooms, isLoading, itemVariants }: LandingRoomsProps) {
           )}
         </div>
       </div>
-    </motion.section>
+    </section>
   );
 }
 

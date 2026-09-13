@@ -39,13 +39,11 @@ interface RoomCardProps {
 function RoomCard({
   room,
   isAdmin,
-  user,
   getRoomLiveStatus,
   handleOpenBooking,
   handleOpenEditModal,
   handleDeleteRoom,
   agendas = [],
-  cardVariants,
 }: RoomCardProps) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
@@ -141,9 +139,8 @@ function RoomCard({
     }
   };
 
-  // Fungsi helper internal untuk menangani edit dengan aman & menyertakan existingImgs jika form submit induk membutuhkan FormData
+  // Fungsi helper internal untuk menangani edit dengan aman
   const handleEditClick = () => {
-    // Jika room.imgs berisi string JSON atau array, pastikan aman dikirim
     let existingImages = roomImages;
     if (typeof roomImgs === "string") {
       try {
@@ -153,7 +150,6 @@ function RoomCard({
       }
     }
 
-    // Inject atau pastikan properti existingImgs terbawa ke modal edit
     const roomWithExistingImgs = {
       ...room,
       existingImgs: existingImages,
@@ -162,7 +158,7 @@ function RoomCard({
     handleOpenEditModal(roomWithExistingImgs as Room);
   };
 
-  // Filter Jadwal Berdasarkan Ruangan Ini (Hanya menampilkan yang Sedang Berlangsung atau Akan Datang)
+  // Filter Jadwal Berdasarkan Ruangan Ini
   const roomAgendas = agendas.filter((a) => {
     if (!a.room || a.room.toLowerCase() !== room.name.toLowerCase())
       return false;
@@ -177,16 +173,14 @@ function RoomCard({
     return false;
   });
 
-  // Helper untuk Menghitung Slot Waktu Kosong (Available Slots) secara Dinamis
+  // Helper untuk Menghitung Slot Waktu Kosong (Available Slots)
   const getAvailableSlotsForDate = (targetDateStr: string) => {
     const operationalStart = "08:00";
     const operationalEnd = "17:00";
 
-    // Ambil agenda di tanggal tersebut untuk ruangan ini
     const agendasOnDate = roomAgendas
       .filter((a) => a.date === targetDateStr && a.time)
       .map((a) => {
-        // Ambil format "HH:mm - HH:mm"
         const parts = a.time.split("-");
         if (parts.length === 2) {
           return {
@@ -261,14 +255,17 @@ function RoomCard({
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between transition-all hover:shadow-md w-full relative">
+    <div
+      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between transition-all hover:shadow-md w-full relative transform-gpu"
+      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 320px" }}
+    >
       <div>
-        {/* Banner Galeri Foto (Dengan Ref Scroll & Tombol Navigasi) */}
+        {/* Banner Galeri Foto (Dengan Akselerasi GPU) */}
         <div className="relative h-28 sm:h-32 w-full bg-slate-950 overflow-hidden group">
           <div
             ref={scrollContainerRef}
             onScroll={handleScroll}
-            className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scroll-smooth cursor-zoom-in"
+            className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scroll-smooth cursor-zoom-in transform-gpu"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             onClick={() => setLightboxImg(roomImages[activeImageIndex])}
             title="Klik untuk memperbesar gambar"
@@ -285,7 +282,7 @@ function RoomCard({
                   loading="lazy"
                   decoding="async"
                   onError={() => setImageError(true)}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="w-full h-full object-cover transform-gpu transition-transform duration-300 group-hover:scale-105"
                 />
               </div>
             ))}
@@ -399,7 +396,7 @@ function RoomCard({
         </div>
       </div>
 
-      {/* Tombol Akses Bawah (Cek Jadwal & Pesan Ruangan) */}
+      {/* Tombol Akses Bawah */}
       <div className="px-3.5 py-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 mt-auto gap-2">
         <button
           onClick={() => setIsScheduleModalOpen(true)}
@@ -428,7 +425,7 @@ function RoomCard({
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="relative max-w-4xl w-full max-h-[85vh] flex items-center justify-center"
+              className="relative max-w-4xl w-full max-h-[85vh] flex items-center justify-center transform-gpu"
               onClick={(e) => e.stopPropagation()}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -487,13 +484,13 @@ function RoomCard({
         )}
       </AnimatePresence>
 
-      {/* MODAL CEK JADWAL RUANGAN (Dengan Slot Kosong Dinamis) */}
+      {/* MODAL CEK JADWAL RUANGAN */}
       {isScheduleModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-lg w-full shadow-2xl space-y-5 my-auto border border-slate-100 dark:border-slate-800"
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-lg w-full shadow-2xl space-y-5 my-auto border border-slate-100 dark:border-slate-800 transform-gpu"
           >
             <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
@@ -516,14 +513,12 @@ function RoomCard({
             </div>
 
             <div className="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 text-xs">
-              {/* Saran Waktu Booking (Dinamis Berdasarkan Jadwal Terisi) */}
               <div className="space-y-2">
                 <span className="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>{" "}
                   Saran Slot Kosong (08:00 - 17:00)
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Hari Ini */}
                   <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-2">
                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
                       <span>HARI INI</span>
@@ -543,7 +538,6 @@ function RoomCard({
                     </div>
                   </div>
 
-                  {/* Besok */}
                   <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-2">
                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
                       <span>BESOK</span>
@@ -565,7 +559,6 @@ function RoomCard({
                 </div>
               </div>
 
-              {/* Jadwal Terisi (Approved) */}
               <div className="space-y-2 pt-2">
                 <span className="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#9f1521]"></span>{" "}
