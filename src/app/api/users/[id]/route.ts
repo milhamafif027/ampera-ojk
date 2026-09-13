@@ -1,11 +1,23 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 
 export async function PUT(
-  req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const sessionCookie = req.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const resolvedParams = await params;
     const userId = resolvedParams.id;
 

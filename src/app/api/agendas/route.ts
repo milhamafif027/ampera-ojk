@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 
 // Helper untuk menentukan tabel notifikasi user berdasarkan role
@@ -8,9 +9,20 @@ function getUserNotificationTable(role?: string): string {
   return "notifikasi_eksternal";
 }
 
-// 1. GET: Ambil data agenda
-export async function GET(request: Request) {
+// 1. GET: Ambil data agenda (Diamankan)
+export async function GET(request: NextRequest) {
   try {
+    const sessionCookie = request.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const dateParam = searchParams.get("date");
     const roomParam = searchParams.get("room");
@@ -73,9 +85,20 @@ export async function GET(request: Request) {
   }
 }
 
-// 2. POST: Tambah reservasi dengan dukungan Multi-Hari & validasi bentrok ketat
-export async function POST(request: Request) {
+// 2. POST: Tambah reservasi dengan dukungan Multi-Hari & validasi bentrok ketat (Diamankan)
+export async function POST(request: NextRequest) {
   try {
+    const sessionCookie = request.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const body = await request.json();
     const {
       title,
@@ -206,9 +229,20 @@ export async function POST(request: Request) {
   }
 }
 
-// 3. PUT: Update data agenda (Mendukung rentang tanggal baru & Notifikasi Status)
-export async function PUT(request: Request) {
+// 3. PUT: Update data agenda (Diamankan)
+export async function PUT(request: NextRequest) {
   try {
+    const sessionCookie = request.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const body = await request.json();
     const {
       id,
@@ -347,9 +381,20 @@ export async function PUT(request: Request) {
   }
 }
 
-// 4. DELETE: Hapus data agenda secara permanen
-export async function DELETE(request: Request) {
+// 4. DELETE: Hapus data agenda secara permanen (Diamankan)
+export async function DELETE(request: NextRequest) {
   try {
+    const sessionCookie = request.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 

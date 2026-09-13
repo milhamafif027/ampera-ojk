@@ -1,24 +1,36 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 
 // Helper untuk menentukan nama tabel berdasarkan role/user
-function getTableName(role?: string): string {
+function getUserNotificationTable(role?: string): string {
   const cleanRole = role?.toLowerCase() || "";
   if (cleanRole === "admin") return "notifikasi_admin";
   if (cleanRole === "internal") return "notifikasi_internal";
   return "notifikasi_eksternal"; // Default untuk eksternal/user biasa
 }
 
-// 1. GET: Mengambil daftar notifikasi berdasarkan tabel spesifik role
-export async function GET(req: Request) {
+// 1. GET: Mengambil daftar notifikasi berdasarkan tabel spesifik role (Diamankan)
+export async function GET(req: NextRequest) {
   try {
+    const sessionCookie = req.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("user_id");
     const role = searchParams.get("role") || "eksternal";
     const cleanRole = role.toLowerCase();
 
     // Validasi nama tabel agar aman dari SQL Injection string interpolation
-    const tableName = getTableName(cleanRole);
+    const tableName = getUserNotificationTable(cleanRole);
 
     let rows: any = [];
 
@@ -64,9 +76,20 @@ export async function GET(req: Request) {
   }
 }
 
-// 2. POST: Membuat notifikasi baru ke tabel yang bersangkutan
-export async function POST(req: Request) {
+// 2. POST: Membuat notifikasi baru ke tabel yang bersangkutan (Diamankan)
+export async function POST(req: NextRequest) {
   try {
+    const sessionCookie = req.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const body = await req.json();
     const { user_id, role, title, type, status, info } = body;
 
@@ -78,7 +101,7 @@ export async function POST(req: Request) {
     }
 
     const targetRole = (role || "eksternal").toLowerCase();
-    const tableName = getTableName(targetRole);
+    const tableName = getUserNotificationTable(targetRole);
 
     if (tableName === "notifikasi_admin") {
       await db.$executeRaw`
@@ -115,9 +138,20 @@ export async function POST(req: Request) {
   }
 }
 
-// 3. PUT: Menandai notifikasi telah dibaca berdasarkan tabel role masing-masing
-export async function PUT(req: Request) {
+// 3. PUT: Menandai notifikasi telah dibaca berdasarkan tabel role masing-masing (Diamankan)
+export async function PUT(req: NextRequest) {
   try {
+    const sessionCookie = req.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     let body: any = {};
     try {
       body = await req.json();
@@ -127,7 +161,7 @@ export async function PUT(req: Request) {
 
     const { userId, role, notificationId, markAll } = body;
     const targetRole = (role || "eksternal").toLowerCase();
-    const tableName = getTableName(targetRole);
+    const tableName = getUserNotificationTable(targetRole);
 
     // A. Tandai semua dibaca (Mark All) pada tabel role tersebut
     if (markAll) {

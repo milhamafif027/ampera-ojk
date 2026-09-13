@@ -1,9 +1,21 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 
-// 1. GET: Mengambil daftar vendor berdasarkan kategori
-export async function GET(req: Request) {
+// 1. GET: Mengambil daftar vendor berdasarkan kategori (Diamankan)
+export async function GET(req: NextRequest) {
   try {
+    const sessionCookie = req.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const category = searchParams.get("category");
 
@@ -34,9 +46,20 @@ export async function GET(req: Request) {
   }
 }
 
-// 2. POST: Menambah vendor baru
-export async function POST(req: Request) {
+// 2. POST: Menambah vendor baru (Diamankan)
+export async function POST(req: NextRequest) {
   try {
+    const sessionCookie = req.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const body = await req.json();
     const { name, category, phone, address } = body;
 
@@ -70,9 +93,20 @@ export async function POST(req: Request) {
   }
 }
 
-// 3. PUT: Memperbarui data vendor
-export async function PUT(req: Request) {
+// 3. PUT: Memperbarui data vendor (Diamankan)
+export async function PUT(req: NextRequest) {
   try {
+    const sessionCookie = req.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const body = await req.json();
     const { id, name, category, phone, address } = body;
 
@@ -107,9 +141,20 @@ export async function PUT(req: Request) {
   }
 }
 
-// 4. DELETE: Menghapus vendor
-export async function DELETE(req: Request) {
+// 4. DELETE: Menghapus vendor (Diamankan)
+export async function DELETE(req: NextRequest) {
   try {
+    const sessionCookie = req.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 

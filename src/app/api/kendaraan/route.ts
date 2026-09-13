@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { writeFile } from "fs/promises";
 import path from "path";
@@ -10,9 +11,20 @@ function getUserNotificationTable(role?: string): string {
   return "notifikasi_eksternal"; // Default untuk eksternal
 }
 
-// 1. GET: Mengambil data kendaraan & riwayat booking
-export async function GET() {
+// 1. GET: Mengambil data kendaraan & riwayat booking (Diamankan)
+export async function GET(request: NextRequest) {
   try {
+    const sessionCookie = request.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const vehicles: any = await db.$queryRaw`
       SELECT * FROM kendaraan ORDER BY id ASC
     `;
@@ -44,9 +56,20 @@ export async function GET() {
   }
 }
 
-// 2. PUT: Menangani penambahan kendaraan baru & persetujuan/penolakan booking
-export async function PUT(request: Request) {
+// 2. PUT: Menangani penambahan kendaraan baru & persetujuan/penolakan booking (Diamankan)
+export async function PUT(request: NextRequest) {
   try {
+    const sessionCookie = request.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const body = await request.json();
     const {
       action,
@@ -155,9 +178,20 @@ export async function PUT(request: Request) {
   }
 }
 
-// 3. POST: Menambahkan kendaraan via FormData atau Peminjaman via JSON (Dilengkapi Validasi Bentrok Tanggal)
-export async function POST(request: Request) {
+// 3. POST: Menambahkan kendaraan via FormData atau Peminjaman via JSON (Diamankan)
+export async function POST(request: NextRequest) {
   try {
+    const sessionCookie = request.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const contentType = request.headers.get("content-type") || "";
 
     if (contentType.includes("multipart/form-data")) {
@@ -224,8 +258,6 @@ export async function POST(request: Request) {
           : "Pending");
 
       // --- LOGIKA PENGAMAN BENTROK TANGGAL KENDARAAN ---
-      // Mengecek apakah kendaraan sudah dipesan/diajukan (status != 'Ditolak', mencakup 'Pending' & 'Disetujui')
-      // Formula overlap tanggal: (start_date <= tanggal_selesai) AND (end_date >= tanggal_mulai)
       const vehicleConflicts: any = await db.$queryRaw`
         SELECT id FROM vehicle_bookings 
         WHERE vehicle_name = ${nama_kendaraan} 
@@ -304,9 +336,20 @@ export async function POST(request: Request) {
   }
 }
 
-// 4. DELETE: Menghapus data pengajuan peminjaman kendaraan berdasarkan ID
-export async function DELETE(request: Request) {
+// 4. DELETE: Menghapus data pengajuan peminjaman kendaraan berdasarkan ID (Diamankan)
+export async function DELETE(request: NextRequest) {
   try {
+    const sessionCookie = request.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 

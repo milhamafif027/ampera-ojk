@@ -1,10 +1,22 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { writeFile } from "fs/promises";
 import path from "path";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const sessionCookie = request.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const rows = await db.$queryRaw`
       SELECT * FROM partners ORDER BY id ASC
     `;
@@ -17,8 +29,19 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const sessionCookie = request.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const formData = await request.formData();
     const name = formData.get("name") as string;
     const stars = formData.get("stars") as string;
@@ -56,8 +79,19 @@ export async function POST(request: Request) {
 }
 
 // PUT: Edit Partner
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
+    const sessionCookie = request.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const formData = await request.formData();
     const id = formData.get("id") as string;
     const name = formData.get("name") as string;
@@ -105,8 +139,19 @@ export async function PUT(request: Request) {
 }
 
 // DELETE: Hapus Partner
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
   try {
+    const sessionCookie = request.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 

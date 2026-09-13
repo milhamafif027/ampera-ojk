@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { createClient } from "@supabase/supabase-js";
 
@@ -47,8 +48,20 @@ async function handleImageUploads(formData: FormData): Promise<string[]> {
   return savedImageUrls;
 }
 
-export async function GET() {
+// 1. GET: Mengambil daftar ruangan (Diamankan)
+export async function GET(req: NextRequest) {
   try {
+    const sessionCookie = req.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const rows = await db.$queryRaw`
       SELECT * FROM ruangan ORDER BY id DESC
     `;
@@ -62,8 +75,20 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+// 2. POST: Menambah ruangan baru (Diamankan)
+export async function POST(req: NextRequest) {
   try {
+    const sessionCookie = req.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const formData = await req.formData();
     const name = String(formData.get("name") || "");
     const capacity = String(formData.get("capacity") || "30 Orang");
@@ -71,7 +96,7 @@ export async function POST(req: Request) {
     const type = String(formData.get("type") || "rapat");
     const floor = String(formData.get("floor") || "2");
     const status = String(formData.get("status") || "Tersedia");
-    const layout = String(formData.get("layout") || "Theater"); // Ditambahkan sesuai kolom database
+    const layout = String(formData.get("layout") || "Theater");
 
     const newImageUrls = await handleImageUploads(formData);
 
@@ -104,8 +129,20 @@ export async function POST(req: Request) {
   }
 }
 
-export async function PUT(req: Request) {
+// 3. PUT: Memperbarui data ruangan (Diamankan)
+export async function PUT(req: NextRequest) {
   try {
+    const sessionCookie = req.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const formData = await req.formData();
     const id = formData.get("id");
 
@@ -126,7 +163,7 @@ export async function PUT(req: Request) {
     const type = String(formData.get("type") || "rapat");
     const floor = String(formData.get("floor") || "2");
     const status = String(formData.get("status") || "Tersedia");
-    const layout = String(formData.get("layout") || "Theater"); // Ditambahkan sesuai kolom database
+    const layout = String(formData.get("layout") || "Theater");
 
     const existingImgsRaw = formData.get("existingImgs");
     let savedImageUrls: string[] = [];
@@ -176,8 +213,20 @@ export async function PUT(req: Request) {
   }
 }
 
-export async function DELETE(req: Request) {
+// 4. DELETE: Menghapus ruangan (Diamankan)
+export async function DELETE(req: NextRequest) {
   try {
+    const sessionCookie = req.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
