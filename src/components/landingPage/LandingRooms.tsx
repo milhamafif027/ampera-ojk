@@ -176,11 +176,8 @@ function LandingRooms({ rooms, isLoading }: LandingRoomsProps) {
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t border-slate-200/60 flex flex-col sm:flex-row lg:flex-row sm:items-center justify-between gap-1 text-xs font-bold text-slate-500">
+                    <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-slate-500">
                       <span className="truncate">Gedung Kantor OJK Sumsel</span>
-                      <span className="text-[#9f1521] group-hover:underline shrink-0">
-                        Reservasi →
-                      </span>
                     </div>
                   </div>
                 </div>
