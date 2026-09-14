@@ -2,46 +2,36 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 
-// Helper untuk menentukan nama tabel berdasarkan role/user
+// Helper untuk menentukan nama tabel berdasarkan role
 function getUserNotificationTable(role?: string): string {
   const cleanRole = role?.toLowerCase() || "";
   if (cleanRole === "admin") return "notifikasi_admin";
   if (cleanRole === "internal") return "notifikasi_internal";
-  return "notifikasi_eksternal"; // Default untuk eksternal/user biasa
+  return "notifikasi_eksternal";
 }
 
-// 1. GET: Mengambil daftar notifikasi berdasarkan tabel spesifik role (Diamankan)
+// 1. GET: Mengambil daftar notifikasi berdasarkan role & user_id
 export async function GET(req: NextRequest) {
   try {
-    const sessionCookie = req.cookies.get("session_token")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized: Silakan login terlebih dahulu.",
-        },
-        { status: 401 },
-      );
-    }
-
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("user_id");
     const role = searchParams.get("role") || "eksternal";
     const cleanRole = role.toLowerCase();
 
-    // Validasi nama tabel agar aman dari SQL Injection string interpolation
     const tableName = getUserNotificationTable(cleanRole);
-
-    let rows: any = [];
+    let rows: any[] = [];
 
     if (cleanRole === "admin") {
-      if (tableName === "notifikasi_admin") {
-        rows = await db.$queryRaw`
-          SELECT id, '' AS user_id, title, type, status, info, is_read, created_at 
-          FROM notifikasi_admin 
-          ORDER BY created_at DESC LIMIT 50
-        `;
-      }
+      // Admin hanya membaca tabel notifikasi_admin
+      // Filter out notifikasi konfirmasi pemohon jika tidak sengaja masuk ke tabel admin
+      rows = await db.$queryRaw`
+        SELECT id, '' AS user_id, title, type, status, info, is_read, created_at 
+        FROM notifikasi_admin 
+        WHERE title NOT LIKE '%Pengajuan Peminjaman Dikirim%'
+          AND title NOT LIKE '%Pengajuan Menunggu Verifikasi%'
+        ORDER BY created_at DESC 
+        LIMIT 50
+      `;
     } else {
       const validUserId =
         userId && userId !== "undefined" && userId !== "null" && userId !== ""
@@ -57,14 +47,16 @@ export async function GET(req: NextRequest) {
           SELECT id, user_id, title, type, status, info, is_read, created_at 
           FROM notifikasi_internal 
           WHERE user_id = ${validUserId} 
-          ORDER BY created_at DESC LIMIT 50
+          ORDER BY created_at DESC 
+          LIMIT 50
         `;
       } else {
         rows = await db.$queryRaw`
           SELECT id, user_id, title, type, status, info, is_read, created_at 
           FROM notifikasi_eksternal 
           WHERE user_id = ${validUserId} 
-          ORDER BY created_at DESC LIMIT 50
+          ORDER BY created_at DESC 
+          LIMIT 50
         `;
       }
     }
@@ -76,20 +68,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// 2. POST: Membuat notifikasi baru ke tabel yang bersangkutan (Diamankan)
+// 2. POST: Membuat notifikasi baru ke tabel spesifik
 export async function POST(req: NextRequest) {
   try {
-    const sessionCookie = req.cookies.get("session_token")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized: Silakan login terlebih dahulu.",
-        },
-        { status: 401 },
-      );
-    }
-
     const body = await req.json();
     const { user_id, role, title, type, status, info } = body;
 
@@ -124,7 +105,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Notifikasi berhasil ditambahkan ke tabel terpisah",
+      message: "Notifikasi berhasil ditambahkan",
     });
   } catch (error: any) {
     console.error("API POST NOTIFIKASI ERROR:", error.message);
@@ -138,20 +119,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// 3. PUT: Menandai notifikasi telah dibaca berdasarkan tabel role masing-masing (Diamankan)
+// 3. PUT: Menandai notifikasi telah dibaca
 export async function PUT(req: NextRequest) {
   try {
-    const sessionCookie = req.cookies.get("session_token")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized: Silakan login terlebih dahulu.",
-        },
-        { status: 401 },
-      );
-    }
-
     let body: any = {};
     try {
       body = await req.json();
@@ -163,7 +133,7 @@ export async function PUT(req: NextRequest) {
     const targetRole = (role || "eksternal").toLowerCase();
     const tableName = getUserNotificationTable(targetRole);
 
-    // A. Tandai semua dibaca (Mark All) pada tabel role tersebut
+    // A. Tandai semua dibaca (Mark All)
     if (markAll) {
       if (tableName === "notifikasi_admin") {
         await db.$executeRaw`
@@ -202,7 +172,7 @@ export async function PUT(req: NextRequest) {
       });
     }
 
-    // B. Tandai satu notifikasi spesifik berdasarkan ID dan tabelnya
+    // B. Tandai satu notifikasi spesifik
     if (notificationId) {
       const idNum = Number(notificationId);
       if (tableName === "notifikasi_admin") {
@@ -221,7 +191,7 @@ export async function PUT(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: "Notifikasi spesifik ditandai dibaca.",
+        message: "Notifikasi berhasil ditandai dibaca.",
       });
     }
 

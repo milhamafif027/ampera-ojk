@@ -8,23 +8,12 @@ import path from "path";
 function getUserNotificationTable(role?: string): string {
   const cleanRole = role?.toLowerCase() || "";
   if (cleanRole === "internal") return "notifikasi_internal";
-  return "notifikasi_eksternal"; // Default untuk eksternal
+  return "notifikasi_eksternal";
 }
 
-// 1. GET: Mengambil data kendaraan & riwayat booking (Diamankan)
+// 1. GET: Mengambil data kendaraan & riwayat booking
 export async function GET(request: NextRequest) {
   try {
-    const sessionCookie = request.cookies.get("session_token")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized: Silakan login terlebih dahulu.",
-        },
-        { status: 401 },
-      );
-    }
-
     const vehicles: any = await db.$queryRaw`
       SELECT * FROM kendaraan ORDER BY id ASC
     `;
@@ -35,7 +24,7 @@ export async function GET(request: NextRequest) {
         SELECT * FROM vehicle_bookings ORDER BY id DESC
       `;
       bookings = bookingRows;
-    } catch (e) {
+    } catch {
       bookings = [];
     }
 
@@ -56,20 +45,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 2. PUT: Menangani penambahan kendaraan baru & persetujuan/penolakan booking (Diamankan)
+// 2. PUT: Menangani penambahan kendaraan baru & persetujuan/penolakan booking
 export async function PUT(request: NextRequest) {
   try {
-    const sessionCookie = request.cookies.get("session_token")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized: Silakan login terlebih dahulu.",
-        },
-        { status: 401 },
-      );
-    }
-
     const body = await request.json();
     const {
       action,
@@ -114,7 +92,6 @@ export async function PUT(request: NextRequest) {
       if (bookingRows.length > 0) {
         const booking = bookingRows[0];
 
-        // Dapatkan role user jika memiliki user_id
         let userRole = "eksternal";
         if (booking.user_id) {
           const userRows: any = await db.$queryRaw`
@@ -137,8 +114,8 @@ export async function PUT(request: NextRequest) {
 
         const notifInfoAdmin = `Peminjaman kendaraan "${booking.vehicle_name}" oleh ${booking.borrower} telah ${finalStatus.toUpperCase()}.`;
 
-        // 1. Kirim notifikasi ke user pemohon
-        if (booking.user_id) {
+        // 1. Kirim notifikasi ke pemohon jika user_id ada dan bukan admin
+        if (booking.user_id && userRole.toLowerCase() !== "admin") {
           if (targetTable === "notifikasi_internal") {
             await db.$executeRaw`
               INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
@@ -152,7 +129,7 @@ export async function PUT(request: NextRequest) {
           }
         }
 
-        // 2. Kirim notifikasi ke Admin (notifikasi_admin)
+        // 2. Kirim notifikasi ke Admin
         await db.$executeRaw`
           INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
           VALUES (${notifTitle}, 'vehicle', ${finalStatus}, ${notifInfoAdmin}, 0, NOW())
@@ -178,20 +155,9 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// 3. POST: Menambahkan kendaraan via FormData atau Peminjaman via JSON (Diamankan)
+// 3. POST: Menambahkan kendaraan via FormData atau Peminjaman via JSON
 export async function POST(request: NextRequest) {
   try {
-    const sessionCookie = request.cookies.get("session_token")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized: Silakan login terlebih dahulu.",
-        },
-        { status: 401 },
-      );
-    }
-
     const contentType = request.headers.get("content-type") || "";
 
     if (contentType.includes("multipart/form-data")) {
@@ -257,7 +223,7 @@ export async function POST(request: NextRequest) {
           ? "Disetujui"
           : "Pending");
 
-      // --- LOGIKA PENGAMAN BENTROK TANGGAL KENDARAAN ---
+      // Logika Pengaman Bentrok Tanggal
       const vehicleConflicts: any = await db.$queryRaw`
         SELECT id FROM vehicle_bookings 
         WHERE vehicle_name = ${nama_kendaraan} 
@@ -275,46 +241,56 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         );
       }
-      // ------------------------------------------------
 
       await db.$executeRaw`
         INSERT INTO vehicle_bookings (vehicle_name, destination, borrower, dept, start_date, end_date, status, user_id)
         VALUES (${nama_kendaraan}, ${tujuan}, ${peminjam}, ${satker}, ${tanggal_mulai}::date, ${tanggal_selesai}::date, ${bookingStatus}, ${user_id ? Number(user_id) : null})
       `;
 
-      // --- OTOMATISASI KIRIM NOTIFIKASI ---
-      const adminNotifTitle =
-        cleanRole === "eksternal"
-          ? "Peminjaman Kendaraan Baru"
-          : "Peminjaman Kendaraan Otomatis (Internal/Admin)";
-      const adminNotifInfo = `Peminjaman ${nama_kendaraan} oleh ${peminjam} (${satker}) menuju ${tujuan} (${tanggal_mulai} s.d ${tanggal_selesai}). Status: ${bookingStatus}`;
+      // Logika Pembagian Notifikasi Agar Tidak Dobel
+      if (cleanRole === "admin") {
+        // Jika ADMIN yang memesan, hanya catat 1 notifikasi ke notifikasi_admin
+        const adminNotifTitle = "Peminjaman Kendaraan Otomatis (Admin)";
+        const adminNotifInfo = `Peminjaman ${nama_kendaraan} oleh ${peminjam} (${satker}) menuju ${tujuan} (${tanggal_mulai} s.d ${tanggal_selesai}). Status: Disetujui`;
 
-      await db.$executeRaw`
-        INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
-        VALUES (${adminNotifTitle}, 'vehicle', ${bookingStatus}, ${adminNotifInfo}, 0, NOW())
-      `;
+        await db.$executeRaw`
+          INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
+          VALUES (${adminNotifTitle}, 'vehicle', 'Disetujui', ${adminNotifInfo}, 0, NOW())
+        `;
+      } else {
+        // Jika USER PEMOHON (Internal / Eksternal) yang memesan:
+        // 1. Notifikasi untuk Admin (Memberitahu ada pesanan baru yang harus dicek)
+        const adminNotifTitle = "Pengajuan Kendaraan Baru";
+        const adminNotifInfo = `Kendaraan: ${nama_kendaraan} oleh ${peminjam}`;
 
-      if (user_id) {
-        const targetTable = getUserNotificationTable(cleanRole);
-        const userNotifTitle =
-          bookingStatus === "Disetujui"
-            ? "Peminjaman Disetujui Otomatis"
-            : "Pengajuan Peminjaman Dikirim";
-        const userNotifInfo =
-          bookingStatus === "Disetujui"
-            ? `Peminjaman kendaraan ${nama_kendaraan} Anda berhasil dan langsung disetujui.`
-            : `Pengajuan peminjaman kendaraan ${nama_kendaraan} Anda berhasil dikirim dan menunggu verifikasi Admin.`;
+        await db.$executeRaw`
+          INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
+          VALUES (${adminNotifTitle}, 'vehicle', ${bookingStatus}, ${adminNotifInfo}, 0, NOW())
+        `;
 
-        if (targetTable === "notifikasi_internal") {
-          await db.$executeRaw`
-            INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
-            VALUES (${Number(user_id)}, ${userNotifTitle}, 'vehicle', ${bookingStatus}, ${userNotifInfo}, 0, NOW())
-          `;
-        } else {
-          await db.$executeRaw`
-            INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
-            VALUES (${Number(user_id)}, ${userNotifTitle}, 'vehicle', ${bookingStatus}, ${userNotifInfo}, 0, NOW())
-          `;
+        // 2. Notifikasi untuk Pemohon (Konfirmasi pengajuan sudah terkirim)
+        if (user_id) {
+          const targetTable = getUserNotificationTable(cleanRole);
+          const userNotifTitle =
+            bookingStatus === "Disetujui"
+              ? "Peminjaman Disetujui Otomatis"
+              : "Pengajuan Peminjaman Dikirim";
+          const userNotifInfo =
+            bookingStatus === "Disetujui"
+              ? `Peminjaman kendaraan ${nama_kendaraan} Anda berhasil dan langsung disetujui.`
+              : `Pengajuan peminjaman kendaraan ${nama_kendaraan} Anda berhasil dikirim dan menunggu verifikasi Admin.`;
+
+          if (targetTable === "notifikasi_internal") {
+            await db.$executeRaw`
+              INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
+              VALUES (${Number(user_id)}, ${userNotifTitle}, 'vehicle', ${bookingStatus}, ${userNotifInfo}, 0, NOW())
+            `;
+          } else {
+            await db.$executeRaw`
+              INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
+              VALUES (${Number(user_id)}, ${userNotifTitle}, 'vehicle', ${bookingStatus}, ${userNotifInfo}, 0, NOW())
+            `;
+          }
         }
       }
 
@@ -336,20 +312,9 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 4. DELETE: Menghapus data pengajuan peminjaman kendaraan berdasarkan ID (Diamankan)
+// 4. DELETE: Menghapus data pengajuan peminjaman kendaraan berdasarkan ID
 export async function DELETE(request: NextRequest) {
   try {
-    const sessionCookie = request.cookies.get("session_token")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized: Silakan login terlebih dahulu.",
-        },
-        { status: 401 },
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
