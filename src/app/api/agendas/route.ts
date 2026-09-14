@@ -9,7 +9,6 @@ async function getAuthenticatedUser(request: NextRequest) {
   if (!token) return null;
 
   try {
-    // Cari user berdasarkan id/token dari cookie langsung di tabel users
     const userSession: any = await db.$queryRaw`
       SELECT id, name, role, dept 
       FROM users 
@@ -65,7 +64,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 2. POST: Tambah reservasi
+// 2. POST: Tambah reservasi (Multi-Hari masuk ke setiap tanggal & Eksternal Pending)
 export async function POST(request: NextRequest) {
   try {
     const authUser = await getAuthenticatedUser(request);
@@ -85,6 +84,8 @@ export async function POST(request: NextRequest) {
       end_time,
       layout,
       notes,
+      role: clientRole,
+      user_id: clientUserId,
     } = body;
 
     if (!date || typeof date !== "string" || date.trim() === "") {
@@ -94,20 +95,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const finalEndDate = end_date && end_date.trim() !== "" ? end_date : date;
+    const cleanStartDate = date.slice(0, 10);
+    const finalEndDate =
+      end_date && typeof end_date === "string" && end_date.trim() !== ""
+        ? end_date.slice(0, 10)
+        : cleanStartDate;
 
-    // Tentukan role: prioritaskan authUser jika ada, jika tidak fallback ke penanda pemohon
-    const userRole = (authUser?.role || "internal").toLowerCase();
+    // Evaluasi Role Pemohon: Eksternal WAJIB "Pending"
+    const effectiveRole = (
+      authUser?.role ||
+      clientRole ||
+      "eksternal"
+    ).toLowerCase();
+    const effectiveUserId = authUser?.id || clientUserId || null;
+
     const isAutoApprove =
-      userRole === "admin" || userRole === "internal" || userRole === "pegawai";
+      effectiveRole === "admin" ||
+      effectiveRole === "internal" ||
+      effectiveRole === "pegawai";
+
     const finalStatus = isAutoApprove ? "Disetujui" : "Pending";
 
-    // Pengecekan Bentrok
+    // Pengecekan Bentrok Jadwal di Database
     const conflicts: any = await db.$queryRaw`
       SELECT id FROM agendas 
       WHERE room_name = ${room_name} 
         AND status != 'Ditolak'
-        AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${date}::date)
+        AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
         AND (start_time < ${end_time} AND end_time > ${start_time})
       LIMIT 1
     `;
@@ -117,86 +131,106 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           message:
-            "Jadwal bentrok! Ruangan sudah terisi pada tanggal dan jam tersebut.",
+            "Jadwal bentrok! Ruangan sudah terisi pada rentang tanggal dan jam tersebut.",
         },
         { status: 400 },
       );
     }
 
+    // Buat daftar seluruh tanggal agar setiap hari tertandai di kalender
+    const datesList: string[] = [];
+    const curDate = new Date(cleanStartDate);
+    const stopDate = new Date(finalEndDate);
+
+    while (curDate <= stopDate) {
+      datesList.push(curDate.toISOString().split("T")[0]);
+      curDate.setDate(curDate.getDate() + 1);
+    }
+
     const dateInfoStr =
-      date === finalEndDate
-        ? `tanggal ${date}`
-        : `tanggal ${date} s.d. ${finalEndDate}`;
+      cleanStartDate === finalEndDate
+        ? `tanggal ${cleanStartDate}`
+        : `tanggal ${cleanStartDate} s.d. ${finalEndDate}`;
 
-    const insertedId = await db.$transaction(async (tx) => {
-      const insertResult: any = await tx.$queryRaw`
-        INSERT INTO agendas 
-        (title, pic, dept, phone, total_participants, meeting_leader, room_id, room_name, date, end_date, start_time, end_time, layout, notes, status, user_id) 
-        VALUES (
-          ${title}, 
-          ${pic || authUser?.name || "Pemohon"}, 
-          ${dept || authUser?.dept || "-"}, 
-          ${phone || null}, 
-          ${Number(total_participants) || 1}, 
-          ${meeting_leader || "-"}, 
-          ${room_id ? Number(room_id) : null}, 
-          ${room_name}, 
-          ${date}::date, 
-          ${finalEndDate}::date, 
-          ${start_time}, 
-          ${end_time}, 
-          ${layout || "-"}, 
-          ${notes || ""}, 
-          ${finalStatus}, 
-          ${authUser?.id ? Number(authUser.id) : null}
-        )
-        RETURNING id
-      `;
+    // Eksekusi mutasi multi-hari dengan Transaction
+    const insertedIds = await db.$transaction(async (tx) => {
+      const ids: number[] = [];
 
-      const id = insertResult[0]?.id;
+      for (const d of datesList) {
+        const res: any = await tx.$queryRaw`
+          INSERT INTO agendas 
+          (title, pic, dept, phone, total_participants, meeting_leader, room_id, room_name, date, end_date, start_time, end_time, layout, notes, status, user_id) 
+          VALUES (
+            ${title}, 
+            ${pic || authUser?.name || "Pemohon"}, 
+            ${dept || authUser?.dept || "-"}, 
+            ${phone || null}, 
+            ${Number(total_participants) || 1}, 
+            ${meeting_leader || "-"}, 
+            ${room_id ? Number(room_id) : null}, 
+            ${room_name}, 
+            ${d}::date, 
+            ${finalEndDate}::date, 
+            ${start_time}, 
+            ${end_time}, 
+            ${layout || "-"}, 
+            ${notes || ""}, 
+            ${finalStatus}, 
+            ${effectiveUserId ? Number(effectiveUserId) : null}
+          )
+          RETURNING id
+        `;
+        if (res[0]?.id) ids.push(res[0].id);
+      }
 
       // Notifikasi Admin
       const adminNotifTitle =
         finalStatus === "Disetujui"
           ? "Reservasi Otomatis (Internal/Admin)"
-          : "Pengajuan Ruangan Baru";
-      const adminNotifInfo = `Ruangan ${room_name} dipesan oleh ${pic} untuk ${dateInfoStr} (${start_time} - ${end_time}). Status: ${finalStatus}`;
+          : "Pengajuan Ruangan Baru (Perlu Verifikasi)";
+      const adminNotifInfo = `Ruangan ${room_name} diajukan oleh ${pic} (${dept}) untuk ${dateInfoStr} (${start_time} - ${end_time}). Status: ${finalStatus}`;
 
       await tx.$executeRaw`
         INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
         VALUES (${adminNotifTitle}, 'room', ${finalStatus}, ${adminNotifInfo}, 0, CURRENT_TIMESTAMP)
       `;
 
-      // Notifikasi Pemohon (jika user terdaftar)
-      if (authUser?.id) {
+      // Notifikasi Pemohon
+      if (effectiveUserId) {
+        const targetTable =
+          effectiveRole === "internal"
+            ? "notifikasi_internal"
+            : "notifikasi_eksternal";
+
         const userNotifTitle =
           finalStatus === "Disetujui"
             ? "Reservasi Disetujui Otomatis"
-            : "Pengajuan Menunggu Verifikasi";
+            : "Pengajuan Menunggu Verifikasi Admin";
+
         const userNotifInfo =
           finalStatus === "Disetujui"
             ? `Reservasi ruangan ${room_name} (${dateInfoStr}) berhasil dan disetujui.`
-            : `Pengajuan ruangan ${room_name} (${dateInfoStr}) sedang ditinjau oleh Admin.`;
+            : `Pengajuan ruangan ${room_name} (${dateInfoStr}) berhasil dikirim dan menunggu persetujuan Admin.`;
 
-        if (userRole === "internal") {
+        if (targetTable === "notifikasi_internal") {
           await tx.$executeRaw`
             INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
-            VALUES (${authUser.id}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
+            VALUES (${Number(effectiveUserId)}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
           `;
         } else {
           await tx.$executeRaw`
             INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
-            VALUES (${authUser.id}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
+            VALUES (${Number(effectiveUserId)}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
           `;
         }
       }
 
-      return id;
+      return ids;
     });
 
     return NextResponse.json({
       success: true,
-      insertId: insertedId,
+      insertedIds,
       status: finalStatus,
     });
   } catch (error: any) {

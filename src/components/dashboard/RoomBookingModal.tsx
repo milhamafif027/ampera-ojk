@@ -86,7 +86,6 @@ const getRoomCapacity = (
     : "-";
 };
 
-// Komponen Form terpisah: State diinisialisasi sekali saat mount tanpa useEffect
 function BookingFormContent({
   onClose,
   setCustomAlert,
@@ -94,6 +93,7 @@ function BookingFormContent({
   editData,
   rooms,
   currentUserRole,
+  currentUserId,
   onBookingSuccess,
 }: {
   onClose: () => void;
@@ -102,6 +102,7 @@ function BookingFormContent({
   editData?: Agenda | null;
   rooms: Room[];
   currentUserRole: string;
+  currentUserId: number | null;
   onBookingSuccess: () => void;
 }) {
   const [step, setStep] = useState(1);
@@ -109,7 +110,6 @@ function BookingFormContent({
   const [existingBookings, setExistingBookings] = useState<Agenda[]>([]);
   const [isCheckingConflict, setIsCheckingConflict] = useState(false);
 
-  // Inisialisasi default form state langsung dari props (tanpa useEffect)
   const [formData, setFormData] = useState(() => {
     const agendaRecord = editData as unknown as Record<string, unknown> | null;
 
@@ -192,7 +192,6 @@ function BookingFormContent({
     return getRoomCapacity(currentRoom, formData.layout);
   }, [currentRoom, formData.layout]);
 
-  // Pengecekan jadwal bentrok
   useEffect(() => {
     let isCancelled = false;
 
@@ -349,6 +348,8 @@ function BookingFormContent({
         end_time: formData.endTime,
         layout: formData.layout,
         notes: formData.notes,
+        role: currentUserRole,
+        user_id: currentUserId,
       };
 
       const method = editData?.id ? "PUT" : "POST";
@@ -762,7 +763,6 @@ function BookingFormContent({
   );
 }
 
-// Modal Container Utama
 export default function RoomBookingModal({
   isOpen,
   onClose,
@@ -774,16 +774,21 @@ export default function RoomBookingModal({
 }: RoomBookingModalProps) {
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
-  const currentUserRole = useMemo(() => {
-    if (typeof window === "undefined") return "eksternal";
+  const localUserData = useMemo(() => {
+    if (typeof window === "undefined") {
+      return { role: "eksternal", id: null };
+    }
     try {
       const storedUser =
         sessionStorage.getItem("local_user") ||
         localStorage.getItem("local_user");
       const parsed = storedUser ? JSON.parse(storedUser) : null;
-      return (parsed?.role || "eksternal").toLowerCase();
+      return {
+        role: (parsed?.role || "eksternal").toLowerCase(),
+        id: parsed?.id ? Number(parsed.id) : null,
+      };
     } catch {
-      return "eksternal";
+      return { role: "eksternal", id: null };
     }
   }, []);
 
@@ -828,7 +833,6 @@ export default function RoomBookingModal({
           </button>
         </div>
       ) : (
-        /* Key memastikan state ter-reset otomatis setiap kali modal dibuka / editData berganti */
         <BookingFormContent
           key={editData?.id ? `edit-${editData.id}` : "new-booking"}
           onClose={handleModalClose}
@@ -836,7 +840,8 @@ export default function RoomBookingModal({
           selectedRoom={selectedRoom}
           editData={editData}
           rooms={rooms}
-          currentUserRole={currentUserRole}
+          currentUserRole={localUserData.role}
+          currentUserId={localUserData.id}
           onBookingSuccess={() => setShowSuccessPopup(true)}
         />
       )}
