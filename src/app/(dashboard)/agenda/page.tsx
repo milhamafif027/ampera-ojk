@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Agenda, StatusPengajuan } from "@/types";
-import { getSmartStatus } from "@/lib/utils";
+import { getSmartStatus, formatAgendaDate } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -34,10 +34,15 @@ interface LocalUser {
   nip?: string;
 }
 
+interface ExtendedAgenda extends Agenda {
+  endDate?: string;
+}
+
 interface RawAgendaResponse {
   id: string | number;
   title: string;
   date?: string;
+  end_date?: string;
   time?: string;
   start_time?: string;
   end_time?: string;
@@ -53,6 +58,7 @@ interface AgendaFormData {
   id: string;
   title: string;
   date: string;
+  end_date: string;
   start_time: string;
   end_time: string;
   room: string;
@@ -64,8 +70,18 @@ interface AgendaFormData {
 
 export default function AgendaPage() {
   const router = useRouter();
-  const [user, setUser] = useState<LocalUser | null>(null);
-  const [agendas, setAgendas] = useState<Agenda[]>([]);
+
+  const [user] = useState<LocalUser | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const storedUser = sessionStorage.getItem("local_user");
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [agendas, setAgendas] = useState<ExtendedAgenda[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("Semua Status");
@@ -99,12 +115,11 @@ export default function AgendaPage() {
 
   const fetchAgendas = useCallback(async () => {
     try {
-      setIsLoading(true);
       const res = await fetch("/api/agendas");
       const result = await res.json();
 
       if (res.ok && Array.isArray(result.data)) {
-        const mappedAgendas: Agenda[] = result.data.map(
+        const mappedAgendas: ExtendedAgenda[] = result.data.map(
           (item: RawAgendaResponse) => {
             let formattedDate = "";
             if (item.date) {
@@ -115,6 +130,18 @@ export default function AgendaPage() {
                 formattedDate = rawDateStr.split(" ")[0];
               } else {
                 formattedDate = rawDateStr.slice(0, 10);
+              }
+            }
+
+            let formattedEndDate = formattedDate;
+            if (item.end_date) {
+              const rawEndStr = String(item.end_date);
+              if (rawEndStr.includes("T")) {
+                formattedEndDate = rawEndStr.split("T")[0];
+              } else if (rawEndStr.includes(" ")) {
+                formattedEndDate = rawEndStr.split(" ")[0];
+              } else {
+                formattedEndDate = rawEndStr.slice(0, 10);
               }
             }
 
@@ -153,6 +180,7 @@ export default function AgendaPage() {
               id: String(item.id),
               title: item.title,
               date: formattedDate,
+              endDate: formattedEndDate,
               time: formattedTime,
               start_time: startTimeOnly,
               end_time: endTimeOnly,
@@ -171,11 +199,6 @@ export default function AgendaPage() {
         );
 
         setAgendas(mappedAgendas);
-      } else {
-        console.error(
-          "Gagal memuat agenda:",
-          result.message || "Response format invalid",
-        );
       }
     } catch (error) {
       console.error("Gagal mengambil data agenda:", error);
@@ -184,30 +207,22 @@ export default function AgendaPage() {
     }
   }, []);
 
-  useEffect(() => {
-    const initData = async () => {
-      await Promise.resolve();
-      const storedUser = sessionStorage.getItem("local_user");
+  const handleManualRefresh = () => {
+    setIsLoading(true);
+    fetchAgendas();
+  };
 
-      if (!storedUser) {
-        router.push("/login");
-        return;
-      }
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        if (parsedUser.role === "eksternal") {
-          router.push("/dashboardUtama");
-          return;
-        }
-        setUser(parsedUser);
-      } catch {
-        router.push("/login");
-        return;
-      }
-      fetchAgendas();
-    };
-    initData();
-  }, [fetchAgendas, router]);
+  useEffect(() => {
+    if (!user && typeof window !== "undefined") {
+      router.push("/login");
+      return;
+    }
+    if (user?.role === "eksternal") {
+      router.push("/dashboardUtama");
+      return;
+    }
+    fetchAgendas();
+  }, [fetchAgendas, router, user]);
 
   const roomOptions = useMemo(() => {
     return Array.from(new Set(agendas.map((a) => a.room))).filter(Boolean);
@@ -299,12 +314,13 @@ export default function AgendaPage() {
       csvContent += `"KANTOR OJK PROVINSI SUMATERA SELATAN"\n`;
       csvContent += `"LAPORAN REKAPITULASI AGENDA & KEGIATAN RUANGAN"\n`;
       csvContent += `"Tanggal Cetak: ${currentDate} | Filter Status: ${statusFilter} | Filter Ruangan: ${roomFilter} | Filter Tahun: ${yearFilter} | Filter Bulan: ${monthFilter}"\n\n`;
-      csvContent += `"No","Tanggal","Waktu","Nama Kegiatan / Acara","Penanggung Jawab (PIC)","Satuan Kerja (Satker)","Ruangan","Tata Letak","Status Pengajuan"\n`;
+      csvContent += `"No","Tanggal Pelaksanaan","Waktu","Nama Kegiatan / Acara","Penanggung Jawab (PIC)","Satuan Kerja (Satker)","Ruangan","Tata Letak","Status Pengajuan"\n`;
 
       filteredAgendas.forEach((a, index) => {
+        const dateFormatted = formatAgendaDate(a.date, a.endDate);
         const row = [
           index + 1,
-          a.date,
+          `"${dateFormatted}"`,
           a.time,
           `"${(a.title || "").replace(/"/g, '""')}"`,
           `"${(a.pic || "").replace(/"/g, '""')}"`,
@@ -406,7 +422,7 @@ export default function AgendaPage() {
       ];
       const tableRows = filteredAgendas.map((item, index) => [
         index + 1,
-        `${item.date}\n${item.time}`,
+        `${formatAgendaDate(item.date, item.endDate)}\n${item.time}`,
         item.title,
         `${item.pic}\n(${item.dept || "Umum"})`,
         item.room,
@@ -428,7 +444,8 @@ export default function AgendaPage() {
         bodyStyles: { fontSize: 8, textColor: [30, 30, 30] },
         columnStyles: {
           0: { halign: "center", cellWidth: 12 },
-          6: { halign: "center", cellWidth: 35 },
+          1: { cellWidth: 42 },
+          6: { halign: "center", cellWidth: 32 },
         },
         didDrawPage: () => {
           doc.setFontSize(8);
@@ -504,7 +521,7 @@ export default function AgendaPage() {
     }
   };
 
-  const openEditModal = (item: Agenda) => {
+  const openEditModal = (item: ExtendedAgenda) => {
     const itemWithTime = item as unknown as {
       start_time?: string;
       end_time?: string;
@@ -515,6 +532,7 @@ export default function AgendaPage() {
         id: item.id,
         title: item.title,
         date: item.date,
+        end_date: item.endDate || item.date,
         start_time: itemWithTime.start_time || "08:00",
         end_time: itemWithTime.end_time || "17:00",
         room: item.room,
@@ -536,6 +554,7 @@ export default function AgendaPage() {
         id: editModal.data.id,
         title: editModal.data.title,
         date: editModal.data.date,
+        end_date: editModal.data.end_date || editModal.data.date,
         start_time: editModal.data.start_time,
         end_time: editModal.data.end_time,
         room: editModal.data.room,
@@ -591,7 +610,7 @@ export default function AgendaPage() {
 
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={fetchAgendas}
+            onClick={handleManualRefresh}
             className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors cursor-pointer"
             title="Refresh Data"
           >
@@ -733,7 +752,7 @@ export default function AgendaPage() {
                       <div className="flex flex-col gap-0.5">
                         <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                           <Calendar size={13} className="text-[#9f1521]" />{" "}
-                          {item.date}
+                          {formatAgendaDate(item.date, item.endDate)}
                         </span>
                         <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
                           <Clock size={13} className="text-slate-400" />{" "}
@@ -895,7 +914,7 @@ export default function AgendaPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Tanggal Pelaksanaan
+                    Tanggal Mulai
                   </label>
                   <input
                     type="date"
@@ -916,18 +935,19 @@ export default function AgendaPage() {
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Ruangan Rapat
+                    Tanggal Selesai
                   </label>
                   <input
-                    type="text"
+                    type="date"
                     required
-                    value={editModal.data.room}
+                    value={editModal.data.end_date}
+                    min={editModal.data.date}
                     onChange={(e) =>
                       setEditModal((prev) =>
                         prev.data
                           ? {
                               ...prev,
-                              data: { ...prev.data, room: e.target.value },
+                              data: { ...prev.data, end_date: e.target.value },
                             }
                           : prev,
                       )
@@ -983,6 +1003,28 @@ export default function AgendaPage() {
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Ruangan Rapat
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editModal.data.room}
+                  onChange={(e) =>
+                    setEditModal((prev) =>
+                      prev.data
+                        ? {
+                            ...prev,
+                            data: { ...prev.data, room: e.target.value },
+                          }
+                        : prev,
+                    )
+                  }
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
