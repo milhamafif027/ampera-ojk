@@ -122,7 +122,7 @@ export default function BantuanPage() {
       name: "Galan Sadewo",
       role: "Kendaraan dan Keprotokolan",
       phone: "0821-7474-7418",
-    }
+    },
   ];
 
   // State Modal Edit IT Support
@@ -176,7 +176,7 @@ export default function BantuanPage() {
 
   const isAdmin = user?.role === "admin";
 
-  // Fetch Vendor dari API Database MySQL dengan Loading State
+  // Fetch Vendor dari API Database dengan Loading State
   const fetchVendors = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -398,7 +398,11 @@ export default function BantuanPage() {
             </h3>
             <div className="space-y-2">
               {supportContacts.map((contact) => {
-                const cleanPhone = contact.phone.replace(/\D/g, "");
+                let cleanPhone = contact.phone.replace(/\D/g, "");
+                if (cleanPhone.startsWith("0")) {
+                  cleanPhone = "62" + cleanPhone.slice(1);
+                }
+
                 return (
                   <div
                     key={contact.id}
@@ -510,9 +514,12 @@ export default function BantuanPage() {
               </div>
             ) : filteredVendors.length > 0 ? (
               filteredVendors.map((vendor) => {
-                const cleanPhone = vendor.phone
+                let cleanPhone = vendor.phone
                   ? vendor.phone.replace(/\D/g, "")
                   : "";
+                if (cleanPhone.startsWith("0")) {
+                  cleanPhone = "62" + cleanPhone.slice(1);
+                }
                 const displayPhone = vendor.displayPhone || vendor.phone || "-";
 
                 return (
