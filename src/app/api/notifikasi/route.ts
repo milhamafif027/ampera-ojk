@@ -2,15 +2,15 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 
-// Helper untuk menentukan nama tabel berdasarkan role
+// Helper untuk menentukan nama tabel database berdasarkan role
 function getUserNotificationTable(role?: string): string {
   const cleanRole = role?.toLowerCase() || "";
   if (cleanRole === "admin") return "notifikasi_admin";
   if (cleanRole === "internal") return "notifikasi_internal";
-  return "notifikasi_eksternal";
+  return "notifikasi_eksternal"; // Default untuk eksternal/user biasa
 }
 
-// 1. GET: Mengambil daftar notifikasi berdasarkan role & user_id
+// 1. GET: Mengambil daftar notifikasi berdasarkan role & user_id (Dengan Filter Ketat)
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -18,12 +18,11 @@ export async function GET(req: NextRequest) {
     const role = searchParams.get("role") || "eksternal";
     const cleanRole = role.toLowerCase();
 
-    const tableName = getUserNotificationTable(cleanRole);
     let rows: any[] = [];
 
     if (cleanRole === "admin") {
-      // Admin hanya membaca tabel notifikasi_admin
-      // Filter out notifikasi konfirmasi pemohon jika tidak sengaja masuk ke tabel admin
+      // ADMIN: Hanya membaca notifikasi yang ditujukan untuk admin
+      // Filter out notifikasi konfirmasi pemohon jika tidak sengaja masuk
       rows = await db.$queryRaw`
         SELECT id, '' AS user_id, title, type, status, info, is_read, created_at 
         FROM notifikasi_admin 
@@ -42,19 +41,25 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ success: true, data: [] });
       }
 
-      if (tableName === "notifikasi_internal") {
+      if (cleanRole === "internal") {
+        // INTERNAL: Hanya notifikasi untuk user pemohon internal (Saring keluar notifikasi admin)
         rows = await db.$queryRaw`
           SELECT id, user_id, title, type, status, info, is_read, created_at 
           FROM notifikasi_internal 
-          WHERE user_id = ${validUserId} 
+          WHERE user_id = ${validUserId}
+            AND title NOT LIKE 'Pengajuan Kendaraan Baru%'
+            AND title NOT LIKE 'Pengajuan Ruangan Baru%'
           ORDER BY created_at DESC 
           LIMIT 50
         `;
       } else {
+        // EKSTERNAL: Hanya notifikasi untuk user pemohon eksternal (Saring keluar notifikasi admin)
         rows = await db.$queryRaw`
           SELECT id, user_id, title, type, status, info, is_read, created_at 
           FROM notifikasi_eksternal 
-          WHERE user_id = ${validUserId} 
+          WHERE user_id = ${validUserId}
+            AND title NOT LIKE 'Pengajuan Kendaraan Baru%'
+            AND title NOT LIKE 'Pengajuan Ruangan Baru%'
           ORDER BY created_at DESC 
           LIMIT 50
         `;
@@ -119,7 +124,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// 3. PUT: Menandai notifikasi telah dibaca
+// 3. PUT: Menandai notifikasi telah dibaca (Berdasarkan role & ID user)
 export async function PUT(req: NextRequest) {
   try {
     let body: any = {};
@@ -172,7 +177,7 @@ export async function PUT(req: NextRequest) {
       });
     }
 
-    // B. Tandai satu notifikasi spesifik
+    // B. Tandai satu notifikasi spesifik berdasarkan ID
     if (notificationId) {
       const idNum = Number(notificationId);
       if (tableName === "notifikasi_admin") {

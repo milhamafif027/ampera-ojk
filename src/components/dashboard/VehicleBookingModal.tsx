@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useMemo } from "react";
 import { X, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -40,22 +40,27 @@ export default function VehicleBookingModal({
   setFormData,
   isSubmitting,
 }: VehicleBookingModalProps) {
-  // ---> PENGAMAN: Otomatis kosongkan jika borrower bernilai "Tamu Eksternal OJK" <---
-  useEffect(() => {
-    if (isOpen && formData.borrower === "Tamu Eksternal OJK") {
-      setFormData((prev: any) => ({
-        ...prev,
-        borrower: "",
-      }));
-    }
-  }, [isOpen, formData.borrower, setFormData]);
+  const availableVehiclesForBooking = useMemo(() => {
+    return vehicles.filter((v) => v.category !== "Khusus Pimpinan");
+  }, [vehicles]);
 
   if (!isOpen) return null;
 
-  // Filter kendaraan: Sembunyikan kendaraan khusus pimpinan dari pilihan form peminjaman
-  const availableVehiclesForBooking = vehicles.filter(
-    (v) => v.category !== "Khusus Pimpinan",
-  );
+  // Nilai aman untuk borrower tanpa memicu cascading setState di useEffect
+  const displayBorrower =
+    formData.borrower === "Tamu Eksternal OJK" ? "" : formData.borrower;
+
+  const handleStartDateChange = (val: string) => {
+    setFormData((prev: any) => {
+      const nextEndDate =
+        prev.endDate && prev.endDate < val ? val : prev.endDate;
+      return {
+        ...prev,
+        startDate: val,
+        endDate: nextEndDate || val,
+      };
+    });
+  };
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
@@ -108,7 +113,7 @@ export default function VehicleBookingModal({
               </label>
               <input
                 type="text"
-                value={formData.borrower}
+                value={displayBorrower}
                 onChange={(e) =>
                   setFormData({ ...formData, borrower: e.target.value })
                 }
@@ -162,9 +167,7 @@ export default function VehicleBookingModal({
                 type="date"
                 min={new Date().toISOString().split("T")[0]}
                 value={formData.startDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, startDate: e.target.value })
-                }
+                onChange={(e) => handleStartDateChange(e.target.value)}
                 disabled={isSubmitting}
                 className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none disabled:opacity-50"
                 required

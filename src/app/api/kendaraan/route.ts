@@ -249,7 +249,6 @@ export async function POST(request: NextRequest) {
 
       // Logika Pembagian Notifikasi Agar Tidak Dobel
       if (cleanRole === "admin") {
-        // Jika ADMIN yang memesan, hanya catat 1 notifikasi ke notifikasi_admin
         const adminNotifTitle = "Peminjaman Kendaraan Otomatis (Admin)";
         const adminNotifInfo = `Peminjaman ${nama_kendaraan} oleh ${peminjam} (${satker}) menuju ${tujuan} (${tanggal_mulai} s.d ${tanggal_selesai}). Status: Disetujui`;
 
@@ -258,8 +257,7 @@ export async function POST(request: NextRequest) {
           VALUES (${adminNotifTitle}, 'vehicle', 'Disetujui', ${adminNotifInfo}, 0, NOW())
         `;
       } else {
-        // Jika USER PEMOHON (Internal / Eksternal) yang memesan:
-        // 1. Notifikasi untuk Admin (Memberitahu ada pesanan baru yang harus dicek)
+        // 1. Notifikasi untuk Admin
         const adminNotifTitle = "Pengajuan Kendaraan Baru";
         const adminNotifInfo = `Kendaraan: ${nama_kendaraan} oleh ${peminjam}`;
 
@@ -268,7 +266,7 @@ export async function POST(request: NextRequest) {
           VALUES (${adminNotifTitle}, 'vehicle', ${bookingStatus}, ${adminNotifInfo}, 0, NOW())
         `;
 
-        // 2. Notifikasi untuk Pemohon (Konfirmasi pengajuan sudah terkirim)
+        // 2. Notifikasi untuk Pemohon
         if (user_id) {
           const targetTable = getUserNotificationTable(cleanRole);
           const userNotifTitle =
