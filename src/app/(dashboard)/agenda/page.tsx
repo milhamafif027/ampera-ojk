@@ -34,6 +34,34 @@ interface LocalUser {
   nip?: string;
 }
 
+interface RawAgendaResponse {
+  id: string | number;
+  title: string;
+  date?: string;
+  time?: string;
+  start_time?: string;
+  end_time?: string;
+  room?: string;
+  room_name?: string;
+  pic?: string;
+  dept?: string;
+  layout?: string;
+  status?: string;
+}
+
+interface AgendaFormData {
+  id: string;
+  title: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  room: string;
+  pic: string;
+  dept: string;
+  layout: string;
+  status: string;
+}
+
 export default function AgendaPage() {
   const router = useRouter();
   const [user, setUser] = useState<LocalUser | null>(null);
@@ -48,7 +76,6 @@ export default function AgendaPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-  // State untuk Modal Hapus
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     agendaId: string | null;
@@ -59,10 +86,9 @@ export default function AgendaPage() {
     title: null,
   });
 
-  // State untuk Modal Edit Agenda (Khusus Admin)
   const [editModal, setEditModal] = useState<{
     isOpen: boolean;
-    data: any | null;
+    data: AgendaFormData | null;
   }>({
     isOpen: false,
     data: null,
@@ -77,63 +103,79 @@ export default function AgendaPage() {
       const res = await fetch("/api/agendas");
       const result = await res.json();
 
-      if (res.ok && result.data) {
-        const mappedAgendas: Agenda[] = result.data.map((item: any) => {
-          let formattedDate = "";
-          if (item.date) {
-            const rawDateStr = String(item.date);
-            if (rawDateStr.includes("T")) {
-              formattedDate = rawDateStr.split("T")[0];
-            } else if (rawDateStr.includes(" ")) {
-              formattedDate = rawDateStr.split(" ")[0];
-            } else {
-              formattedDate = rawDateStr.slice(0, 10);
+      if (res.ok && Array.isArray(result.data)) {
+        const mappedAgendas: Agenda[] = result.data.map(
+          (item: RawAgendaResponse) => {
+            let formattedDate = "";
+            if (item.date) {
+              const rawDateStr = String(item.date);
+              if (rawDateStr.includes("T")) {
+                formattedDate = rawDateStr.split("T")[0];
+              } else if (rawDateStr.includes(" ")) {
+                formattedDate = rawDateStr.split(" ")[0];
+              } else {
+                formattedDate = rawDateStr.slice(0, 10);
+              }
             }
-          }
 
-          let formattedTime = "";
-          let startTimeOnly = "08:00";
-          let endTimeOnly = "17:00";
+            let formattedTime = "";
+            let startTimeOnly = "08:00";
+            let endTimeOnly = "17:00";
 
-          if (item.start_time && item.end_time) {
-            const startStr = String(item.start_time);
-            const endStr = String(item.end_time);
+            if (item.start_time && item.end_time) {
+              const startStr = String(item.start_time);
+              const endStr = String(item.end_time);
 
-            const cleanStart = startStr.includes("T")
-              ? startStr.split("T")[1]
-              : startStr;
-            const cleanEnd = endStr.includes("T")
-              ? endStr.split("T")[1]
-              : endStr;
+              const cleanStart = startStr.includes("T")
+                ? startStr.split("T")[1]
+                : startStr;
+              const cleanEnd = endStr.includes("T")
+                ? endStr.split("T")[1]
+                : endStr;
 
-            startTimeOnly = cleanStart.slice(0, 5);
-            endTimeOnly = cleanEnd.slice(0, 5);
-            formattedTime = `${startTimeOnly} - ${endTimeOnly}`;
-          } else {
-            formattedTime = item.time || "08:00 - 17:00";
-          }
+              startTimeOnly = cleanStart.slice(0, 5);
+              endTimeOnly = cleanEnd.slice(0, 5);
+              formattedTime = `${startTimeOnly} - ${endTimeOnly}`;
+            } else if (item.time) {
+              formattedTime = item.time;
+              if (item.time.includes("-")) {
+                const [startPart, endPart] = item.time
+                  .split("-")
+                  .map((t) => t.trim());
+                startTimeOnly = startPart.slice(0, 5) || "08:00";
+                endTimeOnly = endPart.slice(0, 5) || "17:00";
+              }
+            } else {
+              formattedTime = "08:00 - 17:00";
+            }
 
-          const agendaItem = {
-            id: String(item.id),
-            title: item.title,
-            date: formattedDate,
-            time: formattedTime,
-            start_time: startTimeOnly,
-            end_time: endTimeOnly,
-            room: item.room_name || item.room || "Ruang Rapat OJK",
-            pic: item.pic || "Pegawai OJK",
-            dept: item.dept || "OJK Sumsel",
-            layout: item.layout || "-",
-            status: item.status || "Pending",
-          };
+            const agendaItem = {
+              id: String(item.id),
+              title: item.title,
+              date: formattedDate,
+              time: formattedTime,
+              start_time: startTimeOnly,
+              end_time: endTimeOnly,
+              room: item.room_name || item.room || "Ruang Rapat OJK",
+              pic: item.pic || "Pegawai OJK",
+              dept: item.dept || "OJK Sumsel",
+              layout: item.layout || "-",
+              status: item.status || "Pending",
+            };
 
-          return {
-            ...agendaItem,
-            smartStatus: getSmartStatus(agendaItem) as StatusPengajuan,
-          };
-        });
+            return {
+              ...agendaItem,
+              smartStatus: getSmartStatus(agendaItem) as StatusPengajuan,
+            };
+          },
+        );
 
         setAgendas(mappedAgendas);
+      } else {
+        console.error(
+          "Gagal memuat agenda:",
+          result.message || "Response format invalid",
+        );
       }
     } catch (error) {
       console.error("Gagal mengambil data agenda:", error);
@@ -158,7 +200,7 @@ export default function AgendaPage() {
           return;
         }
         setUser(parsedUser);
-      } catch (err) {
+      } catch {
         router.push("/login");
         return;
       }
@@ -167,31 +209,28 @@ export default function AgendaPage() {
     initData();
   }, [fetchAgendas, router]);
 
-  const roomOptions = Array.from(new Set(agendas.map((a) => a.room))).filter(
-    Boolean,
-  );
+  const roomOptions = useMemo(() => {
+    return Array.from(new Set(agendas.map((a) => a.room))).filter(Boolean);
+  }, [agendas]);
 
-  // Daftar opsi tahun yang tersedia dari data agenda
   const yearOptions = useMemo(() => {
     const yearsSet = new Set<string>();
     agendas.forEach((a) => {
       if (a.date) {
-        const year = a.date.slice(0, 4); // Format "YYYY"
+        const year = a.date.slice(0, 4);
         yearsSet.add(year);
       }
     });
     return Array.from(yearsSet).sort().reverse();
   }, [agendas]);
 
-  // Daftar opsi bulan (hanya angka bulan "01" s.d "12") yang tersedia
   const monthOptions = useMemo(() => {
     const monthsSet = new Set<string>();
     agendas.forEach((a) => {
       if (a.date) {
-        // Filter berdasarkan tahun yang sedang dipilih jika tidak "Semua Tahun"
         const year = a.date.slice(0, 4);
         if (yearFilter === "Semua Tahun" || year === yearFilter) {
-          const month = a.date.slice(5, 7); // Format "MM"
+          const month = a.date.slice(5, 7);
           monthsSet.add(month);
         }
       }
@@ -199,10 +238,12 @@ export default function AgendaPage() {
     return Array.from(monthsSet).sort();
   }, [agendas, yearFilter]);
 
-  // Helper untuk format angka bulan menjadi nama bulan lengkap (Januari, Februari, dst.)
   const formatMonthName = (monthNum: string) => {
     try {
-      const date = new Date(2026, parseInt(monthNum) - 1, 1);
+      const parsedMonth = parseInt(monthNum, 10);
+      if (isNaN(parsedMonth) || parsedMonth < 1 || parsedMonth > 12)
+        return monthNum;
+      const date = new Date(2026, parsedMonth - 1, 1);
       return date.toLocaleDateString("id-ID", { month: "long" });
     } catch {
       return monthNum;
@@ -223,7 +264,6 @@ export default function AgendaPage() {
         const matchRoom =
           roomFilter === "Semua Ruangan" || a.room === roomFilter;
 
-        // Pisahkan filter berdasarkan Tahun dan Bulan
         const itemYear = a.date ? a.date.slice(0, 4) : "";
         const itemMonth = a.date ? a.date.slice(5, 7) : "";
 
@@ -237,20 +277,22 @@ export default function AgendaPage() {
         );
       })
       .sort((a, b) => {
-        // Urutkan dari yang terbaru ke yang lama (Descending)
         const dateA = a.date || "";
         const dateB = b.date || "";
         if (dateA !== dateB) {
           return dateB.localeCompare(dateA);
         }
-        const timeA = (a as any).start_time || "";
-        const timeB = (b as any).start_time || "";
+        const timeA =
+          (a as unknown as { start_time?: string }).start_time || "";
+        const timeB =
+          (b as unknown as { start_time?: string }).start_time || "";
         return timeB.localeCompare(timeA);
       });
   }, [agendas, searchTerm, statusFilter, roomFilter, monthFilter, yearFilter]);
 
   const handleExportExcel = () => {
     setIsExporting(true);
+    let blobUrl: string | null = null;
     try {
       const currentDate = new Date().toISOString().split("T")[0];
       let csvContent = "\uFEFF";
@@ -275,9 +317,9 @@ export default function AgendaPage() {
       });
 
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
+      blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = url;
+      link.href = blobUrl;
       link.setAttribute(
         "download",
         `Laporan_Agenda_OJK_Sumsel_${currentDate}.csv`,
@@ -287,111 +329,122 @@ export default function AgendaPage() {
       document.body.removeChild(link);
     } catch (error) {
       console.error("Gagal mengekspor Excel:", error);
+      alert("Gagal melakukan ekspor data CSV.");
     } finally {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
       setTimeout(() => setIsExporting(false), 500);
     }
   };
 
-  const handleDownloadPDF = () => {
+  const loadLogoBase64 = (src: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL("image/png"));
+          } else {
+            resolve(null);
+          }
+        } catch {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  };
+
+  const handleDownloadPDF = async () => {
     setIsExporting(true);
     try {
       const doc = new jsPDF("landscape", "mm", "a4");
       const currentDate = new Date().toISOString().split("T")[0];
 
-      const generatePDFWithLogo = (imgData?: string) => {
-        if (imgData) {
-          doc.addImage(imgData, "PNG", 240, 10, 32, 16);
-        }
+      const imgData = await loadLogoBase64("/otoritas-jasa-keuangan-logo.png");
 
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.text("OTORITAS JASA KEUANGAN REPUBLIK INDONESIA", 14, 15);
-        doc.setFontSize(13);
-        doc.text("KANTOR OJK PROVINSI SUMATERA SELATAN", 14, 22);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.text(
-          "Laporan Rekapitulasi Daftar Agenda & Kegiatan Ruang Rapat",
-          14,
-          28,
-        );
-        doc.text(
-          `Tanggal Cetak: ${currentDate} | Status: ${statusFilter} | Ruangan: ${roomFilter} | Tahun: ${yearFilter} | Bulan: ${monthFilter}`,
-          14,
-          33,
-        );
-        doc.setLineWidth(0.5);
-        doc.line(14, 37, 283, 37);
+      if (imgData) {
+        doc.addImage(imgData, "PNG", 240, 10, 32, 16);
+      }
 
-        const tableColumn = [
-          "No",
-          "Tanggal & Waktu",
-          "Nama Kegiatan / Acara",
-          "PIC / Satker",
-          "Ruangan",
-          "Layout",
-          "Status",
-        ];
-        const tableRows = filteredAgendas.map((item, index) => [
-          index + 1,
-          `${item.date}\n${item.time}`,
-          item.title,
-          `${item.pic}\n(${item.dept || "Umum"})`,
-          item.room,
-          item.layout || "-",
-          item.smartStatus,
-        ]);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("OTORITAS JASA KEUANGAN REPUBLIK INDONESIA", 14, 15);
+      doc.setFontSize(13);
+      doc.text("KANTOR OJK PROVINSI SUMATERA SELATAN", 14, 22);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(
+        "Laporan Rekapitulasi Daftar Agenda & Kegiatan Ruang Rapat",
+        14,
+        28,
+      );
+      doc.text(
+        `Tanggal Cetak: ${currentDate} | Status: ${statusFilter} | Ruangan: ${roomFilter} | Tahun: ${yearFilter} | Bulan: ${monthFilter}`,
+        14,
+        33,
+      );
+      doc.setLineWidth(0.5);
+      doc.line(14, 37, 283, 37);
 
-        autoTable(doc, {
-          head: [tableColumn],
-          body: tableRows,
-          startY: 42,
-          theme: "grid",
-          headStyles: {
-            fillColor: [159, 21, 33],
-            textColor: [255, 255, 255],
-            halign: "center",
-            fontSize: 9,
-          },
-          bodyStyles: { fontSize: 8, textColor: [30, 30, 30] },
-          columnStyles: {
-            0: { halign: "center", cellWidth: 12 },
-            6: { halign: "center", cellWidth: 35 },
-          },
-          didDrawPage: () => {
-            doc.setFontSize(8);
-            doc.text(
-              `Halaman ${doc.getNumberOfPages()}`,
-              14,
-              doc.internal.pageSize.height - 10,
-            );
-          },
-        });
+      const tableColumn = [
+        "No",
+        "Tanggal & Waktu",
+        "Nama Kegiatan / Acara",
+        "PIC / Satker",
+        "Ruangan",
+        "Layout",
+        "Status",
+      ];
+      const tableRows = filteredAgendas.map((item, index) => [
+        index + 1,
+        `${item.date}\n${item.time}`,
+        item.title,
+        `${item.pic}\n(${item.dept || "Umum"})`,
+        item.room,
+        item.layout || "-",
+        item.smartStatus,
+      ]);
 
-        doc.save(`Laporan_Agenda_OJK_Sumsel_${currentDate}.pdf`);
-        setIsExporting(false);
-      };
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 42,
+        theme: "grid",
+        headStyles: {
+          fillColor: [159, 21, 33],
+          textColor: [255, 255, 255],
+          halign: "center",
+          fontSize: 9,
+        },
+        bodyStyles: { fontSize: 8, textColor: [30, 30, 30] },
+        columnStyles: {
+          0: { halign: "center", cellWidth: 12 },
+          6: { halign: "center", cellWidth: 35 },
+        },
+        didDrawPage: () => {
+          doc.setFontSize(8);
+          doc.text(
+            `Halaman ${doc.getNumberOfPages()}`,
+            14,
+            doc.internal.pageSize.height - 10,
+          );
+        },
+      });
 
-      const img = new Image();
-      img.src = "/otoritas-jasa-keuangan-logo.png";
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          const dataURL = canvas.toDataURL("image/png");
-          generatePDFWithLogo(dataURL);
-        } else {
-          generatePDFWithLogo();
-        }
-      };
-      img.onerror = () => {
-        generatePDFWithLogo();
-      };
+      doc.save(`Laporan_Agenda_OJK_Sumsel_${currentDate}.pdf`);
     } catch (error) {
       console.error("Gagal mendownload PDF:", error);
+      alert("Terjadi kesalahan saat memproses berkas PDF.");
+    } finally {
       setIsExporting(false);
     }
   };
@@ -407,9 +460,17 @@ export default function AgendaPage() {
           status: "Disetujui",
         }),
       });
-      if (res.ok) fetchAgendas();
+      const result = await res.json().catch(() => ({}));
+      if (res.ok) {
+        fetchAgendas();
+      } else {
+        alert(
+          `Gagal menyetujui agenda: ${result.message || "Kesalahan server"}`,
+        );
+      }
     } catch (error) {
       console.error("Gagal menyetujui agenda:", error);
+      alert("Gagal menghubungi server untuk menyetujui agenda.");
     } finally {
       setActionLoadingId(null);
     }
@@ -426,26 +487,36 @@ export default function AgendaPage() {
       const res = await fetch(`/api/agendas?id=${deleteModal.agendaId}`, {
         method: "DELETE",
       });
+      const result = await res.json().catch(() => ({}));
       if (res.ok) {
         fetchAgendas();
         setDeleteModal({ isOpen: false, agendaId: null, title: null });
+      } else {
+        alert(
+          `Gagal menghapus agenda: ${result.message || "Kesalahan server"}`,
+        );
       }
     } catch (error) {
       console.error("Gagal menghapus agenda:", error);
+      alert("Gagal menghubungi server untuk menghapus agenda.");
     } finally {
       setActionLoadingId(null);
     }
   };
 
-  const openEditModal = (item: any) => {
+  const openEditModal = (item: Agenda) => {
+    const itemWithTime = item as unknown as {
+      start_time?: string;
+      end_time?: string;
+    };
     setEditModal({
       isOpen: true,
       data: {
         id: item.id,
         title: item.title,
         date: item.date,
-        start_time: item.start_time || "08:00",
-        end_time: item.end_time || "17:00",
+        start_time: itemWithTime.start_time || "08:00",
+        end_time: itemWithTime.end_time || "17:00",
         room: item.room,
         pic: item.pic,
         dept: item.dept,
@@ -480,18 +551,19 @@ export default function AgendaPage() {
         body: JSON.stringify(payload),
       });
 
-      const result = await res.json();
+      const result = await res.json().catch(() => ({}));
 
       if (res.ok) {
         setEditModal({ isOpen: false, data: null });
         fetchAgendas();
       } else {
         alert(
-          `Gagal memperbarui agenda: ${result.message || result.error || "Unknown error"}`,
+          `Gagal memperbarui agenda: ${result.message || result.error || "Kesalahan server"}`,
         );
       }
     } catch (error) {
       console.error("Gagal memperbarui agenda:", error);
+      alert("Gagal menghubungi server saat menyimpan data agenda.");
     } finally {
       setIsSubmittingEdit(false);
     }
@@ -557,7 +629,7 @@ export default function AgendaPage() {
         </div>
       </div>
 
-      {/* 2. FILTER & SEARCH BAR (Dipisah Filter Tahun & Filter Bulan) */}
+      {/* 2. FILTER & SEARCH BAR */}
       <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
         <div className="relative sm:col-span-1">
           <Search
@@ -573,13 +645,12 @@ export default function AgendaPage() {
           />
         </div>
 
-        {/* Filter Tahun */}
         <div>
           <select
             value={yearFilter}
             onChange={(e) => {
               setYearFilter(e.target.value);
-              setMonthFilter("Semua Bulan"); 
+              setMonthFilter("Semua Bulan");
             }}
             className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer shadow-sm"
           >
@@ -592,7 +663,6 @@ export default function AgendaPage() {
           </select>
         </div>
 
-        {/* Filter Bulan (Hanya Nama Bulan Tanpa Tahun) */}
         <div>
           <select
             value={monthFilter}
@@ -809,10 +879,14 @@ export default function AgendaPage() {
                   required
                   value={editModal.data.title}
                   onChange={(e) =>
-                    setEditModal({
-                      ...editModal,
-                      data: { ...editModal.data, title: e.target.value },
-                    })
+                    setEditModal((prev) =>
+                      prev.data
+                        ? {
+                            ...prev,
+                            data: { ...prev.data, title: e.target.value },
+                          }
+                        : prev,
+                    )
                   }
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
                 />
@@ -828,10 +902,14 @@ export default function AgendaPage() {
                     required
                     value={editModal.data.date}
                     onChange={(e) =>
-                      setEditModal({
-                        ...editModal,
-                        data: { ...editModal.data, date: e.target.value },
-                      })
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: { ...prev.data, date: e.target.value },
+                            }
+                          : prev,
+                      )
                     }
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
                   />
@@ -845,10 +923,14 @@ export default function AgendaPage() {
                     required
                     value={editModal.data.room}
                     onChange={(e) =>
-                      setEditModal({
-                        ...editModal,
-                        data: { ...editModal.data, room: e.target.value },
-                      })
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: { ...prev.data, room: e.target.value },
+                            }
+                          : prev,
+                      )
                     }
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
                   />
@@ -865,10 +947,17 @@ export default function AgendaPage() {
                     required
                     value={editModal.data.start_time}
                     onChange={(e) =>
-                      setEditModal({
-                        ...editModal,
-                        data: { ...editModal.data, start_time: e.target.value },
-                      })
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: {
+                                ...prev.data,
+                                start_time: e.target.value,
+                              },
+                            }
+                          : prev,
+                      )
                     }
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
                   />
@@ -882,10 +971,14 @@ export default function AgendaPage() {
                     required
                     value={editModal.data.end_time}
                     onChange={(e) =>
-                      setEditModal({
-                        ...editModal,
-                        data: { ...editModal.data, end_time: e.target.value },
-                      })
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: { ...prev.data, end_time: e.target.value },
+                            }
+                          : prev,
+                      )
                     }
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
                   />
@@ -902,10 +995,14 @@ export default function AgendaPage() {
                     required
                     value={editModal.data.pic}
                     onChange={(e) =>
-                      setEditModal({
-                        ...editModal,
-                        data: { ...editModal.data, pic: e.target.value },
-                      })
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: { ...prev.data, pic: e.target.value },
+                            }
+                          : prev,
+                      )
                     }
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
                   />
@@ -919,10 +1016,14 @@ export default function AgendaPage() {
                     required
                     value={editModal.data.dept}
                     onChange={(e) =>
-                      setEditModal({
-                        ...editModal,
-                        data: { ...editModal.data, dept: e.target.value },
-                      })
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: { ...prev.data, dept: e.target.value },
+                            }
+                          : prev,
+                      )
                     }
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
                   />
@@ -938,10 +1039,14 @@ export default function AgendaPage() {
                     type="text"
                     value={editModal.data.layout}
                     onChange={(e) =>
-                      setEditModal({
-                        ...editModal,
-                        data: { ...editModal.data, layout: e.target.value },
-                      })
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: { ...prev.data, layout: e.target.value },
+                            }
+                          : prev,
+                      )
                     }
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
                   />
@@ -953,10 +1058,14 @@ export default function AgendaPage() {
                   <select
                     value={editModal.data.status}
                     onChange={(e) =>
-                      setEditModal({
-                        ...editModal,
-                        data: { ...editModal.data, status: e.target.value },
-                      })
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: { ...prev.data, status: e.target.value },
+                            }
+                          : prev,
+                      )
                     }
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521] cursor-pointer"
                   >
