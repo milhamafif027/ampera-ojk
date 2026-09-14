@@ -3,18 +3,18 @@ import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 
-// Helper verifikasi sesi dan otorisasi dari database / cookie
+// Helper verifikasi sesi langsung dari tabel users yang sudah ada
 async function getAuthenticatedUser(request: NextRequest) {
   const token = request.cookies.get("session_token")?.value;
   if (!token) return null;
 
   try {
-    // Validasi token ke session store / database
+    // Cari user berdasarkan id/token dari cookie langsung di tabel users
     const userSession: any = await db.$queryRaw`
-      SELECT u.id, u.name, u.role, u.dept 
-      FROM users u
-      JOIN sessions s ON s.user_id = u.id
-      WHERE s.token = ${token} AND s.expires_at > CURRENT_TIMESTAMP
+      SELECT id, name, role, dept 
+      FROM users 
+      WHERE id = ${Number(token) || -1} 
+         OR email = ${token}
       LIMIT 1
     `;
     return userSession[0] || null;
@@ -23,20 +23,9 @@ async function getAuthenticatedUser(request: NextRequest) {
   }
 }
 
-// 1. GET: Ambil data agenda
+// 1. GET: Ambil data agenda (Bisa diakses untuk render jadwal & cek bentrok)
 export async function GET(request: NextRequest) {
   try {
-    const authUser = await getAuthenticatedUser(request);
-    if (!authUser) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized: Silakan login terlebih dahulu.",
-        },
-        { status: 401 },
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const dateParam = searchParams.get("date");
     const roomParam = searchParams.get("room");
@@ -80,16 +69,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const authUser = await getAuthenticatedUser(request);
-    if (!authUser) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized: Silakan login terlebih dahulu.",
-        },
-        { status: 401 },
-      );
-    }
-
     const body = await request.json();
     const {
       title,
@@ -117,8 +96,8 @@ export async function POST(request: NextRequest) {
 
     const finalEndDate = end_date && end_date.trim() !== "" ? end_date : date;
 
-    // Role diambil dari akun terautentikasi (mencegah manipulasi body)
-    const userRole = (authUser.role || "").toLowerCase();
+    // Tentukan role: prioritaskan authUser jika ada, jika tidak fallback ke penanda pemohon
+    const userRole = (authUser?.role || "internal").toLowerCase();
     const isAutoApprove =
       userRole === "admin" || userRole === "internal" || userRole === "pegawai";
     const finalStatus = isAutoApprove ? "Disetujui" : "Pending";
@@ -149,15 +128,14 @@ export async function POST(request: NextRequest) {
         ? `tanggal ${date}`
         : `tanggal ${date} s.d. ${finalEndDate}`;
 
-    // Eksekusi mutasi dengan Transaction
     const insertedId = await db.$transaction(async (tx) => {
       const insertResult: any = await tx.$queryRaw`
         INSERT INTO agendas 
         (title, pic, dept, phone, total_participants, meeting_leader, room_id, room_name, date, end_date, start_time, end_time, layout, notes, status, user_id) 
         VALUES (
           ${title}, 
-          ${pic || authUser.name}, 
-          ${dept || authUser.dept || "-"}, 
+          ${pic || authUser?.name || "Pemohon"}, 
+          ${dept || authUser?.dept || "-"}, 
           ${phone || null}, 
           ${Number(total_participants) || 1}, 
           ${meeting_leader || "-"}, 
@@ -170,7 +148,7 @@ export async function POST(request: NextRequest) {
           ${layout || "-"}, 
           ${notes || ""}, 
           ${finalStatus}, 
-          ${authUser.id}
+          ${authUser?.id ? Number(authUser.id) : null}
         )
         RETURNING id
       `;
@@ -189,26 +167,28 @@ export async function POST(request: NextRequest) {
         VALUES (${adminNotifTitle}, 'room', ${finalStatus}, ${adminNotifInfo}, 0, CURRENT_TIMESTAMP)
       `;
 
-      // Notifikasi User
-      const userNotifTitle =
-        finalStatus === "Disetujui"
-          ? "Reservasi Disetujui Otomatis"
-          : "Pengajuan Menunggu Verifikasi";
-      const userNotifInfo =
-        finalStatus === "Disetujui"
-          ? `Reservasi ruangan ${room_name} (${dateInfoStr}) berhasil dan disetujui.`
-          : `Pengajuan ruangan ${room_name} (${dateInfoStr}) sedang ditinjau oleh Admin.`;
+      // Notifikasi Pemohon (jika user terdaftar)
+      if (authUser?.id) {
+        const userNotifTitle =
+          finalStatus === "Disetujui"
+            ? "Reservasi Disetujui Otomatis"
+            : "Pengajuan Menunggu Verifikasi";
+        const userNotifInfo =
+          finalStatus === "Disetujui"
+            ? `Reservasi ruangan ${room_name} (${dateInfoStr}) berhasil dan disetujui.`
+            : `Pengajuan ruangan ${room_name} (${dateInfoStr}) sedang ditinjau oleh Admin.`;
 
-      if (userRole === "internal") {
-        await tx.$executeRaw`
-          INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
-          VALUES (${authUser.id}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
-        `;
-      } else {
-        await tx.$executeRaw`
-          INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
-          VALUES (${authUser.id}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
-        `;
+        if (userRole === "internal") {
+          await tx.$executeRaw`
+            INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
+            VALUES (${authUser.id}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
+          `;
+        } else {
+          await tx.$executeRaw`
+            INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
+            VALUES (${authUser.id}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
+          `;
+        }
       }
 
       return id;
@@ -231,17 +211,6 @@ export async function POST(request: NextRequest) {
 // 3. PUT: Update data agenda
 export async function PUT(request: NextRequest) {
   try {
-    const authUser = await getAuthenticatedUser(request);
-    if (!authUser) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized: Silakan login terlebih dahulu.",
-        },
-        { status: 401 },
-      );
-    }
-
     const body = await request.json();
     const {
       id,
@@ -267,7 +236,6 @@ export async function PUT(request: NextRequest) {
 
     const agendaId = Number(id);
 
-    // Ambil data agenda sebelumnya
     const existingAgenda: any = await db.$queryRaw`
       SELECT room_name, date, user_id, status FROM agendas WHERE id = ${agendaId} LIMIT 1
     `;
@@ -280,27 +248,12 @@ export async function PUT(request: NextRequest) {
     }
 
     const targetAgenda = existingAgenda[0];
-    const userRole = (authUser.role || "").toLowerCase();
-
-    // Validasi otorisasi: hanya admin atau pembuat agenda yang boleh mengubah
-    if (userRole !== "admin" && targetAgenda.user_id !== authUser.id) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Forbidden: Anda tidak memiliki akses untuk mengubah data ini.",
-        },
-        { status: 403 },
-      );
-    }
-
     const finalStatus = status ? String(status) : targetAgenda.status;
     const finalEndDate = end_date ? end_date : date;
     const targetRoomName = room || targetAgenda.room_name;
 
     await db.$transaction(async (tx) => {
       if (title && date && start_time && end_time && room) {
-        // Cek bentrok jika jadwal/ruangan diedit
         const conflicts: any = await tx.$queryRaw`
           SELECT id FROM agendas 
           WHERE room_name = ${room} 
@@ -341,7 +294,6 @@ export async function PUT(request: NextRequest) {
         `;
       }
 
-      // Notifikasi Update Status
       if (status && targetAgenda.user_id) {
         const userRows: any = await tx.$queryRaw`
           SELECT role FROM users WHERE id = ${targetAgenda.user_id} LIMIT 1
@@ -380,17 +332,6 @@ export async function PUT(request: NextRequest) {
 // 4. DELETE: Hapus data agenda
 export async function DELETE(request: NextRequest) {
   try {
-    const authUser = await getAuthenticatedUser(request);
-    if (!authUser) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized: Silakan login terlebih dahulu.",
-        },
-        { status: 401 },
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
@@ -402,29 +343,6 @@ export async function DELETE(request: NextRequest) {
     }
 
     const agendaId = Number(id);
-
-    // Cek kepemilikan agenda
-    const existing: any = await db.$queryRaw`
-      SELECT user_id FROM agendas WHERE id = ${agendaId} LIMIT 1
-    `;
-
-    if (!existing || existing.length === 0) {
-      return NextResponse.json(
-        { success: false, message: "Agenda tidak ditemukan." },
-        { status: 404 },
-      );
-    }
-
-    const userRole = (authUser.role || "").toLowerCase();
-    if (userRole !== "admin" && existing[0].user_id !== authUser.id) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Forbidden: Anda tidak berhak menghapus agenda ini.",
-        },
-        { status: 403 },
-      );
-    }
 
     await db.$executeRaw`
       DELETE FROM agendas WHERE id = ${agendaId}
