@@ -17,6 +17,10 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 
+interface ExtendedAgenda extends Agenda {
+  endDate?: string;
+}
+
 interface VehicleBookingItem {
   id: string;
   vehicleName: string;
@@ -30,7 +34,7 @@ interface VehicleBookingItem {
 }
 
 export default function KalenderPage() {
-  const [agendas, setAgendas] = useState<Agenda[]>([]);
+  const [agendas, setAgendas] = useState<ExtendedAgenda[]>([]);
   const [vehicleBookings, setVehicleBookings] = useState<VehicleBookingItem[]>(
     [],
   );
@@ -40,7 +44,7 @@ export default function KalenderPage() {
   const [selectedDateModal, setSelectedDateModal] = useState<{
     isOpen: boolean;
     dateStr: string;
-    agendas: Agenda[];
+    agendas: ExtendedAgenda[];
     vehicles: VehicleBookingItem[];
   }>({
     isOpen: false,
@@ -51,8 +55,6 @@ export default function KalenderPage() {
 
   const fetchAllCalendarData = useCallback(async () => {
     try {
-      setIsLoading(true);
-
       const resAgendas = await fetch("/api/agendas");
       const resultAgendas = await resAgendas.json();
 
@@ -60,7 +62,7 @@ export default function KalenderPage() {
       const resultVehicles = await resVehicles.json();
 
       if (resAgendas.ok && resultAgendas.data) {
-        const mappedAgendas: Agenda[] = resultAgendas.data
+        const mappedAgendas: ExtendedAgenda[] = resultAgendas.data
           .filter((item: any) => item.status !== "Ditolak")
           .map((item: any) => {
             let formattedDate = "";
@@ -75,7 +77,18 @@ export default function KalenderPage() {
               }
             }
 
-            // PERBAIKAN FORMAT WAKTU AGAR TIDAK MUNCUL 1970-
+            let formattedEndDate = formattedDate;
+            if (item.end_date) {
+              const rawEndStr = String(item.end_date);
+              if (rawEndStr.includes("T")) {
+                formattedEndDate = rawEndStr.split("T")[0];
+              } else if (rawEndStr.includes(" ")) {
+                formattedEndDate = rawEndStr.split(" ")[0];
+              } else {
+                formattedEndDate = rawEndStr.slice(0, 10);
+              }
+            }
+
             let formattedTime = "";
             if (item.start_time && item.end_time) {
               const startStr = String(item.start_time);
@@ -97,6 +110,7 @@ export default function KalenderPage() {
               id: String(item.id),
               title: item.title,
               date: formattedDate,
+              endDate: formattedEndDate,
               time: formattedTime,
               room: item.room_name || item.room || "Ruang Rapat OJK",
               pic: item.pic || "Pegawai OJK",
@@ -112,10 +126,10 @@ export default function KalenderPage() {
 
         setAgendas(mappedAgendas);
       }
-      
+
       if (resVehicles.ok && resultVehicles.bookings) {
         const mappedBookings: VehicleBookingItem[] = resultVehicles.bookings
-          .filter((item: any) => item.status === "Disetujui") // Hanya menyaring yang berstatus Disetujui
+          .filter((item: any) => item.status === "Disetujui")
           .map((item: any) => {
             let startDate = item.start_date ? String(item.start_date) : "";
             if (startDate.includes("T")) startDate = startDate.split("T")[0];
@@ -145,13 +159,132 @@ export default function KalenderPage() {
     }
   }, []);
 
+  const handleManualRefresh = () => {
+    setIsLoading(true);
+    fetchAllCalendarData();
+  };
+
   useEffect(() => {
+    let isCancelled = false;
+
     const loadData = async () => {
-      await Promise.resolve();
-      fetchAllCalendarData();
+      try {
+        const resAgendas = await fetch("/api/agendas");
+        const resultAgendas = await resAgendas.json();
+
+        const resVehicles = await fetch("/api/kendaraan");
+        const resultVehicles = await resVehicles.json();
+
+        if (isCancelled) return;
+
+        if (resAgendas.ok && resultAgendas.data) {
+          const mappedAgendas: ExtendedAgenda[] = resultAgendas.data
+            .filter((item: any) => item.status !== "Ditolak")
+            .map((item: any) => {
+              let formattedDate = "";
+              if (item.date) {
+                const rawDateStr = String(item.date);
+                if (rawDateStr.includes("T")) {
+                  formattedDate = rawDateStr.split("T")[0];
+                } else if (rawDateStr.includes(" ")) {
+                  formattedDate = rawDateStr.split(" ")[0];
+                } else {
+                  formattedDate = rawDateStr.slice(0, 10);
+                }
+              }
+
+              let formattedEndDate = formattedDate;
+              if (item.end_date) {
+                const rawEndStr = String(item.end_date);
+                if (rawEndStr.includes("T")) {
+                  formattedEndDate = rawEndStr.split("T")[0];
+                } else if (rawEndStr.includes(" ")) {
+                  formattedEndDate = rawEndStr.split(" ")[0];
+                } else {
+                  formattedEndDate = rawEndStr.slice(0, 10);
+                }
+              }
+
+              let formattedTime = "";
+              if (item.start_time && item.end_time) {
+                const startStr = String(item.start_time);
+                const endStr = String(item.end_time);
+
+                const cleanStart = startStr.includes("T")
+                  ? startStr.split("T")[1]
+                  : startStr;
+                const cleanEnd = endStr.includes("T")
+                  ? endStr.split("T")[1]
+                  : endStr;
+
+                formattedTime = `${cleanStart.slice(0, 5)} - ${cleanEnd.slice(0, 5)}`;
+              } else {
+                formattedTime = item.time || "08:00 - 17:00";
+              }
+
+              const agendaItem = {
+                id: String(item.id),
+                title: item.title,
+                date: formattedDate,
+                endDate: formattedEndDate,
+                time: formattedTime,
+                room: item.room_name || item.room || "Ruang Rapat OJK",
+                pic: item.pic || "Pegawai OJK",
+                dept: item.dept || "OJK Sumsel",
+                status: item.status || "Pending",
+              };
+
+              return {
+                ...agendaItem,
+                smartStatus: getSmartStatus(agendaItem) as StatusPengajuan,
+              };
+            });
+
+          setAgendas(mappedAgendas);
+        }
+
+        if (resVehicles.ok && resultVehicles.bookings) {
+          const mappedBookings: VehicleBookingItem[] = resultVehicles.bookings
+            .filter((item: any) => item.status === "Disetujui")
+            .map((item: any) => {
+              let startDate = item.start_date ? String(item.start_date) : "";
+              if (startDate.includes("T")) startDate = startDate.split("T")[0];
+
+              let endDate = item.end_date ? String(item.end_date) : startDate;
+              if (endDate.includes("T")) endDate = endDate.split("T")[0];
+
+              return {
+                id: String(item.id),
+                vehicleName: item.vehicle_name || "Kendaraan Dinas",
+                plateNumber: item.plate_number || "OJK",
+                startDate: startDate,
+                endDate: endDate,
+                time: "08:00 - 17:00",
+                borrower: item.borrower || item.pic || "Pegawai OJK",
+                destination: item.destination || "-",
+                status: item.status,
+              };
+            });
+
+          setVehicleBookings(mappedBookings);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          console.error("Gagal mengambil data kalender:", error);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
+      }
     };
+
     loadData();
-  }, [fetchAllCalendarData]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   const monthNames = [
     "JANUARI",
@@ -199,8 +332,8 @@ export default function KalenderPage() {
 
   const handleDayClick = (
     isoDateStr: string,
-    altDateStr: string,
-    dayAgendas: Agenda[],
+    _altDateStr: string,
+    dayAgendas: ExtendedAgenda[],
     dayVehicles: VehicleBookingItem[],
   ) => {
     if (dayAgendas.length === 0 && dayVehicles.length === 0) return;
@@ -234,7 +367,7 @@ export default function KalenderPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={fetchAllCalendarData}
+            onClick={handleManualRefresh}
             className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors cursor-pointer"
             title="Refresh Kalender"
           >
@@ -290,10 +423,13 @@ export default function KalenderPage() {
                 );
 
               const dayAgendas = agendas.filter((a) => {
-                const cleanAgendaDate = a.date
-                  ? String(a.date).split("T")[0]
-                  : "";
-                return cleanAgendaDate === item.isoDateStr;
+                const startDate = a.date ? String(a.date).slice(0, 10) : "";
+                const endDate = a.endDate
+                  ? String(a.endDate).slice(0, 10)
+                  : startDate;
+                return (
+                  item.isoDateStr >= startDate && item.isoDateStr <= endDate
+                );
               });
 
               const dayVehicles = vehicleBookings.filter((v) => {
@@ -362,23 +498,22 @@ export default function KalenderPage() {
 
                   <div className="space-y-1 overflow-y-auto max-h-[80px] custom-scrollbar">
                     {dayAgendas.map((a) => {
-                      // Penentuan warna shape agenda berdasarkan status
                       let shapeColorClass =
-                        "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200"; // Disetujui (Hijau)
+                        "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200";
                       if (a.smartStatus === "Sedang Berlangsung") {
                         shapeColorClass =
-                          "bg-blue-100 text-blue-900 dark:bg-blue-900/60 dark:text-blue-200"; // Sedang Berlangsung (Biru)
+                          "bg-blue-100 text-blue-900 dark:bg-blue-900/60 dark:text-blue-200";
                       } else if (
                         a.smartStatus === "Pending" ||
                         a.status === "Pending"
                       ) {
                         shapeColorClass =
-                          "bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200"; // Pending (Orange/Amber)
+                          "bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200";
                       }
 
                       return (
                         <div
-                          key={`agenda-${a.id}`}
+                          key={`agenda-${a.id}-${item.isoDateStr}`}
                           className={`p-1 rounded-lg text-[9px] font-bold truncate leading-tight ${shapeColorClass}`}
                           title={`[Rapat] ${a.title} (${a.room})`}
                         >
@@ -389,7 +524,7 @@ export default function KalenderPage() {
 
                     {dayVehicles.map((v) => (
                       <div
-                        key={`vehicle-${v.id}`}
+                        key={`vehicle-${v.id}-${item.isoDateStr}`}
                         className="p-1 rounded-lg text-[9px] font-bold truncate leading-tight bg-purple-100 text-purple-900 dark:bg-purple-900/60 dark:text-purple-200"
                         title={`[Mobil Dinas] ${v.vehicleName} (${v.plateNumber})`}
                       >
@@ -404,7 +539,7 @@ export default function KalenderPage() {
         </div>
       </div>
 
-      {/* MODAL DETAIL KEGIATAN & KENDARAAN PADA TANGGAL TERSEBUT */}
+      {/* Modal Detail */}
       {selectedDateModal.isOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <motion.div
@@ -444,18 +579,17 @@ export default function KalenderPage() {
                     Ruang Rapat ({selectedDateModal.agendas.length})
                   </h4>
                   {selectedDateModal.agendas.map((agenda) => {
-                    // Warna badge status di dalam modal detail
                     let badgeColorClass =
-                      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400"; // Hijau (Disetujui)
+                      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400";
                     if (agenda.smartStatus === "Sedang Berlangsung") {
                       badgeColorClass =
-                        "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400"; // Biru
+                        "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400";
                     } else if (
                       agenda.smartStatus === "Pending" ||
                       agenda.status === "Pending"
                     ) {
                       badgeColorClass =
-                        "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400"; // Orange/Amber
+                        "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400";
                     }
 
                     return (

@@ -22,7 +22,7 @@ async function getAuthenticatedUser(request: NextRequest) {
   }
 }
 
-// 1. GET: Ambil data agenda (Bisa diakses untuk render jadwal & cek bentrok)
+// 1. GET: Ambil data agenda (Bisa diakses untuk render kalender & cek bentrok)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 2. POST: Tambah reservasi (Multi-Hari masuk ke setiap tanggal & Eksternal Pending)
+// 2. POST: Tambah reservasi (1 Record utuh untuk multi-hari & Eksternal Pending)
 export async function POST(request: NextRequest) {
   try {
     const authUser = await getAuthenticatedUser(request);
@@ -137,53 +137,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Buat daftar seluruh tanggal agar setiap hari tertandai di kalender
-    const datesList: string[] = [];
-    const curDate = new Date(cleanStartDate);
-    const stopDate = new Date(finalEndDate);
-
-    while (curDate <= stopDate) {
-      datesList.push(curDate.toISOString().split("T")[0]);
-      curDate.setDate(curDate.getDate() + 1);
-    }
-
     const dateInfoStr =
       cleanStartDate === finalEndDate
         ? `tanggal ${cleanStartDate}`
         : `tanggal ${cleanStartDate} s.d. ${finalEndDate}`;
 
-    // Eksekusi mutasi multi-hari dengan Transaction
-    const insertedIds = await db.$transaction(async (tx) => {
-      const ids: number[] = [];
+    // Eksekusi mutasi sebagai 1 record utuh (Single Card di dashboard admin)
+    const insertedId = await db.$transaction(async (tx) => {
+      const insertResult: any = await tx.$queryRaw`
+        INSERT INTO agendas 
+        (title, pic, dept, phone, total_participants, meeting_leader, room_id, room_name, date, end_date, start_time, end_time, layout, notes, status, user_id) 
+        VALUES (
+          ${title}, 
+          ${pic || authUser?.name || "Pemohon"}, 
+          ${dept || authUser?.dept || "-"}, 
+          ${phone || null}, 
+          ${Number(total_participants) || 1}, 
+          ${meeting_leader || "-"}, 
+          ${room_id ? Number(room_id) : null}, 
+          ${room_name}, 
+          ${cleanStartDate}::date, 
+          ${finalEndDate}::date, 
+          ${start_time}, 
+          ${end_time}, 
+          ${layout || "-"}, 
+          ${notes || ""}, 
+          ${finalStatus}, 
+          ${effectiveUserId ? Number(effectiveUserId) : null}
+        )
+        RETURNING id
+      `;
 
-      for (const d of datesList) {
-        const res: any = await tx.$queryRaw`
-          INSERT INTO agendas 
-          (title, pic, dept, phone, total_participants, meeting_leader, room_id, room_name, date, end_date, start_time, end_time, layout, notes, status, user_id) 
-          VALUES (
-            ${title}, 
-            ${pic || authUser?.name || "Pemohon"}, 
-            ${dept || authUser?.dept || "-"}, 
-            ${phone || null}, 
-            ${Number(total_participants) || 1}, 
-            ${meeting_leader || "-"}, 
-            ${room_id ? Number(room_id) : null}, 
-            ${room_name}, 
-            ${d}::date, 
-            ${finalEndDate}::date, 
-            ${start_time}, 
-            ${end_time}, 
-            ${layout || "-"}, 
-            ${notes || ""}, 
-            ${finalStatus}, 
-            ${effectiveUserId ? Number(effectiveUserId) : null}
-          )
-          RETURNING id
-        `;
-        if (res[0]?.id) ids.push(res[0].id);
-      }
+      const id = insertResult[0]?.id;
 
-      // Notifikasi Admin
+      // Notifikasi Admin (Hanya 1 kartu notifikasi)
       const adminNotifTitle =
         finalStatus === "Disetujui"
           ? "Reservasi Otomatis (Internal/Admin)"
@@ -210,7 +197,7 @@ export async function POST(request: NextRequest) {
         const userNotifInfo =
           finalStatus === "Disetujui"
             ? `Reservasi ruangan ${room_name} (${dateInfoStr}) berhasil dan disetujui.`
-            : `Pengajuan ruangan ${room_name} (${dateInfoStr}) berhasil dikirim dan menunggu persetujuan Admin.`;
+            : `Pengajuan ruangan ${room_name} (${dateInfoStr}) berhasil dikirim dan menunggu verifikasi Admin.`;
 
         if (targetTable === "notifikasi_internal") {
           await tx.$executeRaw`
@@ -225,12 +212,12 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return ids;
+      return id;
     });
 
     return NextResponse.json({
       success: true,
-      insertedIds,
+      insertId: insertedId,
       status: finalStatus,
     });
   } catch (error: any) {
