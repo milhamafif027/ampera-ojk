@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Loader2,
+  UserCheck,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -38,6 +39,13 @@ interface ItServiceItem {
   desc: string;
   icon: any;
   ext: string;
+}
+
+interface SupportContact {
+  id: string;
+  name: string;
+  role: string;
+  phone: string;
 }
 
 interface LocalUser {
@@ -89,6 +97,28 @@ export default function BantuanPage() {
     },
   ]);
 
+  // Daftar Kontak Person Tim Teknis Tambahan
+  const supportContacts: SupportContact[] = [
+    {
+      id: "sc-1",
+      name: "Jefry Chrisnovandy Pasaribu",
+      role: "Teknis Hardware & Sistem Utama",
+      phone: "0852-6152-9545",
+    },
+    {
+      id: "sc-2",
+      name: "Rodiatul Adawiyah",
+      role: "Dukungan Jaringan & Operasional",
+      phone: "0812-7324-8355",
+    },
+    {
+      id: "sc-3",
+      name: "Doyoba Sie Pratama",
+      role: "Multimedia & Bantuan Ruangan",
+      phone: "0813-8192-3811",
+    },
+  ];
+
   // State Modal Edit IT Support
   const [isEditItModalOpen, setIsEditItModalOpen] = useState(false);
   const [selectedItService, setSelectedItService] =
@@ -126,7 +156,6 @@ export default function BantuanPage() {
   // 1. Ambil Session User saat halaman dimuat
   useEffect(() => {
     const timer = setTimeout(() => {
-      // Diperbaiki menggunakan sessionStorage agar sinkron dengan modul lain
       const storedUser = sessionStorage.getItem("local_user");
       if (storedUser) {
         try {
@@ -273,6 +302,10 @@ export default function BantuanPage() {
             Layanan dukungan teknis IT, perlengkapan rapat, serta referensi
             vendor konsumsi terdaftar database OJK Sumsel.
           </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 font-medium">
+            Jalan Jend. Sudirman No. 1025, Sei Pangeran, Ilir Timur I, Palembang
+            30114
+          </p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -349,6 +382,44 @@ export default function BantuanPage() {
                 </div>
               );
             })}
+          </div>
+
+          {/* SUB-BAGIAN: KONTAK PERSONEL TIM TEKNIS */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+            <h3 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+              <UserCheck size={14} className="text-[#9f1521]" /> Narahubung Tim
+              Teknis & Operasional
+            </h3>
+            <div className="space-y-2">
+              {supportContacts.map((contact) => {
+                const cleanPhone = contact.phone.replace(/\D/g, "");
+                return (
+                  <div
+                    key={contact.id}
+                    className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center justify-between gap-3"
+                  >
+                    <div>
+                      <p className="text-xs font-bold text-slate-800 dark:text-white">
+                        {contact.name}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-medium">
+                        {contact.role} • 📞 {contact.phone}
+                      </p>
+                    </div>
+                    <a
+                      href={`https://wa.me/${cleanPhone}?text=Halo%20${encodeURIComponent(
+                        contact.name,
+                      )},%20saya%20butuh%20bantuan%20terkait%20fasilitas%20ruangan%20di%20OJK%20Sumsel.`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg flex items-center gap-1 transition-colors shrink-0 shadow-2xs cursor-pointer"
+                    >
+                      <MessageCircle size={12} /> WhatsApp
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
