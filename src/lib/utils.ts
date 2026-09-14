@@ -8,8 +8,6 @@ export function getSmartStatus(agenda: {
   if (agenda.status === "Pending") return "Pending";
   if (agenda.status === "Ditolak") return "Ditolak";
 
-  // Jika string date tidak ada atau terindikasi bukan tanggal yang valid (misal teks bebas),
-  // langsung kembalikan status aslinya tanpa menjalankan kalkulasi waktu.
   if (!agenda.date || typeof agenda.date !== "string") {
     return agenda.status || "Disetujui";
   }
@@ -23,46 +21,70 @@ export function getSmartStatus(agenda: {
     if (agenda.date.includes("-")) {
       const parts = agenda.date.split("T")[0].split("-");
       if (parts.length === 3) {
-        [y, m, d] = parts; // Format: YYYY-MM-DD
+        [y, m, d] = parts;
       }
     } else if (agenda.date.includes("/")) {
       const parts = agenda.date.split("/");
       if (parts.length === 3) {
-        [d, m, y] = parts; // Format: DD/MM/YYYY
+        [d, m, y] = parts;
       }
     }
 
-    // Validasi tambahan: pastikan tahun berupa angka (mencegah teks non-tanggal lolos)
     if (!y || !m || !d || isNaN(Number(y)) || Number(y) < 2000) {
       return agenda.status || "Disetujui";
     }
 
-    // Jika format waktu kosong / berupa teks non-waktu, beri default aman
-    const timeStr =
-      agenda.time && agenda.time.includes(" - ")
-        ? agenda.time
-        : "00:00 - 23:59";
-    const [startT, endT] = timeStr.split(" - ");
-    const now = new Date();
+    // Bersihkan teks WIB dan format waktu
+    const cleanTime = (agenda.time || "").replace(/wib/gi, "").trim();
 
-    const startTime = new Date(`${y}-${m}-${d}T${startT || "00:00"}`);
+    const timeStr =
+      cleanTime && cleanTime.includes(" - ") ? cleanTime : "00:00 - 23:59";
+
+    const [rawStartT, rawEndT] = timeStr.split(" - ");
+    const startT = (rawStartT || "00:00").trim().slice(0, 5);
+    const endT = (rawEndT || "23:59").trim().slice(0, 5);
+
+    const now = new Date();
+    const startTime = new Date(
+      `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}T${startT}:00`,
+    );
+
     let endTime: Date;
 
-    if (agenda.type === "Multi-hari" && agenda.endDate) {
+    // Perbaikan: Cukup cek apakah endDate ada dan berbeda dengan date, tanpa wajib type === "Multi-hari"
+    const hasValidEndDate =
+      agenda.endDate &&
+      typeof agenda.endDate === "string" &&
+      agenda.endDate.trim() !== "" &&
+      agenda.endDate.slice(0, 10) !== agenda.date.slice(0, 10);
+
+    if (hasValidEndDate && agenda.endDate) {
       let ey = "",
         em = "",
         ed = "";
       if (agenda.endDate.includes("-")) {
-        [ey, em, ed] = agenda.endDate.split("T")[0].split("-");
+        const parts = agenda.endDate.split("T")[0].split("-");
+        if (parts.length === 3) [ey, em, ed] = parts;
       } else if (agenda.endDate.includes("/")) {
-        [ed, em, ey] = agenda.endDate.split("/");
+        const parts = agenda.endDate.split("/");
+        if (parts.length === 3) [ed, em, ey] = parts;
       }
-      endTime = new Date(`${ey}-${em}-${ed}T${endT || "23:59"}`);
+
+      if (ey && em && ed) {
+        endTime = new Date(
+          `${ey}-${em.padStart(2, "0")}-${ed.padStart(2, "0")}T${endT}:00`,
+        );
+      } else {
+        endTime = new Date(
+          `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}T${endT}:00`,
+        );
+      }
     } else {
-      endTime = new Date(`${y}-${m}-${d}T${endT || "23:59"}`);
+      endTime = new Date(
+        `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}T${endT}:00`,
+      );
     }
 
-    // Jika tanggal invalid (Invalid Date), fallback ke status aman
     if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
       return agenda.status || "Disetujui";
     }
@@ -70,9 +92,10 @@ export function getSmartStatus(agenda: {
     if (now < startTime) return "Disetujui";
     if (now >= startTime && now <= endTime) return "Sedang Berlangsung";
     if (now > endTime) return "Selesai";
-  } catch (e) {
+  } catch {
     return agenda.status || "Disetujui";
   }
+
   return agenda.status || "Disetujui";
 }
 
@@ -99,19 +122,33 @@ export function formatDateIndo(dateStr: string): string {
   if (dateStr.includes("-")) {
     const parts = dateStr.split("T")[0].split("-");
     if (parts.length === 3) {
-      [y, m, d] = parts; // YYYY-MM-DD
+      [y, m, d] = parts;
     }
   } else if (dateStr.includes("/")) {
     const parts = dateStr.split("/");
     if (parts.length === 3) {
-      [d, m, y] = parts; // DD/MM/YYYY
+      [d, m, y] = parts;
     }
   }
 
-  // Jika format bukan tanggal valid, kembalikan string aslinya daripada error / kosong
   if (!d || !m || isNaN(Number(m)) || Number(m) < 1 || Number(m) > 12) {
     return dateStr;
   }
 
   return `${parseInt(d, 10)} ${months[parseInt(m, 10) - 1]}`;
+}
+
+// Helper baru untuk menampilkan rentang tanggal di Modal Detail, List Agenda, & Pesan WA
+export function formatAgendaDate(
+  dateStr?: string,
+  endDateStr?: string,
+): string {
+  if (!dateStr) return "-";
+  const start = String(dateStr).split("T")[0].trim();
+  const end = endDateStr ? String(endDateStr).split("T")[0].trim() : start;
+
+  if (!end || start === end) {
+    return start;
+  }
+  return `${start} s.d. ${end}`;
 }

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Agenda, StatusPengajuan } from "@/types";
-import { getSmartStatus } from "@/lib/utils";
+import { getSmartStatus, formatAgendaDate } from "@/lib/utils";
 import {
   CalendarDays,
   Clock,
@@ -22,6 +22,10 @@ import {
 import Link from "next/link";
 import { motion, animate } from "framer-motion";
 
+interface ExtendedAgenda extends Agenda {
+  endDate?: string;
+}
+
 interface LocalUser {
   id: number;
   name: string;
@@ -30,7 +34,6 @@ interface LocalUser {
   nip?: string;
 }
 
-// Komponen helper untuk efek angka bertambah (Counting Up)
 function Counter({ value }: { value: number }) {
   const [displayValue, setDisplayValue] = useState(0);
 
@@ -50,11 +53,19 @@ function Counter({ value }: { value: number }) {
 }
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<LocalUser | null>(null);
-  const [agendas, setAgendas] = useState<Agenda[]>([]);
+  const [user] = useState<LocalUser | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const storedUser = sessionStorage.getItem("local_user");
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [agendas, setAgendas] = useState<ExtendedAgenda[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // State untuk Modal Pop-up Konfirmasi Persetujuan / Penolakan Admin
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     agendaId: string | null;
@@ -71,7 +82,6 @@ export default function DashboardPage() {
 
   const [isExecutingAction, setIsExecutingAction] = useState(false);
 
-  // State untuk Modal Detail Informasi Pengajuan Admin
   const [detailModal, setDetailModal] = useState<{
     isOpen: boolean;
     data: any | null;
@@ -80,16 +90,17 @@ export default function DashboardPage() {
     data: null,
   });
 
-  // 1. Fungsi Fetch Data dari API
   const fetchAgendas = useCallback(async () => {
     try {
-      setIsLoading(true);
       const res = await fetch("/api/agendas");
       const result = await res.json();
 
       if (res.ok && result.data) {
-        const mappedAgendas: Agenda[] = result.data.map((item: any) => {
-          const formattedDate = item.date ? item.date.split("T")[0] : "";
+        const mappedAgendas: ExtendedAgenda[] = result.data.map((item: any) => {
+          const formattedDate = item.date ? String(item.date).slice(0, 10) : "";
+          const formattedEndDate = item.end_date
+            ? String(item.end_date).slice(0, 10)
+            : formattedDate;
 
           let formattedTime = "";
           if (item.start_time && item.end_time) {
@@ -112,6 +123,7 @@ export default function DashboardPage() {
             id: String(item.id),
             title: item.title,
             date: formattedDate,
+            endDate: formattedEndDate,
             time: formattedTime,
             room: item.room_name || item.room || "Ruang Rapat OJK",
             pic: item.pic || "Pegawai OJK",
@@ -138,31 +150,94 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // 2. Inisialisasi Sesi User & Panggil Data
-  useEffect(() => {
-    const initData = async () => {
-      await Promise.resolve();
+  const handleManualRefresh = () => {
+    setIsLoading(true);
+    fetchAgendas();
+  };
 
-      const storedUser = sessionStorage.getItem("local_user");
-      if (storedUser) {
-        try {
-          setUser(JSON.parse(storedUser));
-        } catch (err) {
-          console.error("Gagal membaca data user:", err);
+  useEffect(() => {
+    let isCancelled = false;
+
+    const loadInitialData = async () => {
+      try {
+        const res = await fetch("/api/agendas");
+        const result = await res.json();
+
+        if (isCancelled) return;
+
+        if (res.ok && result.data) {
+          const mappedAgendas: ExtendedAgenda[] = result.data.map(
+            (item: any) => {
+              const formattedDate = item.date
+                ? String(item.date).slice(0, 10)
+                : "";
+              const formattedEndDate = item.end_date
+                ? String(item.end_date).slice(0, 10)
+                : formattedDate;
+
+              let formattedTime = "";
+              if (item.start_time && item.end_time) {
+                const startStr = String(item.start_time);
+                const endStr = String(item.end_time);
+
+                const cleanStart = startStr.includes("T")
+                  ? startStr.split("T")[1]
+                  : startStr;
+                const cleanEnd = endStr.includes("T")
+                  ? endStr.split("T")[1]
+                  : endStr;
+
+                formattedTime = `${cleanStart.slice(0, 5)} - ${cleanEnd.slice(0, 5)}`;
+              } else {
+                formattedTime = item.time || "";
+              }
+
+              const agendaItem = {
+                id: String(item.id),
+                title: item.title,
+                date: formattedDate,
+                endDate: formattedEndDate,
+                time: formattedTime,
+                room: item.room_name || item.room || "Ruang Rapat OJK",
+                pic: item.pic || "Pegawai OJK",
+                dept: item.dept || "OJK Sumsel",
+                phone: item.phone || "",
+                layout: item.layout || "-",
+                status: item.status || "Pending",
+                total_participants: item.total_participants || 1,
+                meeting_leader: item.meeting_leader || "-",
+              };
+
+              return {
+                ...agendaItem,
+                smartStatus: getSmartStatus(agendaItem) as StatusPengajuan,
+              };
+            },
+          );
+
+          setAgendas(mappedAgendas);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          console.error("Gagal mengambil data agenda:", error);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
         }
       }
-
-      fetchAgendas();
     };
 
-    initData();
-  }, [fetchAgendas]);
+    loadInitialData();
 
-  // Status Role
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
   const isAdmin = user?.role === "admin";
   const isExternal = user?.role === "eksternal";
 
-  // 3. Filter Data Berdasarkan Smart Status
   const liveAgendas = agendas.filter(
     (a) => a.smartStatus === "Sedang Berlangsung",
   );
@@ -171,9 +246,13 @@ export default function DashboardPage() {
     .filter((a) => a.smartStatus === "Disetujui")
     .sort((a, b) => {
       const dtA =
-        a.date.split("/").reverse().join("-") + "T" + a.time.split(" - ")[0];
+        a.date.split("/").reverse().join("-") +
+        "T" +
+        (a.time.split(" - ")[0] || "00:00");
       const dtB =
-        b.date.split("/").reverse().join("-") + "T" + b.time.split(" - ")[0];
+        b.date.split("/").reverse().join("-") +
+        "T" +
+        (b.time.split(" - ")[0] || "00:00");
       return dtA.localeCompare(dtB);
     });
 
@@ -181,7 +260,6 @@ export default function DashboardPage() {
     (a) => a.smartStatus === "Pending" || a.status === "Pending",
   );
 
-  // Metrik Statistik
   const totalAgendas = agendas.length;
   const totalDisetujui = agendas.filter(
     (a) =>
@@ -190,22 +268,25 @@ export default function DashboardPage() {
       a.status === "Disetujui",
   ).length;
   const totalPending = pendingAgendas.length;
-  const totalRuanganTerpakai = new Set(agendas.map((a) => a.room)).size;
 
-  // Hitung jumlah ruangan tersedia hari ini
   const todayStr = new Date().toISOString().split("T")[0];
   const bookedRoomsToday = new Set(
     agendas
-      .filter((item) => item.date === todayStr && item.status !== "Ditolak")
+      .filter((item) => {
+        const start = item.date;
+        const end = item.endDate || item.date;
+        return (
+          todayStr >= start && todayStr <= end && item.status !== "Ditolak"
+        );
+      })
       .map((item) => item.room),
   );
-  const totalMasterRooms = 9; // Total default ruangan master
+  const totalMasterRooms = 9;
   const availableRoomsCount = Math.max(
     0,
     totalMasterRooms - bookedRoomsToday.size,
   );
 
-  // 4. Helper untuk Membuka WhatsApp Otomatis dengan Format yang Diminta
   const sendWhatsAppNotification = (
     agendaData: any,
     status: "Disetujui" | "Ditolak",
@@ -223,10 +304,14 @@ export default function DashboardPage() {
 
     const statusText = status === "Disetujui" ? "DISETUJUI ✅" : "DITOLAK ❌";
 
-    // Format pesan sesuai permintaan Anda
-    let message = `Halo ${agendaData.pic || "Farin"},
+    const dateRangeText =
+      agendaData.date === agendaData.endDate || !agendaData.endDate
+        ? `tanggal ${agendaData.date}`
+        : `tanggal ${agendaData.date} s.d. ${agendaData.endDate}`;
 
-Pengajuan reservasi ruangan *${agendaData.room || "Ballroom Sriwidjaya"}* untuk kegiatan *${agendaData.title || "Sosialisasi & Edukasi Reksa Dana Syariah..."}* pada tanggal ${agendaData.date || "2026-09-30"} telah *${statusText}*.`;
+    let message = `Halo ${agendaData.pic || "Pemohon"},
+
+Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegiatan *${agendaData.title || "Agenda Rapat"}* pada ${dateRangeText} (${agendaData.time || "08:00 - 17:00"} WIB) telah *${statusText}*.`;
 
     if (status === "Ditolak" && reason) {
       message += `\n\n📝 *Alasan Penolakan:* ${reason}`;
@@ -355,7 +440,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ballroom Sriwidjaya"}* untuk 
         </div>
         <div className="relative z-10 shrink-0 flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
           <button
-            onClick={fetchAgendas}
+            onClick={handleManualRefresh}
             className="p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-2xl text-white transition-colors cursor-pointer"
             title="Refresh Data"
           >
@@ -377,7 +462,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ballroom Sriwidjaya"}* untuk 
         </div>
       </motion.div>
 
-      {/* KONTEN DASBOR KHUSUS EKSTERNAL */}
+      {/* DASHBOARD EKSTERNAL */}
       {isExternal ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -472,7 +557,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ballroom Sriwidjaya"}* untuk 
           transition={{ duration: 0.4, delay: 0.1 }}
           className="space-y-6 sm:space-y-8"
         >
-          {/* KARTU METRIK STATISTIK - Dengan Efek Angka Menghitung Naik (Counter) */}
+          {/* STATISTIK METRIK */}
           <div
             className={`grid grid-cols-2 ${isAdmin ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-3 sm:gap-4`}
           >
@@ -530,9 +615,8 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ballroom Sriwidjaya"}* untuk 
             ))}
           </div>
 
-          {/* GRID LIVE STATUS & AGENDA TERDEKAT */}
+          {/* GRID LIVE & AGENDA TERDEKAT */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Panel Kegiatan Berlangsung (Live) */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col h-[320px] sm:h-[340px]">
               <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
                 <div>
@@ -592,7 +676,6 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ballroom Sriwidjaya"}* untuk 
               </div>
             </div>
 
-            {/* Panel Agenda Terdekat */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col h-[320px] sm:h-[340px]">
               <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
                 <div>
@@ -620,7 +703,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ballroom Sriwidjaya"}* untuk 
                           {item.title}
                         </h3>
                         <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 shrink-0">
-                          {item.date}
+                          {formatAgendaDate(item.date, item.endDate)}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-400 font-medium">
@@ -650,7 +733,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ballroom Sriwidjaya"}* untuk 
             </div>
           </div>
 
-          {/* PANEL PENGAJUAN PENDING: HANYA MUNCUL UNTUK ADMIN */}
+          {/* PANEL PENGAJUAN PENDING (ADMIN) */}
           {isAdmin && (
             <div className="bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/30 rounded-3xl p-5 sm:p-8 space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-amber-200/60 dark:border-amber-900/30 pb-4">
@@ -681,7 +764,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ballroom Sriwidjaya"}* untuk 
                             PENDING
                           </span>
                           <span className="text-xs font-semibold text-slate-400">
-                            {item.date}
+                            {formatAgendaDate(item.date, item.endDate)}
                           </span>
                         </div>
                         <h3 className="font-bold text-slate-900 dark:text-white text-sm leading-snug">
@@ -779,7 +862,10 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ballroom Sriwidjaya"}* untuk 
                     Tanggal Pelaksanaan:
                   </span>
                   <strong className="text-slate-900 dark:text-white">
-                    {detailModal.data.date}
+                    {formatAgendaDate(
+                      detailModal.data.date,
+                      detailModal.data.endDate || detailModal.data.end_date,
+                    )}
                   </strong>
                 </div>
                 <div className="flex justify-between items-center">
@@ -890,7 +976,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ballroom Sriwidjaya"}* untuk 
         </div>
       )}
 
-      {/* MODAL POP-UP KONFIRMASI (SETUJU ATAU TOLAK) */}
+      {/* MODAL POP-UP KONFIRMASI */}
       {confirmModal.isOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
