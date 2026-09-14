@@ -48,7 +48,7 @@ async function handleImageUploads(formData: FormData): Promise<string[]> {
   return savedImageUrls;
 }
 
-// 1. GET: Mengambil daftar ruangan (Dibuka untuk publik agar landing page tidak 401)
+// GET: Mengambil daftar ruangan untuk publik / landing page (Tanpa validasi session_token)
 export async function GET(req: NextRequest) {
   try {
     const rows = await db.$queryRaw`
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     `;
     return NextResponse.json({ success: true, data: rows });
   } catch (error: any) {
-    console.error("GET Ruangan Error:", error);
+    console.error("GET Public Rooms Error:", error);
     return NextResponse.json(
       { success: false, data: [], error: String(error) },
       { status: 500 },

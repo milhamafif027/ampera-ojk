@@ -2,20 +2,9 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 
-// 1. GET: Mengambil daftar vendor berdasarkan kategori (Diamankan)
+// 1. GET: Mengambil daftar vendor berdasarkan kategori (Dibuka untuk publik / form pemesanan)
 export async function GET(req: NextRequest) {
   try {
-    const sessionCookie = req.cookies.get("session_token")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized: Silakan login terlebih dahulu.",
-        },
-        { status: 401 },
-      );
-    }
-
     const { searchParams } = new URL(req.url);
     const category = searchParams.get("category");
 
@@ -46,7 +35,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// 2. POST: Menambah vendor baru (Diamankan)
+// 2. POST: Menambah vendor baru (Tetap Diamankan)
 export async function POST(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("session_token")?.value;
@@ -93,7 +82,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// 3. PUT: Memperbarui data vendor (Diamankan)
+// 3. PUT: Memperbarui data vendor (Tetap Diamankan)
 export async function PUT(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("session_token")?.value;
@@ -141,7 +130,7 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// 4. DELETE: Menghapus vendor (Diamankan)
+// 4. DELETE: Menghapus vendor (Tetap Diamankan)
 export async function DELETE(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("session_token")?.value;
