@@ -13,7 +13,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  ChevronDown,
 } from "lucide-react";
 import { Room } from "@/types";
 
@@ -64,35 +63,10 @@ function RoomCard({
     (room as any).description || "Perlengkapan: Proyektor | Sound System | AC";
   const roomLayout = (room as any).layout;
 
-  // --- LOGIKA MENGURUSI LAYOUT & KAPASITAS DINAMIS BERDASARKAN DROPDOWN ---
-  let availableLayouts: { layoutName: string; capacity: number }[] = [];
-  const rawLayouts = (room as any).layouts;
-
-  if (rawLayouts) {
-    if (typeof rawLayouts === "string") {
-      try {
-        const parsed = JSON.parse(rawLayouts);
-        if (Array.isArray(parsed)) availableLayouts = parsed;
-      } catch {
-        availableLayouts = [];
-      }
-    } else if (Array.isArray(rawLayouts)) {
-      availableLayouts = rawLayouts;
-    }
-  }
-
-  if (availableLayouts.length === 0) {
-    availableLayouts = [
-      {
-        layoutName: roomLayout || "Theater",
-        capacity: room.capacity
-          ? Number(String(room.capacity).replace(/\D/g, "")) || 500
-          : 500,
-      },
-    ];
-  }
-
-  const [selectedLayout, setSelectedLayout] = useState(availableLayouts[0]);
+  // Pembersihan kapasitas agar menampilkan angka yang valid dan bersih
+  const cleanCapacity = room.capacity
+    ? String(room.capacity).replace(/[^0-9]/g, "") || "50"
+    : "50";
 
   const defaultImage =
     "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80";
@@ -391,33 +365,11 @@ function RoomCard({
                   {room.name}
                 </h3>
 
-                {/* DROPDOWN PILIHAN LAYOUT */}
-                <div className="relative inline-block w-full">
-                  <select
-                    value={selectedLayout.layoutName}
-                    onChange={(e) => {
-                      const found = availableLayouts.find(
-                        (l) => l.layoutName === e.target.value,
-                      );
-                      if (found) setSelectedLayout(found);
-                    }}
-                    className="w-full appearance-none bg-rose-50 dark:bg-rose-950/40 text-[#9f1521] dark:text-rose-400 text-[10px] font-black py-1 pl-2.5 pr-7 rounded-lg border border-rose-200 dark:border-rose-900/50 focus:outline-none cursor-pointer truncate"
-                  >
-                    {availableLayouts.map((item, idx) => (
-                      <option
-                        key={idx}
-                        value={item.layoutName}
-                        className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
-                      >
-                        Layout: {item.layoutName} ({item.capacity} Orang)
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    size={12}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[#9f1521] dark:text-rose-400 pointer-events-none"
-                  />
-                </div>
+                {roomLayout && (
+                  <span className="inline-block px-2 py-0.5 bg-rose-50 dark:bg-rose-950/40 text-[#9f1521] dark:text-rose-400 text-[9px] font-black rounded-md border border-rose-200 dark:border-rose-900/50 truncate max-w-full">
+                    Layout: {roomLayout}
+                  </span>
+                )}
               </div>
 
               {isAdmin && (
@@ -447,7 +399,7 @@ function RoomCard({
               <Users size={12} className="text-[#9f1521] shrink-0" /> Kapasitas
               Muatan:{" "}
               <strong className="text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md text-[10px]">
-                {selectedLayout.capacity} Orang
+                {cleanCapacity} Orang
               </strong>
             </p>
 
@@ -481,7 +433,7 @@ function RoomCard({
         </div>
       </div>
 
-      {/* MODAL LIGHTBOX / ZOOM GAMBAR (DI LUAR CARD - PORTAL/FIXED OVERLAY) */}
+      {/* MODAL LIGHTBOX / ZOOM GAMBAR */}
       <AnimatePresence>
         {lightboxImg && (
           <div
@@ -551,7 +503,7 @@ function RoomCard({
         )}
       </AnimatePresence>
 
-      {/* MODAL CEK JADWAL RUANGAN (DI LUAR CARD - RAPI & FULLSCREEN OVERLAY) */}
+      {/* MODAL CEK JADWAL RUANGAN */}
       <AnimatePresence>
         {isScheduleModalOpen && (
           <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">

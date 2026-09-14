@@ -48,15 +48,26 @@ async function handleImageUploads(formData: FormData): Promise<string[]> {
   return savedImageUrls;
 }
 
-// GET: Mengambil daftar ruangan untuk publik / landing page (Tanpa validasi session_token)
+// 1. GET: Mengambil daftar ruangan (Diamankan)
 export async function GET(req: NextRequest) {
   try {
+    const sessionCookie = req.cookies.get("session_token")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized: Silakan login terlebih dahulu.",
+        },
+        { status: 401 },
+      );
+    }
+
     const rows = await db.$queryRaw`
       SELECT * FROM ruangan ORDER BY id DESC
     `;
     return NextResponse.json({ success: true, data: rows });
   } catch (error: any) {
-    console.error("GET Public Rooms Error:", error);
+    console.error("GET Ruangan Error:", error);
     return NextResponse.json(
       { success: false, data: [], error: String(error) },
       { status: 500 },
@@ -64,7 +75,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// 2. POST: Menambah ruangan baru (Tetap Diamankan)
+// 2. POST: Menambah ruangan baru (Diamankan)
 export async function POST(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("session_token")?.value;
@@ -118,7 +129,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// 3. PUT: Memperbarui data ruangan (Tetap Diamankan)
+// 3. PUT: Memperbarui data ruangan (Diamankan)
 export async function PUT(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("session_token")?.value;
@@ -202,7 +213,7 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// 4. DELETE: Menghapus ruangan (Tetap Diamankan)
+// 4. DELETE: Menghapus ruangan (Diamankan)
 export async function DELETE(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("session_token")?.value;

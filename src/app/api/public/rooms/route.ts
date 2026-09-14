@@ -4,19 +4,7 @@ import { db } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
-    // Validasi sesi aktif
-    const sessionCookie = req.cookies.get("session_token")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized: Silakan login terlebih dahulu.",
-        },
-        { status: 401 },
-      );
-    }
-
-    // Menggunakan $queryRaw dari Prisma untuk mengambil data dari tabel ruangan
+    // Validasi session_token DIHAPUS agar bisa diakses publik di Landing Page
     const rows = await db.$queryRaw`
       SELECT * FROM ruangan ORDER BY id ASC
     `;
