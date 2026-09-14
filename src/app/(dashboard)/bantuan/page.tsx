@@ -117,6 +117,12 @@ export default function BantuanPage() {
       role: "Multimedia & Bantuan Ruangan",
       phone: "0813-8192-3811",
     },
+    {
+      id: "sc-4",
+      name: "Galan Sadewo",
+      role: "Kendaraan dan Keprotokolan",
+      phone: "0821-7474-7418",
+    }
   ];
 
   // State Modal Edit IT Support
