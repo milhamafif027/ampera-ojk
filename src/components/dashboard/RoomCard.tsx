@@ -63,10 +63,18 @@ function RoomCard({
     (room as any).description || "Perlengkapan: Proyektor | Sound System | AC";
   const roomLayout = (room as any).layout;
 
-  // Pembersihan kapasitas agar menampilkan angka yang valid dan bersih
-  const cleanCapacity = room.capacity
-    ? String(room.capacity).replace(/[^0-9]/g, "") || "50"
-    : "50";
+  // Format kapasitas agar bersih, aman, dan mendukung rentang teks (misal: 80 - 500 Orang)
+  let displayCapacity = room.capacity
+    ? String(room.capacity).trim()
+    : "50 Orang";
+  if (
+    room.name.toLowerCase().includes("sriwidjaya") &&
+    !displayCapacity.includes("-")
+  ) {
+    displayCapacity = "80 - 500 Orang";
+  } else if (!displayCapacity.toLowerCase().includes("orang")) {
+    displayCapacity = `${displayCapacity} Orang`;
+  }
 
   const defaultImage =
     "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80";
@@ -399,7 +407,7 @@ function RoomCard({
               <Users size={12} className="text-[#9f1521] shrink-0" /> Kapasitas
               Muatan:{" "}
               <strong className="text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md text-[10px]">
-                {cleanCapacity} Orang
+                {displayCapacity}
               </strong>
             </p>
 
