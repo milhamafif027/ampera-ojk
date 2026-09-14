@@ -34,9 +34,12 @@ interface LocalUser {
   nip?: string;
 }
 
-interface ExtendedAgenda extends Agenda {
+type ExtendedAgenda = Agenda & {
   endDate?: string;
-}
+  start_time?: string;
+  end_time?: string;
+  [key: string]: any;
+};
 
 interface RawAgendaResponse {
   id: string | number;
@@ -66,6 +69,79 @@ interface AgendaFormData {
   dept: string;
   layout: string;
   status: string;
+}
+
+function mapAgendaRecord(item: RawAgendaResponse): ExtendedAgenda {
+  let formattedDate = "";
+  if (item.date) {
+    const rawDateStr = String(item.date);
+    if (rawDateStr.includes("T")) {
+      formattedDate = rawDateStr.split("T")[0];
+    } else if (rawDateStr.includes(" ")) {
+      formattedDate = rawDateStr.split(" ")[0];
+    } else {
+      formattedDate = rawDateStr.slice(0, 10);
+    }
+  }
+
+  let formattedEndDate = formattedDate;
+  if (item.end_date) {
+    const rawEndStr = String(item.end_date);
+    if (rawEndStr.includes("T")) {
+      formattedEndDate = rawEndStr.split("T")[0];
+    } else if (rawEndStr.includes(" ")) {
+      formattedEndDate = rawEndStr.split(" ")[0];
+    } else {
+      formattedEndDate = rawEndStr.slice(0, 10);
+    }
+  }
+
+  let formattedTime = "";
+  let startTimeOnly = "08:00";
+  let endTimeOnly = "17:00";
+
+  if (item.start_time && item.end_time) {
+    const startStr = String(item.start_time);
+    const endStr = String(item.end_time);
+
+    const cleanStart = startStr.includes("T")
+      ? startStr.split("T")[1]
+      : startStr;
+    const cleanEnd = endStr.includes("T") ? endStr.split("T")[1] : endStr;
+
+    startTimeOnly = cleanStart.slice(0, 5);
+    endTimeOnly = cleanEnd.slice(0, 5);
+    formattedTime = `${startTimeOnly} - ${endTimeOnly}`;
+  } else if (item.time) {
+    formattedTime = item.time;
+    if (item.time.includes("-")) {
+      const [startPart, endPart] = item.time.split("-").map((t) => t.trim());
+      startTimeOnly = startPart.slice(0, 5) || "08:00";
+      endTimeOnly = endPart.slice(0, 5) || "17:00";
+    }
+  } else {
+    formattedTime = "08:00 - 17:00";
+  }
+
+  const agendaItem = {
+    id: String(item.id),
+    title: item.title,
+    date: formattedDate,
+    endDate: formattedEndDate,
+    time: formattedTime,
+    start_time: startTimeOnly,
+    end_time: endTimeOnly,
+    room: item.room_name || item.room || "Ruang Rapat OJK",
+    pic: item.pic || "Pegawai OJK",
+    dept: item.dept || "OJK Sumsel",
+    layout: item.layout || "-",
+    status: (item.status as StatusPengajuan) || "Pending",
+  };
+
+  return {
+    ...agendaItem,
+    smartStatus: getSmartStatus(agendaItem) as StatusPengajuan,
+  } as ExtendedAgenda;
 }
 
 export default function AgendaPage() {
@@ -119,86 +195,7 @@ export default function AgendaPage() {
       const result = await res.json();
 
       if (res.ok && Array.isArray(result.data)) {
-        const mappedAgendas: ExtendedAgenda[] = result.data.map(
-          (item: RawAgendaResponse) => {
-            let formattedDate = "";
-            if (item.date) {
-              const rawDateStr = String(item.date);
-              if (rawDateStr.includes("T")) {
-                formattedDate = rawDateStr.split("T")[0];
-              } else if (rawDateStr.includes(" ")) {
-                formattedDate = rawDateStr.split(" ")[0];
-              } else {
-                formattedDate = rawDateStr.slice(0, 10);
-              }
-            }
-
-            let formattedEndDate = formattedDate;
-            if (item.end_date) {
-              const rawEndStr = String(item.end_date);
-              if (rawEndStr.includes("T")) {
-                formattedEndDate = rawEndStr.split("T")[0];
-              } else if (rawEndStr.includes(" ")) {
-                formattedEndDate = rawEndStr.split(" ")[0];
-              } else {
-                formattedEndDate = rawEndStr.slice(0, 10);
-              }
-            }
-
-            let formattedTime = "";
-            let startTimeOnly = "08:00";
-            let endTimeOnly = "17:00";
-
-            if (item.start_time && item.end_time) {
-              const startStr = String(item.start_time);
-              const endStr = String(item.end_time);
-
-              const cleanStart = startStr.includes("T")
-                ? startStr.split("T")[1]
-                : startStr;
-              const cleanEnd = endStr.includes("T")
-                ? endStr.split("T")[1]
-                : endStr;
-
-              startTimeOnly = cleanStart.slice(0, 5);
-              endTimeOnly = cleanEnd.slice(0, 5);
-              formattedTime = `${startTimeOnly} - ${endTimeOnly}`;
-            } else if (item.time) {
-              formattedTime = item.time;
-              if (item.time.includes("-")) {
-                const [startPart, endPart] = item.time
-                  .split("-")
-                  .map((t) => t.trim());
-                startTimeOnly = startPart.slice(0, 5) || "08:00";
-                endTimeOnly = endPart.slice(0, 5) || "17:00";
-              }
-            } else {
-              formattedTime = "08:00 - 17:00";
-            }
-
-            const agendaItem = {
-              id: String(item.id),
-              title: item.title,
-              date: formattedDate,
-              endDate: formattedEndDate,
-              time: formattedTime,
-              start_time: startTimeOnly,
-              end_time: endTimeOnly,
-              room: item.room_name || item.room || "Ruang Rapat OJK",
-              pic: item.pic || "Pegawai OJK",
-              dept: item.dept || "OJK Sumsel",
-              layout: item.layout || "-",
-              status: item.status || "Pending",
-            };
-
-            return {
-              ...agendaItem,
-              smartStatus: getSmartStatus(agendaItem) as StatusPengajuan,
-            };
-          },
-        );
-
-        setAgendas(mappedAgendas);
+        setAgendas(result.data.map(mapAgendaRecord));
       }
     } catch (error) {
       console.error("Gagal mengambil data agenda:", error);
@@ -221,8 +218,36 @@ export default function AgendaPage() {
       router.push("/dashboardUtama");
       return;
     }
-    fetchAgendas();
-  }, [fetchAgendas, router, user]);
+
+    let isCancelled = false;
+
+    const loadInitialData = async () => {
+      try {
+        const res = await fetch("/api/agendas");
+        const result = await res.json();
+
+        if (isCancelled) return;
+
+        if (res.ok && Array.isArray(result.data)) {
+          setAgendas(result.data.map(mapAgendaRecord));
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          console.error("Gagal mengambil data agenda:", error);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadInitialData();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [router, user]);
 
   const roomOptions = useMemo(() => {
     return Array.from(new Set(agendas.map((a) => a.room))).filter(Boolean);

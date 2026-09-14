@@ -197,7 +197,7 @@ export default function PanduanSection() {
               </div>
             </div>
             <a
-              href="/Eksternal-PANDUAN PENGGUNAAN APLIKASI PORTAL AMPERA OJK SUMSEL.pdf"
+              href="\Eksternal-PANDUAN PENGGUNAAN APLIKASI PORTAL AMPERA OJK SUMSEL (1).pdf"
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-colors shadow-sm shrink-0"
