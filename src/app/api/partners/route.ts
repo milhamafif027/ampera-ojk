@@ -4,19 +4,9 @@ import { db } from "@/lib/db";
 import { writeFile } from "fs/promises";
 import path from "path";
 
+// 1. GET: Mengambil daftar partner (Dibuka untuk publik agar tidak 401)
 export async function GET(request: NextRequest) {
   try {
-    const sessionCookie = request.cookies.get("session_token")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized: Silakan login terlebih dahulu.",
-        },
-        { status: 401 },
-      );
-    }
-
     const rows = await db.$queryRaw`
       SELECT * FROM partners ORDER BY id ASC
     `;
@@ -29,6 +19,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// 2. POST: Tambah Partner Baru (Tetap Diamankan)
 export async function POST(request: NextRequest) {
   try {
     const sessionCookie = request.cookies.get("session_token")?.value;
@@ -78,7 +69,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT: Edit Partner
+// 3. PUT: Edit Partner (Tetap Diamankan)
 export async function PUT(request: NextRequest) {
   try {
     const sessionCookie = request.cookies.get("session_token")?.value;
@@ -138,7 +129,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE: Hapus Partner
+// 4. DELETE: Hapus Partner (Tetap Diamankan)
 export async function DELETE(request: NextRequest) {
   try {
     const sessionCookie = request.cookies.get("session_token")?.value;

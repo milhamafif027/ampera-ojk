@@ -48,20 +48,9 @@ async function handleImageUploads(formData: FormData): Promise<string[]> {
   return savedImageUrls;
 }
 
-// 1. GET: Mengambil daftar ruangan (Diamankan)
+// 1. GET: Mengambil daftar ruangan (Dibuka untuk publik agar landing page tidak 401)
 export async function GET(req: NextRequest) {
   try {
-    const sessionCookie = req.cookies.get("session_token")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized: Silakan login terlebih dahulu.",
-        },
-        { status: 401 },
-      );
-    }
-
     const rows = await db.$queryRaw`
       SELECT * FROM ruangan ORDER BY id DESC
     `;
@@ -75,7 +64,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// 2. POST: Menambah ruangan baru (Diamankan)
+// 2. POST: Menambah ruangan baru (Tetap Diamankan)
 export async function POST(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("session_token")?.value;
@@ -129,7 +118,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// 3. PUT: Memperbarui data ruangan (Diamankan)
+// 3. PUT: Memperbarui data ruangan (Tetap Diamankan)
 export async function PUT(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("session_token")?.value;
@@ -213,7 +202,7 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// 4. DELETE: Menghapus ruangan (Diamankan)
+// 4. DELETE: Menghapus ruangan (Tetap Diamankan)
 export async function DELETE(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("session_token")?.value;
