@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Room, Agenda } from "@/types";
 
@@ -86,57 +86,35 @@ const getRoomCapacity = (
     : "-";
 };
 
-export default function RoomBookingModal({
-  isOpen,
+// Komponen Form terpisah: State diinisialisasi sekali saat mount tanpa useEffect
+function BookingFormContent({
   onClose,
   setCustomAlert,
   selectedRoom,
   editData,
-  rooms = [],
-  onSuccess,
-}: RoomBookingModalProps) {
+  rooms,
+  currentUserRole,
+  onBookingSuccess,
+}: {
+  onClose: () => void;
+  setCustomAlert: RoomBookingModalProps["setCustomAlert"];
+  selectedRoom?: Room | null;
+  editData?: Agenda | null;
+  rooms: Room[];
+  currentUserRole: string;
+  onBookingSuccess: () => void;
+}) {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
-  const [currentUserRole, setCurrentUserRole] = useState<string>("eksternal");
-
   const [existingBookings, setExistingBookings] = useState<Agenda[]>([]);
   const [isCheckingConflict, setIsCheckingConflict] = useState(false);
 
-  const [formData, setFormData] = useState({
-    title: "",
-    pic: "",
-    dept: "",
-    phone: "",
-    total_participants: "1",
-    meeting_leader: "",
-    room_id: "",
-    roomName: "",
-    isMultiDay: false,
-    date: "",
-    endDate: "",
-    startTime: "08:00",
-    endTime: "10:00",
-    layout: "",
-    notes: "",
-  });
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    setShowSuccessPopup(false);
-
-    const storedUser =
-      sessionStorage.getItem("local_user") ||
-      localStorage.getItem("local_user");
-    const currentUser = storedUser ? JSON.parse(storedUser) : null;
-    const userRole = (currentUser?.role || "eksternal").toLowerCase();
-    setCurrentUserRole(userRole);
-
+  // Inisialisasi default form state langsung dari props (tanpa useEffect)
+  const [formData, setFormData] = useState(() => {
     const agendaRecord = editData as unknown as Record<string, unknown> | null;
 
     const defaultDept =
-      userRole === "internal" || userRole === "admin"
+      currentUserRole === "internal" || currentUserRole === "admin"
         ? "OJK Sumsel"
         : (agendaRecord?.dept as string) || "";
 
@@ -172,7 +150,7 @@ export default function RoomBookingModal({
       parsedEndTime = ePart.replace(" WIB", "").slice(0, 5) || "10:00";
     }
 
-    setFormData({
+    return {
       title: editData?.title || "",
       pic: editData?.pic || "",
       dept: defaultDept,
@@ -192,10 +170,8 @@ export default function RoomBookingModal({
       layout: initialLayout,
       notes:
         (agendaRecord?.notes as string) || (agendaRecord?.note as string) || "",
-    });
-
-    setStep(1);
-  }, [isOpen, selectedRoom, editData, rooms]);
+    };
+  });
 
   const currentRoom = useMemo(() => {
     return (
@@ -216,37 +192,46 @@ export default function RoomBookingModal({
     return getRoomCapacity(currentRoom, formData.layout);
   }, [currentRoom, formData.layout]);
 
-  const fetchBookingsForConflictCheck = useCallback(async () => {
+  // Pengecekan jadwal bentrok
+  useEffect(() => {
+    let isCancelled = false;
+
     if (!formData.date || !formData.roomName) return;
 
-    setIsCheckingConflict(true);
-    try {
-      const res = await fetch(
-        `/api/agendas?date=${formData.date}&room=${encodeURIComponent(
-          formData.roomName,
-        )}`,
-      );
-      const result = await res.json();
-      if (res.ok && Array.isArray(result.data)) {
-        const activeBookings = result.data.filter(
-          (item: Agenda) =>
-            item.status !== "Ditolak" &&
-            (!editData?.id || String(item.id) !== String(editData.id)),
+    const checkConflict = async () => {
+      setIsCheckingConflict(true);
+      try {
+        const res = await fetch(
+          `/api/agendas?date=${formData.date}&room=${encodeURIComponent(
+            formData.roomName,
+          )}`,
         );
-        setExistingBookings(activeBookings);
+        const result = await res.json();
+        if (!isCancelled && res.ok && Array.isArray(result.data)) {
+          const activeBookings = result.data.filter(
+            (item: Agenda) =>
+              item.status !== "Ditolak" &&
+              (!editData?.id || String(item.id) !== String(editData.id)),
+          );
+          setExistingBookings(activeBookings);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          console.error("Gagal memeriksa ketersediaan jadwal:", error);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsCheckingConflict(false);
+        }
       }
-    } catch (error) {
-      console.error("Gagal memeriksa ketersediaan jadwal:", error);
-    } finally {
-      setIsCheckingConflict(false);
-    }
-  }, [formData.date, formData.roomName, editData]);
+    };
 
-  useEffect(() => {
-    if (formData.date && formData.roomName) {
-      fetchBookingsForConflictCheck();
-    }
-  }, [formData.date, formData.roomName, fetchBookingsForConflictCheck]);
+    checkConflict();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [formData.date, formData.roomName, editData?.id]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -380,7 +365,7 @@ export default function RoomBookingModal({
         );
       }
 
-      setShowSuccessPopup(true);
+      onBookingSuccess();
     } catch (error: unknown) {
       const err = error as Error;
       setCustomAlert({
@@ -394,8 +379,6 @@ export default function RoomBookingModal({
     }
   };
 
-  if (!isOpen) return null;
-
   const inputClassName =
     "w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium focus:bg-white dark:focus:bg-slate-900 focus:border-[#9f1521] outline-none text-slate-800 dark:text-slate-100 shadow-sm transition-colors disabled:opacity-50";
   const labelClassName =
@@ -406,12 +389,416 @@ export default function RoomBookingModal({
   const isViewMode = Boolean(editData && editData.id);
 
   return (
+    <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh] z-10">
+      <div className="px-8 py-6 bg-gradient-to-br from-[#9f1521] to-[#7a1019] text-white flex justify-between items-start shrink-0">
+        <div>
+          {!isViewMode && (
+            <span className="text-rose-200 text-[10px] font-black tracking-widest uppercase mb-1 block">
+              Langkah {step} dari 2
+            </span>
+          )}
+          <h2 className="text-2xl font-black tracking-tight">
+            {isViewMode ? "Detail Agenda / Kegiatan" : "Reservasi Ruangan"}
+          </h2>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={isSubmitting}
+          className="p-2 hover:bg-white/20 rounded-full transition-colors bg-white/10 cursor-pointer"
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      <div className="p-8 overflow-y-auto flex-1 space-y-4">
+        {step === 1 && (
+          <>
+            <div>
+              <label className={labelClassName}>Nama Kegiatan / Acara</label>
+              <input
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                disabled={isSubmitting}
+                className={inputClassName}
+                placeholder="Contoh: Rapat Koordinasi Satker"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClassName}>Nama Pemesan (PIC)</label>
+                <input
+                  name="pic"
+                  value={formData.pic}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  className={inputClassName}
+                  placeholder="Contoh: Muhammad Fadli"
+                  required
+                />
+              </div>
+              <div>
+                <label className={labelClassName}>Satker / Uker</label>
+                <input
+                  name="dept"
+                  value={formData.dept}
+                  onChange={handleChange}
+                  disabled={isInternalOrAdmin || isSubmitting}
+                  className={`${inputClassName} ${
+                    isInternalOrAdmin
+                      ? "opacity-80 cursor-not-allowed bg-slate-100 dark:bg-slate-800/80"
+                      : ""
+                  }`}
+                  placeholder={
+                    isInternalOrAdmin
+                      ? "OJK Sumsel"
+                      : "Contoh: PT Bank Mandiri / Instansi Luar"
+                  }
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClassName}>
+                Nomor WhatsApp / HP Pemohon
+              </label>
+              <input
+                type="text"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                disabled={isSubmitting}
+                className={inputClassName}
+                placeholder="Contoh: 081234567890"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClassName}>Jumlah Peserta (Orang)</label>
+                <input
+                  type="number"
+                  min="1"
+                  name="total_participants"
+                  value={formData.total_participants}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  className={inputClassName}
+                  placeholder="Contoh: 15"
+                  required
+                />
+              </div>
+              <div>
+                <label className={labelClassName}>Pimpinan Rapat</label>
+                <input
+                  type="text"
+                  name="meeting_leader"
+                  value={formData.meeting_leader}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  className={inputClassName}
+                  placeholder="Contoh: Kepala Kantor OJK"
+                  required
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className={labelClassName} style={{ marginBottom: 0 }}>
+                  Pilih Ruangan
+                </label>
+                {currentCapacityInfo !== "-" && (
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-900">
+                    Kapasitas ({formData.layout}): {currentCapacityInfo}
+                  </span>
+                )}
+              </div>
+
+              {rooms.length > 0 ? (
+                <select
+                  name="room_id"
+                  value={formData.room_id}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  className={inputClassName}
+                  required
+                >
+                  <option value="">-- Pilih Ruangan --</option>
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} - Kapasitas:{" "}
+                      {String(r.capacity || "-")
+                        .replace(/orang/gi, "")
+                        .trim()}{" "}
+                      Orang
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  name="roomName"
+                  value={formData.roomName}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  className={inputClassName}
+                  placeholder="Nama Ruangan"
+                  required
+                />
+              )}
+            </div>
+
+            <div className="flex items-center gap-2.5 pt-1">
+              <input
+                type="checkbox"
+                id="isMultiDay"
+                name="isMultiDay"
+                checked={formData.isMultiDay}
+                onChange={handleChange}
+                disabled={isSubmitting}
+                className="w-4 h-4 rounded border-slate-300 text-[#9f1521] focus:ring-[#9f1521] cursor-pointer"
+              />
+              <label
+                htmlFor="isMultiDay"
+                className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none"
+              >
+                Pemesanan lebih dari satu hari (Multi-Hari)
+              </label>
+            </div>
+
+            {!formData.isMultiDay ? (
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={labelClassName}>Tanggal</label>
+                  <input
+                    type="date"
+                    name="date"
+                    value={formData.date}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className={inputClassName}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={labelClassName}>Jam Mulai</label>
+                  <input
+                    type="time"
+                    name="startTime"
+                    value={formData.startTime}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className={inputClassName}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={labelClassName}>Jam Selesai</label>
+                  <input
+                    type="time"
+                    name="endTime"
+                    value={formData.endTime}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className={inputClassName}
+                    required
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 animate-in fade-in duration-200">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClassName}>Tanggal Mulai</label>
+                    <input
+                      type="date"
+                      name="date"
+                      value={formData.date}
+                      onChange={handleChange}
+                      disabled={isSubmitting}
+                      className={inputClassName}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClassName}>Tanggal Selesai</label>
+                    <input
+                      type="date"
+                      name="endDate"
+                      value={formData.endDate}
+                      min={formData.date}
+                      onChange={handleChange}
+                      disabled={isSubmitting}
+                      className={inputClassName}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClassName}>Jam Mulai</label>
+                    <input
+                      type="time"
+                      name="startTime"
+                      value={formData.startTime}
+                      onChange={handleChange}
+                      disabled={isSubmitting}
+                      className={inputClassName}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClassName}>Jam Selesai</label>
+                    <input
+                      type="time"
+                      name="endTime"
+                      value={formData.endTime}
+                      onChange={handleChange}
+                      disabled={isSubmitting}
+                      className={inputClassName}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isCheckingConflict && (
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs flex items-center gap-2 text-slate-500">
+                <Loader2 size={14} className="animate-spin text-[#9f1521]" />
+                <span>Memeriksa ketersediaan jadwal ruangan...</span>
+              </div>
+            )}
+
+            {hasConflict && !isCheckingConflict && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-2xl flex items-center gap-3 text-rose-700 dark:text-rose-400 text-xs font-semibold">
+                <AlertCircle size={18} className="shrink-0" />
+                <span>
+                  Ruangan sudah terisi/dipesan pada rentang jam tersebut di
+                  tanggal ini.
+                </span>
+              </div>
+            )}
+
+            <div>
+              <label className={labelClassName}>
+                Tata Letak / Layout Ruangan
+              </label>
+              <select
+                name="layout"
+                value={formData.layout}
+                onChange={handleChange}
+                disabled={isSubmitting}
+                className={inputClassName}
+              >
+                {availableLayouts.map((lay, idx) => (
+                  <option key={idx} value={lay}>
+                    {lay}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className={labelClassName}>
+                Catatan Tambahan (Opsional)
+              </label>
+              <textarea
+                name="notes"
+                value={formData.notes}
+                onChange={handleChange}
+                disabled={isSubmitting}
+                rows={2}
+                className={inputClassName}
+                placeholder="Kebutuhan proyektor, kabel extension, sound system..."
+              />
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-slate-50 dark:bg-slate-900 shrink-0">
+        {step === 2 && (
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            disabled={isSubmitting}
+            className="px-6 py-2.5 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 text-xs cursor-pointer disabled:opacity-50"
+          >
+            Kembali
+          </button>
+        )}
+        {step === 1 ? (
+          <button
+            type="button"
+            onClick={() => setStep(2)}
+            disabled={!isStep1Valid || isSubmitting}
+            className="px-8 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white font-bold rounded-xl text-xs disabled:opacity-50 cursor-pointer"
+          >
+            Selanjutnya
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!isStep2Valid || isSubmitting || hasConflict}
+            className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs disabled:opacity-50 cursor-pointer flex items-center gap-2"
+          >
+            {isSubmitting && <Loader2 size={14} className="animate-spin" />}
+            {isSubmitting ? "Menyimpan..." : "Kirim Reservasi"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Modal Container Utama
+export default function RoomBookingModal({
+  isOpen,
+  onClose,
+  setCustomAlert,
+  selectedRoom,
+  editData,
+  rooms = [],
+  onSuccess,
+}: RoomBookingModalProps) {
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+
+  const currentUserRole = useMemo(() => {
+    if (typeof window === "undefined") return "eksternal";
+    try {
+      const storedUser =
+        sessionStorage.getItem("local_user") ||
+        localStorage.getItem("local_user");
+      const parsed = storedUser ? JSON.parse(storedUser) : null;
+      return (parsed?.role || "eksternal").toLowerCase();
+    } catch {
+      return "eksternal";
+    }
+  }, []);
+
+  if (!isOpen) return null;
+
+  const handleModalClose = () => {
+    setShowSuccessPopup(false);
+    onClose();
+  };
+
+  return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
       <div
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
-        onClick={() => {
-          if (!showSuccessPopup && !isSubmitting) onClose();
-        }}
+        onClick={handleModalClose}
       />
 
       {showSuccessPopup ? (
@@ -441,388 +828,17 @@ export default function RoomBookingModal({
           </button>
         </div>
       ) : (
-        <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh] z-10">
-          <div className="px-8 py-6 bg-gradient-to-br from-[#9f1521] to-[#7a1019] text-white flex justify-between items-start shrink-0">
-            <div>
-              {!isViewMode && (
-                <span className="text-rose-200 text-[10px] font-black tracking-widest uppercase mb-1 block">
-                  Langkah {step} dari 2
-                </span>
-              )}
-              <h2 className="text-2xl font-black tracking-tight">
-                {isViewMode ? "Detail Agenda / Kegiatan" : "Reservasi Ruangan"}
-              </h2>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="p-2 hover:bg-white/20 rounded-full transition-colors bg-white/10 cursor-pointer"
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          <div className="p-8 overflow-y-auto flex-1 space-y-4">
-            {step === 1 && (
-              <>
-                <div>
-                  <label className={labelClassName}>
-                    Nama Kegiatan / Acara
-                  </label>
-                  <input
-                    name="title"
-                    value={formData.title}
-                    onChange={handleChange}
-                    disabled={isSubmitting}
-                    className={inputClassName}
-                    placeholder="Contoh: Rapat Koordinasi Satker"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelClassName}>Nama Pemesan (PIC)</label>
-                    <input
-                      name="pic"
-                      value={formData.pic}
-                      onChange={handleChange}
-                      disabled={isSubmitting}
-                      className={inputClassName}
-                      placeholder="Contoh: Muhammad Fadli"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClassName}>Satker / Uker</label>
-                    <input
-                      name="dept"
-                      value={formData.dept}
-                      onChange={handleChange}
-                      disabled={isInternalOrAdmin || isSubmitting}
-                      className={`${inputClassName} ${
-                        isInternalOrAdmin
-                          ? "opacity-80 cursor-not-allowed bg-slate-100 dark:bg-slate-800/80"
-                          : ""
-                      }`}
-                      placeholder={
-                        isInternalOrAdmin
-                          ? "OJK Sumsel"
-                          : "Contoh: PT Bank Mandiri / Instansi Luar"
-                      }
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className={labelClassName}>
-                    Nomor WhatsApp / HP Pemohon
-                  </label>
-                  <input
-                    type="text"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    disabled={isSubmitting}
-                    className={inputClassName}
-                    placeholder="Contoh: 081234567890"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelClassName}>
-                      Jumlah Peserta (Orang)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      name="total_participants"
-                      value={formData.total_participants}
-                      onChange={handleChange}
-                      disabled={isSubmitting}
-                      className={inputClassName}
-                      placeholder="Contoh: 15"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClassName}>Pimpinan Rapat</label>
-                    <input
-                      type="text"
-                      name="meeting_leader"
-                      value={formData.meeting_leader}
-                      onChange={handleChange}
-                      disabled={isSubmitting}
-                      className={inputClassName}
-                      placeholder="Contoh: Kepala Kantor OJK"
-                      required
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {step === 2 && (
-              <>
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <label
-                      className={labelClassName}
-                      style={{ marginBottom: 0 }}
-                    >
-                      Pilih Ruangan
-                    </label>
-                    {currentCapacityInfo !== "-" && (
-                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-900">
-                        Kapasitas ({formData.layout}): {currentCapacityInfo}
-                      </span>
-                    )}
-                  </div>
-
-                  {rooms.length > 0 ? (
-                    <select
-                      name="room_id"
-                      value={formData.room_id}
-                      onChange={handleChange}
-                      disabled={isSubmitting}
-                      className={inputClassName}
-                      required
-                    >
-                      <option value="">-- Pilih Ruangan --</option>
-                      {rooms.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.name} - Kapasitas:{" "}
-                          {String(r.capacity || "-")
-                            .replace(/orang/gi, "")
-                            .trim()}{" "}
-                          Orang
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      name="roomName"
-                      value={formData.roomName}
-                      onChange={handleChange}
-                      disabled={isSubmitting}
-                      className={inputClassName}
-                      placeholder="Nama Ruangan"
-                      required
-                    />
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2.5 pt-1">
-                  <input
-                    type="checkbox"
-                    id="isMultiDay"
-                    name="isMultiDay"
-                    checked={formData.isMultiDay}
-                    onChange={handleChange}
-                    disabled={isSubmitting}
-                    className="w-4 h-4 rounded border-slate-300 text-[#9f1521] focus:ring-[#9f1521] cursor-pointer"
-                  />
-                  <label
-                    htmlFor="isMultiDay"
-                    className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none"
-                  >
-                    Pemesanan lebih dari satu hari (Multi-Hari)
-                  </label>
-                </div>
-
-                {!formData.isMultiDay ? (
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className={labelClassName}>Tanggal</label>
-                      <input
-                        type="date"
-                        name="date"
-                        value={formData.date}
-                        onChange={handleChange}
-                        disabled={isSubmitting}
-                        className={inputClassName}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClassName}>Jam Mulai</label>
-                      <input
-                        type="time"
-                        name="startTime"
-                        value={formData.startTime}
-                        onChange={handleChange}
-                        disabled={isSubmitting}
-                        className={inputClassName}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClassName}>Jam Selesai</label>
-                      <input
-                        type="time"
-                        name="endTime"
-                        value={formData.endTime}
-                        onChange={handleChange}
-                        disabled={isSubmitting}
-                        className={inputClassName}
-                        required
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3 animate-in fade-in duration-200">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className={labelClassName}>Tanggal Mulai</label>
-                        <input
-                          type="date"
-                          name="date"
-                          value={formData.date}
-                          onChange={handleChange}
-                          disabled={isSubmitting}
-                          className={inputClassName}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className={labelClassName}>
-                          Tanggal Selesai
-                        </label>
-                        <input
-                          type="date"
-                          name="endDate"
-                          value={formData.endDate}
-                          min={formData.date}
-                          onChange={handleChange}
-                          disabled={isSubmitting}
-                          className={inputClassName}
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className={labelClassName}>Jam Mulai</label>
-                        <input
-                          type="time"
-                          name="startTime"
-                          value={formData.startTime}
-                          onChange={handleChange}
-                          disabled={isSubmitting}
-                          className={inputClassName}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className={labelClassName}>Jam Selesai</label>
-                        <input
-                          type="time"
-                          name="endTime"
-                          value={formData.endTime}
-                          onChange={handleChange}
-                          disabled={isSubmitting}
-                          className={inputClassName}
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {isCheckingConflict && (
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs flex items-center gap-2 text-slate-500">
-                    <Loader2
-                      size={14}
-                      className="animate-spin text-[#9f1521]"
-                    />
-                    <span>Memeriksa ketersediaan jadwal ruangan...</span>
-                  </div>
-                )}
-
-                {hasConflict && !isCheckingConflict && (
-                  <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-2xl flex items-center gap-3 text-rose-700 dark:text-rose-400 text-xs font-semibold">
-                    <AlertCircle size={18} className="shrink-0" />
-                    <span>
-                      Ruangan sudah terisi/dipesan pada rentang jam tersebut di
-                      tanggal ini.
-                    </span>
-                  </div>
-                )}
-
-                <div>
-                  <label className={labelClassName}>
-                    Tata Letak / Layout Ruangan
-                  </label>
-                  <select
-                    name="layout"
-                    value={formData.layout}
-                    onChange={handleChange}
-                    disabled={isSubmitting}
-                    className={inputClassName}
-                  >
-                    {availableLayouts.map((lay, idx) => (
-                      <option key={idx} value={lay}>
-                        {lay}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className={labelClassName}>
-                    Catatan Tambahan (Opsional)
-                  </label>
-                  <textarea
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleChange}
-                    disabled={isSubmitting}
-                    rows={2}
-                    className={inputClassName}
-                    placeholder="Kebutuhan proyektor, kabel extension, sound system..."
-                  />
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-slate-50 dark:bg-slate-900 shrink-0">
-            {step === 2 && (
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                disabled={isSubmitting}
-                className="px-6 py-2.5 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 text-xs cursor-pointer disabled:opacity-50"
-              >
-                Kembali
-              </button>
-            )}
-            {step === 1 ? (
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                disabled={!isStep1Valid || isSubmitting}
-                className="px-8 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white font-bold rounded-xl text-xs disabled:opacity-50 cursor-pointer"
-              >
-                Selanjutnya
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={!isStep2Valid || isSubmitting || hasConflict}
-                className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs disabled:opacity-50 cursor-pointer flex items-center gap-2"
-              >
-                {isSubmitting && <Loader2 size={14} className="animate-spin" />}
-                {isSubmitting ? "Menyimpan..." : "Kirim Reservasi"}
-              </button>
-            )}
-          </div>
-        </div>
+        /* Key memastikan state ter-reset otomatis setiap kali modal dibuka / editData berganti */
+        <BookingFormContent
+          key={editData?.id ? `edit-${editData.id}` : "new-booking"}
+          onClose={handleModalClose}
+          setCustomAlert={setCustomAlert}
+          selectedRoom={selectedRoom}
+          editData={editData}
+          rooms={rooms}
+          currentUserRole={currentUserRole}
+          onBookingSuccess={() => setShowSuccessPopup(true)}
+        />
       )}
     </div>
   );
