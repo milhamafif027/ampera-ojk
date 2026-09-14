@@ -247,6 +247,9 @@ export default function LoginPage() {
               <p className="text-sm text-rose-200 font-bold leading-relaxed max-w-md">
                 Aplikasi Manajemen Peminjaman Ruangan & Kendaraan
               </p>
+              <p className="text-xs text-slate-400 mt-2">
+                Jl. Jend. Sudirman No. 1025, Sei Pangeran, Ilir Timur I, Palembang 30114
+              </p>
             </div>
           </motion.div>
         </div>
