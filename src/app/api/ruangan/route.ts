@@ -3,14 +3,21 @@ import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "";
-const supabase = createClient(supabaseUrl, supabaseKey);
+function getSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Konfigurasi Supabase belum tersedia di server.");
+  }
+
+  return createClient(supabaseUrl, supabaseKey);
+}
 
 async function handleImageUploads(formData: FormData): Promise<string[]> {
+  const supabase = getSupabase();
   const files = formData.getAll("images") as File[];
   const savedImageUrls: string[] = [];
 
