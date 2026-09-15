@@ -638,9 +638,12 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
                   liveAgendas.map((item) => (
                     <div
                       key={item.id}
-                      className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 rounded-2xl space-y-2"
+                      onClick={() =>
+                        setDetailModal({ isOpen: true, data: item })
+                      }
+                      className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 hover:border-emerald-400 rounded-2xl space-y-2 cursor-pointer transition-all shadow-2xs group"
                     >
-                      <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                      <h3 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-emerald-700 transition-colors">
                         {item.title}
                       </h3>
                       <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-300 font-medium">
@@ -696,10 +699,13 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
                   upcomingAgendas.slice(0, 5).map((item) => (
                     <div
                       key={item.id}
-                      className="p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 rounded-2xl space-y-2"
+                      onClick={() =>
+                        setDetailModal({ isOpen: true, data: item })
+                      }
+                      className="p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 hover:border-[#9f1521]/60 rounded-2xl space-y-2 cursor-pointer transition-all shadow-2xs group"
                     >
                       <div className="flex justify-between items-start gap-2">
-                        <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                        <h3 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-[#9f1521] transition-colors">
                           {item.title}
                         </h3>
                         <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 shrink-0">
@@ -822,7 +828,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
         </motion.div>
       )}
 
-      {/* MODAL DETAIL INFORMASI LENGKAP PENGAJUAN */}
+      {/* MODAL DETAIL INFORMASI LENGKAP PENGAJUAN / AGENDA */}
       {detailModal.isOpen && detailModal.data && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
@@ -833,10 +839,10 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
-                  VERIFIKASI DATA PENGAJUAN
+                  INFORMASI DETAIL KEGIATAN
                 </span>
                 <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-0.5">
-                  Detail Informasi Reservasi
+                  Detail Rapat & Agenda
                 </h3>
               </div>
               <button
@@ -939,44 +945,29 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
                   <span className="text-slate-400 font-medium">
                     Status Pengajuan:
                   </span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px]">
-                    {detailModal.data.status || "Pending"}
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                    {detailModal.data.status ||
+                      detailModal.data.smartStatus ||
+                      "Disetujui"}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
-                onClick={() => {
-                  const agendaId = detailModal.data.id;
-                  const title = detailModal.data.title;
-                  setDetailModal({ isOpen: false, data: null });
-                  openConfirmModal(agendaId, title, "reject");
-                }}
-                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 transition-colors cursor-pointer text-center"
+                onClick={() => setDetailModal({ isOpen: false, data: null })}
+                className="px-6 py-2.5 rounded-xl text-xs font-bold bg-[#9f1521] hover:bg-[#7a1019] text-white transition-colors cursor-pointer shadow-sm"
               >
-                Tolak Pengajuan
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const agendaId = detailModal.data.id;
-                  const title = detailModal.data.title;
-                  setDetailModal({ isOpen: false, data: null });
-                  openConfirmModal(agendaId, title, "approve");
-                }}
-                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm cursor-pointer text-center"
-              >
-                Setujui Pengajuan
+                Tutup Informasi
               </button>
             </div>
           </motion.div>
         </div>
       )}
 
-      {/* MODAL POP-UP KONFIRMASI */}
+      {/* MODAL POP-UP KONFIRMASI (ADMIN) */}
       {confirmModal.isOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
