@@ -254,7 +254,7 @@ function BookingFormContent({
     }
   };
 
-  // Validasi konflik reguler & aturan ketat: Ballroom & Komunal saling mengunci total pada jam yang sama
+  // Validasi konflik reguler & aturan ketat Ballroom vs Komunal (Berdasarkan ID & Nama)
   const conflictDetails = (() => {
     if (
       !formData.date ||
@@ -265,33 +265,51 @@ function BookingFormContent({
       return { hasConflict: false, message: null };
     }
 
-    const targetRoomLower = (formData.roomName || "").toLowerCase();
-    const isTargetBallroom = targetRoomLower.includes("ballroom");
-    const isTargetKomunal = targetRoomLower.includes("komunal");
     const targetDate = formData.date.slice(0, 10);
+    const targetStartTime = formData.startTime;
+    const targetEndTime = formData.endTime;
+    const targetRoomId = String(formData.room_id || "");
+    const targetRoomNameLower = (formData.roomName || "").toLowerCase();
+
+    // Identifikasi apakah target adalah Ballroom atau Komunal (berdasarkan ID atau nama)
+    // ID 11 = Ballroom Sriwidjaya, ID 12 = Komunal (berdasarkan gambar database Anda)
+    const isTargetBallroom =
+      targetRoomId === "11" || targetRoomNameLower.includes("ballroom");
+    const isTargetKomunal =
+      targetRoomId === "12" || targetRoomNameLower.includes("komunal");
 
     for (const booking of existingBookings) {
       const rawBooking = booking as unknown as Record<string, unknown>;
       const bookingDate = String(rawBooking.date || "").slice(0, 10);
 
-      if (bookingDate !== targetDate) continue;
+      const bookingStatus = String(rawBooking.status || "").toLowerCase();
+      if (bookingDate !== targetDate || bookingStatus === "ditolak") continue;
 
-      const existingStart = (rawBooking.start_time as string) || "";
-      const existingEnd = (rawBooking.end_time as string) || "";
+      const existingStart = String(rawBooking.start_time || "").slice(0, 5);
+      const existingEnd = String(rawBooking.end_time || "").slice(0, 5);
 
       if (!existingStart || !existingEnd) continue;
 
-      // Cek apakah jamnya beririsan / bertabrakan
+      // Cek irisan waktu
       const isTimeOverlap =
-        formData.startTime < existingEnd && formData.endTime > existingStart;
+        targetStartTime < existingEnd && targetEndTime > existingStart;
       if (!isTimeOverlap) continue;
 
-      const bookedRoom = String(
+      const bookedRoomId = String(rawBooking.room_id || "");
+      const bookedRoomName = String(
         rawBooking.room_name || rawBooking.room || "",
       ).toLowerCase();
 
-      // 1. Konflik reguler (jika memesan ruangan yang persis sama di jam yang sama)
-      if (bookedRoom === targetRoomLower) {
+      const isBookedBallroom =
+        bookedRoomId === "11" || bookedRoomName.includes("ballroom");
+      const isBookedKomunal =
+        bookedRoomId === "12" || bookedRoomName.includes("komunal");
+
+      // 1. Konflik reguler (ruangan yang sama persis di jam yang sama)
+      if (
+        bookedRoomId === targetRoomId ||
+        bookedRoomName === targetRoomNameLower
+      ) {
         return {
           hasConflict: true,
           message:
@@ -299,21 +317,21 @@ function BookingFormContent({
         };
       }
 
-      // 2. ATURAN UTAMA: Jika Ballroom sudah dipesan, Komunal otomatis terkunci di jam yang sama
-      if (isTargetKomunal && bookedRoom.includes("ballroom")) {
+      // 2. ATURAN UTAMA: Jika Ballroom sudah dibooking, Komunal terkunci total di jam yang sama
+      if (isTargetKomunal && isBookedBallroom) {
         return {
           hasConflict: true,
           message:
-            "Ruangan Komunal tidak dapat dipesan karena Ballroom sedang digunakan pada jam tersebut. Ruangan akan kembali tersedia setelah kegiatan di Ballroom selesai.",
+            "Ruangan Komunal tidak dapat dipesan karena Ballroom Sriwidjaya sedang digunakan pada jam tersebut.",
         };
       }
 
-      // 3. SEBALIKNYA: Jika Komunal sudah dipesan, Ballroom otomatis terkunci di jam yang sama
-      if (isTargetBallroom && bookedRoom.includes("komunal")) {
+      // 3. SEBALIKNYA: Jika Komunal sudah dibooking, Ballroom terkunci total di jam yang sama
+      if (isTargetBallroom && isBookedKomunal) {
         return {
           hasConflict: true,
           message:
-            "Ballroom tidak dapat dipesan karena Ruangan Komunal sedang digunakan pada jam tersebut.",
+            "Ballroom Sriwidjaya tidak dapat dipesan karena Ruangan Komunal sedang digunakan pada jam tersebut.",
         };
       }
     }
