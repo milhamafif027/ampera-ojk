@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 2. POST: Tambah reservasi dengan aturan ketat Ballroom vs Komunal
+// 2. POST: Tambah reservasi dengan aturan ketat Round Table Ballroom vs Komunal
 export async function POST(request: NextRequest) {
   try {
     const authUser = await getAuthenticatedUser(request);
@@ -103,10 +103,25 @@ export async function POST(request: NextRequest) {
 
     const participantsNum = Number(total_participants) || 1;
     const targetRoomLower = (room_name || "").toLowerCase();
+    const targetLayoutLower = (layout || "").toLowerCase();
+
     const isTargetBallroom =
       targetRoomLower.includes("ballroom") ||
       targetRoomLower.includes("sriwidjaya");
     const isTargetKomunal = targetRoomLower.includes("komunal");
+    const isRoundTable = targetLayoutLower.includes("round table");
+
+    // Validasi mutlak kapasitas maksimal Ballroom Round Table tidak boleh > 250
+    if (isTargetBallroom && isRoundTable && participantsNum > 250) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Kapasitas maksimal Ballroom untuk layout 'Round Table' adalah 250 orang.",
+        },
+        { status: 400 },
+      );
+    }
 
     // Evaluasi Role Pemohon: Eksternal WAJIB "Pending"
     const effectiveRole = (
@@ -124,38 +139,40 @@ export async function POST(request: NextRequest) {
     const finalStatus = isAutoApprove ? "Disetujui" : "Pending";
 
     // =========================================================================
-    // PENGECEKAN BENTROK JADWAL & ATURAN SILANG (BALLROOM VS KOMUNAL) DI DATABASE
+    // PENGECEKAN BENTROK JADWAL & ATURAN ROUND TABLE (BALLROOM VS KOMUNAL)
     // =========================================================================
     let conflictQuery;
 
-    if (isTargetKomunal) {
-      // Jika memesan Komunal, cek apakah Komunal terisi ATAU Ballroom terisi dengan peserta >= 450 di jam yang sama
+    if (isTargetKomunal && isRoundTable) {
+      // Jika Komunal Round Table dipesan, cek apakah Ballroom Round Table sudah dipesan dengan kapasitas >= 200
       conflictQuery = await db.$queryRaw`
         SELECT id FROM agendas 
         WHERE status != 'Ditolak'
           AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
           AND (start_time < ${end_time} AND end_time > ${start_time})
-          AND (
-            LOWER(room_name) LIKE '%komunal%' 
-            OR (LOWER(room_name) LIKE '%ballroom%' AND total_participants >= 450)
-          )
+          AND LOWER(room_name) LIKE '%ballroom%'
+          AND LOWER(layout) LIKE '%round table%'
+          AND total_participants >= 200
         LIMIT 1
       `;
-    } else if (isTargetBallroom && participantsNum >= 450) {
-      // Jika memesan Ballroom >= 450 orang, cek apakah Ballroom terisi ATAU Komunal terisi di jam yang sama
+    } else if (
+      isTargetBallroom &&
+      isRoundTable &&
+      participantsNum >= 200 &&
+      participantsNum <= 250
+    ) {
+      // Jika Ballroom Round Table dipesan di rentang 200 - 250 orang, cek apakah Komunal Round Table sudah terisi
       conflictQuery = await db.$queryRaw`
         SELECT id FROM agendas 
         WHERE status != 'Ditolak'
           AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
           AND (start_time < ${end_time} AND end_time > ${start_time})
-          AND (
-            LOWER(room_name) LIKE '%ballroom%' 
-            OR LOWER(room_name) LIKE '%komunal%'
-          )
+          AND LOWER(room_name) LIKE '%komunal%'
+          AND LOWER(layout) LIKE '%round table%'
         LIMIT 1
       `;
     } else {
-      // Pengecekan standar untuk ruangan reguler lainnya atau Ballroom < 450 orang
+      // Pengecekan standar untuk ruangan reguler lainnya atau Ballroom Round Table < 200 orang
       conflictQuery = await db.$queryRaw`
         SELECT id FROM agendas 
         WHERE room_name = ${room_name} 
@@ -171,12 +188,12 @@ export async function POST(request: NextRequest) {
     if (conflicts.length > 0) {
       let customMessage =
         "Jadwal bentrok! Ruangan sudah terisi pada rentang tanggal dan jam tersebut.";
-      if (isTargetKomunal) {
+      if (isTargetKomunal && isRoundTable) {
         customMessage =
-          "Ruangan Komunal tidak dapat dipesan karena Ballroom Sriwidjaya sedang digunakan untuk acara kapasitas besar (>= 450 orang) pada jam tersebut.";
-      } else if (isTargetBallroom && participantsNum >= 450) {
+          "Layout 'Round Table' di Ruangan Komunal tidak dapat dipesan karena Ballroom sedang menggunakan 'Round Table' kapasitas besar (>= 200 orang).";
+      } else if (isTargetBallroom && isRoundTable && participantsNum >= 200) {
         customMessage =
-          "Ballroom dengan kapasitas besar (>= 450 orang) tidak dapat dipesan karena Ruangan Komunal atau Ballroom lain sudah terisi pada jam tersebut.";
+          "Ballroom dengan layout 'Round Table' (200 - 250 orang) tidak dapat dipesan karena Ruangan Komunal sudah terisi layout 'Round Table'.";
       }
 
       return NextResponse.json(

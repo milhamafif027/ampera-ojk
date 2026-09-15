@@ -264,7 +264,7 @@ function BookingFormContent({
     }
   };
 
-  // Validasi Konflik Utama: Ballroom >= 450 orang mengunci Komunal secara mutlak di jam yang sama
+  // Validasi Konflik & Aturan Kapasitas Round Table (Ballroom 200-250 vs Komunal Round Table)
   const conflictDetails = (() => {
     if (
       !formData.date ||
@@ -280,8 +280,9 @@ function BookingFormContent({
     const targetEndTime = formData.endTime;
     const targetRoomId = String(formData.room_id || "");
     const targetRoomNameLower = (formData.roomName || "").toLowerCase();
+    const targetLayoutLower = (formData.layout || "").toLowerCase();
 
-    // Helper untuk mengubah string peserta ("500 Orang") menjadi angka murni (500)
+    // Helper untuk mengubah string peserta ("250 Orang") menjadi angka murni (250)
     const parseNum = (val: any) => {
       if (typeof val === "number") return val;
       const clean = String(val || "0").replace(/[^0-9]/g, "");
@@ -297,6 +298,17 @@ function BookingFormContent({
 
     const isTargetKomunal =
       targetRoomId === "12" || targetRoomNameLower.includes("komunal");
+
+    const isTargetRoundTable = targetLayoutLower.includes("round table");
+
+    // Validasi mutlak maksimal kapasitas Ballroom Round Table tidak boleh > 250
+    if (isTargetBallroom && isTargetRoundTable && targetParticipants > 250) {
+      return {
+        hasConflict: true,
+        message:
+          "Kapasitas maksimal Ballroom untuk layout 'Round Table' adalah 250 orang.",
+      };
+    }
 
     for (const booking of existingBookings) {
       const rawBooking = booking as unknown as Record<string, unknown>;
@@ -319,6 +331,7 @@ function BookingFormContent({
         rawBooking.room_name || rawBooking.room || "",
       ).toLowerCase();
       const bookedParticipants = parseNum(rawBooking.total_participants);
+      const bookedLayoutLower = String(rawBooking.layout || "").toLowerCase();
 
       const isBookedBallroom =
         bookedRoomId === "11" ||
@@ -327,6 +340,8 @@ function BookingFormContent({
 
       const isBookedKomunal =
         bookedRoomId === "12" || bookedRoomName.includes("komunal");
+
+      const isBookedRoundTable = bookedLayoutLower.includes("round table");
 
       // 1. Konflik reguler (pesan ruangan yang sama persis di jam yang sama)
       if (
@@ -342,20 +357,33 @@ function BookingFormContent({
         };
       }
 
-      // 2. ATURAN UTAMA: Jika user pesan Komunal, tetapi Ballroom sudah dibooking dengan kapasitas >= 450 orang
-      if (isTargetKomunal && isBookedBallroom && bookedParticipants >= 450) {
+      // 2. ATURAN 1: Jika user pesan Komunal (Round Table), cek apakah Ballroom sudah pesan Round Table >= 200 orang
+      if (
+        isTargetKomunal &&
+        isTargetRoundTable &&
+        isBookedBallroom &&
+        isBookedRoundTable &&
+        bookedParticipants >= 200
+      ) {
         return {
           hasConflict: true,
-          message: `Ruangan Komunal tidak dapat dipesan karena Ballroom Sriwidjaya sedang digunakan untuk acara kapasitas besar (${bookedParticipants} Orang) pada jam tersebut.`,
+          message: `Layout 'Round Table' di Ruangan Komunal tidak dapat dipesan karena Ballroom Sriwidjaya sedang menggunakan 'Round Table' kapasitas besar (${bookedParticipants} orang) pada jam tersebut.`,
         };
       }
 
-      // 3. SEBALIKNYA: Jika user pesan Ballroom >= 450 orang, tetapi Komunal sudah terisi di jam yang sama
-      if (isTargetBallroom && targetParticipants >= 450 && isBookedKomunal) {
+      // 3. ATURAN 2: Jika user pesan Ballroom (Round Table) dengan kapasitas 200 - 250 orang, cek apakah Komunal Round Table sudah terisi
+      if (
+        isTargetBallroom &&
+        isTargetRoundTable &&
+        targetParticipants >= 200 &&
+        targetParticipants <= 250 &&
+        isBookedKomunal &&
+        isBookedRoundTable
+      ) {
         return {
           hasConflict: true,
           message:
-            "Ballroom dengan kapasitas besar (lebih dari 450 orang) tidak dapat dipesan karena Ruangan Komunal sudah terisi pada jam tersebut.",
+            "Ballroom dengan layout 'Round Table' (200 - 250 orang) tidak dapat dipesan karena Ruangan Komunal sudah terisi layout 'Round Table'.",
         };
       }
     }
