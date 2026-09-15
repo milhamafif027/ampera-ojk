@@ -200,11 +200,7 @@ function BookingFormContent({
     const checkConflict = async () => {
       setIsCheckingConflict(true);
       try {
-        const res = await fetch(
-          `/api/agendas?date=${formData.date}&room=${encodeURIComponent(
-            formData.roomName,
-          )}`,
-        );
+        const res = await fetch(`/api/agendas?date=${formData.date}`);
         const result = await res.json();
         if (!isCancelled && res.ok && Array.isArray(result.data)) {
           const activeBookings = result.data.filter(
@@ -230,7 +226,7 @@ function BookingFormContent({
     return () => {
       isCancelled = true;
     };
-  }, [formData.date, formData.roomName, editData?.id]);
+  }, [formData.date, editData?.id]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -259,26 +255,104 @@ function BookingFormContent({
     }
   };
 
-  const hasConflict = useMemo(() => {
+  // Validasi konflik reguler & aturan khusus Ballroom vs Komunal (Tanpa useMemo manual agar kompatibel dengan React Compiler)
+  const conflictDetails = (() => {
     if (
       !formData.startTime ||
       !formData.endTime ||
       existingBookings.length === 0
     ) {
-      return false;
+      return { hasConflict: false, message: null };
     }
 
-    return existingBookings.some((booking) => {
-      const rawBooking = booking as unknown as Record<string, string>;
-      const existingStart = rawBooking.start_time || "";
-      const existingEnd = rawBooking.end_time || "";
-      if (!existingStart || !existingEnd) return false;
+    const targetRoomLower = (formData.roomName || "").toLowerCase();
+    const isTargetBallroom = targetRoomLower.includes("ballroom");
+    const isTargetKomunal = targetRoomLower.includes("komunal");
+    const targetParticipants = Number(formData.total_participants) || 0;
+    const targetLayout = (formData.layout || "").toLowerCase();
 
-      return (
-        formData.startTime < existingEnd && formData.endTime > existingStart
-      );
-    });
-  }, [formData.startTime, formData.endTime, existingBookings]);
+    for (const booking of existingBookings) {
+      const rawBooking = booking as unknown as Record<string, unknown>;
+      const existingStart = (rawBooking.start_time as string) || "";
+      const existingEnd = (rawBooking.end_time as string) || "";
+
+      if (!existingStart || !existingEnd) continue;
+
+      const isTimeOverlap =
+        formData.startTime < existingEnd && formData.endTime > existingStart;
+      if (!isTimeOverlap) continue;
+
+      const bookedRoom = String(
+        rawBooking.room_name || rawBooking.room || "",
+      ).toLowerCase();
+      const bookedParticipants = Number(rawBooking.total_participants || 0);
+      const bookedLayout = String(rawBooking.layout || "").toLowerCase();
+
+      if (bookedRoom === targetRoomLower) {
+        return {
+          hasConflict: true,
+          message:
+            "Ruangan sudah terisi/dipesan pada rentang jam tersebut di tanggal ini.",
+        };
+      }
+
+      if (
+        isTargetKomunal &&
+        bookedRoom.includes("ballroom") &&
+        bookedParticipants >= 400
+      ) {
+        return {
+          hasConflict: true,
+          message:
+            "Ruangan Komunal tidak dapat dipesan karena kapasitas sedang dialokasikan penuh untuk acara Ballroom besar.",
+        };
+      }
+
+      if (
+        isTargetBallroom &&
+        targetParticipants >= 400 &&
+        bookedRoom.includes("komunal")
+      ) {
+        return {
+          hasConflict: true,
+          message:
+            "Ballroom dengan kapasitas penuh tidak dapat dipesan karena Ruangan Komunal sudah terisi pada jam tersebut.",
+        };
+      }
+
+      if (
+        isTargetKomunal &&
+        bookedRoom.includes("ballroom") &&
+        targetLayout.includes("round table") &&
+        bookedLayout.includes("round table") &&
+        bookedParticipants >= 200
+      ) {
+        return {
+          hasConflict: true,
+          message:
+            "Ruangan Komunal dengan layout 'Round Table' tidak dapat dipesan karena sedang digunakan untuk pendukung acara Ballroom.",
+        };
+      }
+
+      if (
+        isTargetBallroom &&
+        targetLayout.includes("round table") &&
+        targetParticipants >= 200 &&
+        bookedRoom.includes("komunal") &&
+        bookedLayout.includes("round table")
+      ) {
+        return {
+          hasConflict: true,
+          message:
+            "Ballroom dengan layout 'Round Table' tidak dapat dipesan karena Ruangan Komunal layout 'Round Table' sudah terisi.",
+        };
+      }
+    }
+
+    return { hasConflict: false, message: null };
+  })();
+  
+  const hasConflict = conflictDetails.hasConflict;
 
   const isStep1Valid = Boolean(
     formData.title.trim() &&
@@ -305,9 +379,10 @@ function BookingFormContent({
     if (hasConflict) {
       setCustomAlert({
         isOpen: true,
-        title: "Jadwal Bentrok!",
+        title: "Jadwal / Aturan Bentrok!",
         message:
-          "Ruangan sudah dipesan pada rentang waktu tersebut. Silakan tentukan jam lain.",
+          conflictDetails.message ||
+          "Ruangan tidak dapat dipesan pada ketentuan tersebut.",
         type: "error",
       });
       return;
@@ -684,8 +759,8 @@ function BookingFormContent({
               <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-2xl flex items-center gap-3 text-rose-700 dark:text-rose-400 text-xs font-semibold">
                 <AlertCircle size={18} className="shrink-0" />
                 <span>
-                  Ruangan sudah terisi/dipesan pada rentang jam tersebut di
-                  tanggal ini.
+                  {conflictDetails.message ||
+                    "Ruangan sudah terisi atau melanggar aturan alokasi kapasitas pada jam tersebut."}
                 </span>
               </div>
             )}
