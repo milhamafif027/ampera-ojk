@@ -91,6 +91,7 @@ function BookingFormContent({
   setCustomAlert,
   selectedRoom,
   editData,
+  agendas = [],
   rooms,
   currentUserRole,
   currentUserId,
@@ -100,6 +101,7 @@ function BookingFormContent({
   setCustomAlert: RoomBookingModalProps["setCustomAlert"];
   selectedRoom?: Room | null;
   editData?: Agenda | null;
+  agendas?: Agenda[];
   rooms: Room[];
   currentUserRole: string;
   currentUserId: number | null;
@@ -107,8 +109,22 @@ function BookingFormContent({
 }) {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [existingBookings, setExistingBookings] = useState<Agenda[]>([]);
+  const [fetchedBookings, setFetchedBookings] = useState<Agenda[]>([]);
   const [isCheckingConflict, setIsCheckingConflict] = useState(false);
+
+  // Gabungkan agenda dari props (jika ada) dan fetch API untuk memastikan data selalu up-to-date
+  const existingBookings = useMemo(() => {
+    const combined = [...agendas, ...fetchedBookings];
+    // Hilangkan duplikat berdasarkan ID
+    const unique = Array.from(
+      new Map(combined.map((item) => [item.id, item])).values(),
+    );
+    return unique.filter(
+      (item: any) =>
+        String(item.status || "").toLowerCase() !== "ditolak" &&
+        (!editData?.id || String(item.id) !== String(editData.id)),
+    );
+  }, [agendas, fetchedBookings, editData?.id]);
 
   const [formData, setFormData] = useState(() => {
     const agendaRecord = editData as unknown as Record<string, unknown> | null;
@@ -192,7 +208,7 @@ function BookingFormContent({
     return getRoomCapacity(currentRoom, formData.layout);
   }, [currentRoom, formData.layout]);
 
-  // Ambil seluruh data agenda secara aman untuk mendeteksi konflik silang antar ruangan
+  // Fetch cadangan data agenda dari database
   useEffect(() => {
     let isCancelled = false;
 
@@ -202,12 +218,7 @@ function BookingFormContent({
         const res = await fetch(`/api/agendas`);
         const result = await res.json();
         if (!isCancelled && res.ok && Array.isArray(result.data)) {
-          const activeBookings = result.data.filter(
-            (item: Agenda) =>
-              item.status !== "Ditolak" &&
-              (!editData?.id || String(item.id) !== String(editData.id)),
-          );
-          setExistingBookings(activeBookings);
+          setFetchedBookings(result.data);
         }
       } catch (error) {
         if (!isCancelled) {
@@ -225,7 +236,7 @@ function BookingFormContent({
     return () => {
       isCancelled = true;
     };
-  }, [editData?.id]);
+  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -254,7 +265,7 @@ function BookingFormContent({
     }
   };
 
-  // Validasi konflik reguler & aturan ketat Ballroom vs Komunal (Berdasarkan ID & Nama)
+  // Validasi Konflik Utama & Aturan Kapasitas Besar Ballroom (450 - 500 Orang) vs Komunal
   const conflictDetails = (() => {
     if (
       !formData.date ||
@@ -271,10 +282,11 @@ function BookingFormContent({
     const targetRoomId = String(formData.room_id || "");
     const targetRoomNameLower = (formData.roomName || "").toLowerCase();
 
-    // Identifikasi apakah target adalah Ballroom atau Komunal (berdasarkan ID atau nama)
-    // ID 11 = Ballroom Sriwidjaya, ID 12 = Komunal (berdasarkan gambar database Anda)
     const isTargetBallroom =
-      targetRoomId === "11" || targetRoomNameLower.includes("ballroom");
+      targetRoomId === "11" ||
+      targetRoomNameLower.includes("ballroom") ||
+      targetRoomNameLower.includes("sriwidjaya");
+
     const isTargetKomunal =
       targetRoomId === "12" || targetRoomNameLower.includes("komunal");
 
@@ -282,15 +294,14 @@ function BookingFormContent({
       const rawBooking = booking as unknown as Record<string, unknown>;
       const bookingDate = String(rawBooking.date || "").slice(0, 10);
 
-      const bookingStatus = String(rawBooking.status || "").toLowerCase();
-      if (bookingDate !== targetDate || bookingStatus === "ditolak") continue;
+      if (bookingDate !== targetDate) continue;
 
       const existingStart = String(rawBooking.start_time || "").slice(0, 5);
       const existingEnd = String(rawBooking.end_time || "").slice(0, 5);
 
       if (!existingStart || !existingEnd) continue;
 
-      // Cek irisan waktu
+      // Cek apakah jamnya beririsan
       const isTimeOverlap =
         targetStartTime < existingEnd && targetEndTime > existingStart;
       if (!isTimeOverlap) continue;
@@ -299,16 +310,22 @@ function BookingFormContent({
       const bookedRoomName = String(
         rawBooking.room_name || rawBooking.room || "",
       ).toLowerCase();
+      const bookedParticipants = Number(rawBooking.total_participants || 0);
 
       const isBookedBallroom =
-        bookedRoomId === "11" || bookedRoomName.includes("ballroom");
+        bookedRoomId === "11" ||
+        bookedRoomName.includes("ballroom") ||
+        bookedRoomName.includes("sriwidjaya");
+
       const isBookedKomunal =
         bookedRoomId === "12" || bookedRoomName.includes("komunal");
 
       // 1. Konflik reguler (ruangan yang sama persis di jam yang sama)
       if (
         bookedRoomId === targetRoomId ||
-        bookedRoomName === targetRoomNameLower
+        bookedRoomName === targetRoomNameLower ||
+        (isTargetBallroom && isBookedBallroom) ||
+        (isTargetKomunal && isBookedKomunal)
       ) {
         return {
           hasConflict: true,
@@ -317,21 +334,25 @@ function BookingFormContent({
         };
       }
 
-      // 2. ATURAN UTAMA: Jika Ballroom sudah dibooking, Komunal terkunci total di jam yang sama
-      if (isTargetKomunal && isBookedBallroom) {
+      // 2. ATURAN UTAMA: Jika Komunal ingin dipesan, tapi Ballroom sudah dibooking dengan kapasitas 450 - 500 orang
+      if (isTargetKomunal && isBookedBallroom && bookedParticipants >= 450) {
         return {
           hasConflict: true,
           message:
-            "Ruangan Komunal tidak dapat dipesan karena Ballroom Sriwidjaya sedang digunakan pada jam tersebut.",
+            "Ruangan Komunal tidak dapat dipesan karena Ballroom Sriwidjaya sedang digunakan untuk acara kapasitas besar (450 - 500 orang) pada jam tersebut.",
         };
       }
 
-      // 3. SEBALIKNYA: Jika Komunal sudah dibooking, Ballroom terkunci total di jam yang sama
-      if (isTargetBallroom && isBookedKomunal) {
+      // 3. SEBALIKNYA: Jika Ballroom ingin dipesan kapasitas besar (450 - 500 orang), tapi Komunal sudah terisi
+      if (
+        isTargetBallroom &&
+        Number(formData.total_participants || 0) >= 450 &&
+        isBookedKomunal
+      ) {
         return {
           hasConflict: true,
           message:
-            "Ballroom Sriwidjaya tidak dapat dipesan karena Ruangan Komunal sedang digunakan pada jam tersebut.",
+            "Ballroom dengan kapasitas besar (450 - 500 orang) tidak dapat dipesan karena Ruangan Komunal sudah terisi pada jam tersebut.",
         };
       }
     }
@@ -831,6 +852,7 @@ export default function RoomBookingModal({
   setCustomAlert,
   selectedRoom,
   editData,
+  agendas = [],
   rooms = [],
   onSuccess,
 }: RoomBookingModalProps) {
@@ -901,6 +923,7 @@ export default function RoomBookingModal({
           setCustomAlert={setCustomAlert}
           selectedRoom={selectedRoom}
           editData={editData}
+          agendas={agendas}
           rooms={rooms}
           currentUserRole={localUserData.role}
           currentUserId={localUserData.id}
