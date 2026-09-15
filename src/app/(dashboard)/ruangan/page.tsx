@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Users,
 } from "lucide-react";
 
 interface LocalUser {
@@ -32,6 +33,7 @@ export default function RuanganPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [agendas, setAgendas] = useState<Agenda[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterCapacity, setFilterCapacity] = useState<number | "">(""); // State baru untuk filter jumlah orang
   const [isLoading, setIsLoading] = useState(true);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -167,13 +169,28 @@ export default function RuanganPage() {
     return [...rooms].sort((a, b) => a.name.localeCompare(b.name));
   }, [rooms]);
 
+  // Logika Filter Ruangan Berdasarkan Nama dan Jumlah Orang (Kapasitas)
   const filteredRooms = useMemo(() => {
-    return sortedRooms.filter(
-      (r) =>
+    return sortedRooms.filter((r) => {
+      const matchesSearch =
         r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.capacity.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
-  }, [sortedRooms, searchTerm]);
+        r.capacity.toLowerCase().includes(searchTerm.toLowerCase());
+
+      let matchesCapacity = true;
+      if (filterCapacity !== "" && r.capacity) {
+        const numbers = String(r.capacity).match(/\d+/g);
+        if (numbers && numbers.length > 0) {
+          const maxCapacity = Math.max(...numbers.map(Number));
+          const minCapacity = Math.min(...numbers.map(Number));
+          matchesCapacity =
+            Number(filterCapacity) <= maxCapacity &&
+            Number(filterCapacity) >= minCapacity;
+        }
+      }
+
+      return matchesSearch && matchesCapacity;
+    });
+  }, [sortedRooms, searchTerm, filterCapacity]);
 
   const conferenceRooms = useMemo(
     () =>
@@ -471,19 +488,40 @@ export default function RuanganPage() {
         </div>
       </div>
 
-      {/* SEARCH BAR */}
-      <div className="relative w-full max-w-md">
-        <Search
-          size={16}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-        />
-        <input
-          type="text"
-          placeholder="Cari nama ruangan atau kapasitas..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100 shadow-sm"
-        />
+      {/* FILTER & SEARCH BAR */}
+      <div className="flex flex-col sm:flex-row items-center gap-3">
+        <div className="relative w-full sm:w-80">
+          <Search
+            size={16}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+          />
+          <input
+            type="text"
+            placeholder="Cari nama ruangan..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100 shadow-sm"
+          />
+        </div>
+
+        <div className="relative w-full sm:w-56">
+          <Users
+            size={16}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+          />
+          <input
+            type="number"
+            min="1"
+            placeholder="Filter Jumlah Orang..."
+            value={filterCapacity}
+            onChange={(e) =>
+              setFilterCapacity(
+                e.target.value === "" ? "" : Number(e.target.value),
+              )
+            }
+            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100 shadow-sm"
+          />
+        </div>
       </div>
 
       {/* SECTION 1: RUANGAN PERTEMUAN */}
@@ -520,7 +558,7 @@ export default function RuanganPage() {
             ))
           ) : (
             <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
-              Tidak ada data ruangan pertemuan di database.
+              Tidak ada data ruangan pertemuan yang sesuai dengan filter.
             </div>
           )}
         </div>
@@ -560,7 +598,7 @@ export default function RuanganPage() {
             ))
           ) : (
             <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
-              Tidak ada data ruangan rapat di database.
+              Tidak ada data ruangan rapat yang sesuai dengan filter.
             </div>
           )}
         </div>
