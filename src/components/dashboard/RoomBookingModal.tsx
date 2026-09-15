@@ -355,7 +355,7 @@ function BookingFormContent({
         return {
           hasConflict: true,
           message:
-            "Ballroom dengan kapasitas besar (>= 450 orang) tidak dapat dipesan karena Ruangan Komunal sudah terisi pada jam tersebut.",
+            "Ballroom dengan kapasitas besar (lebih dari 450 orang) tidak dapat dipesan karena Ruangan Komunal sudah terisi pada jam tersebut.",
         };
       }
     }

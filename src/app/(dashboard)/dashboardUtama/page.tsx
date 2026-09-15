@@ -953,16 +953,6 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
                 </div>
               </div>
             </div>
-
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setDetailModal({ isOpen: false, data: null })}
-                className="px-6 py-2.5 rounded-xl text-xs font-bold bg-[#9f1521] hover:bg-[#7a1019] text-white transition-colors cursor-pointer shadow-sm"
-              >
-                Tutup Informasi
-              </button>
-            </div>
           </motion.div>
         </div>
       )}
