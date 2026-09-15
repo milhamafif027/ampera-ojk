@@ -64,7 +64,7 @@ export default function PanduanSection() {
             </div>
             <div>
               <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                Panduan System & SOP
+                Panduan Sistem 
               </h2>
               <p className="text-xs text-slate-500 font-medium">
                 Sistem Operasional AMPERA — OJK Provinsi Sumatera Selatan
@@ -78,7 +78,7 @@ export default function PanduanSection() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/10 shrink-0 cursor-pointer"
           >
-            <Download size={15} /> Unduh PDF SOP
+            <Download size={15} /> Unduh PDF Panduan
           </a>
         </div>
 
@@ -175,7 +175,7 @@ export default function PanduanSection() {
               </div>
               <div>
                 <h3 className="font-bold text-slate-800 text-base">
-                  Dokumen SOP Resmi OJK Sumsel
+                  Dokumen Panduan Ampera OJK Sumsel
                 </h3>
                 <p className="text-xs text-slate-400">
                   Standar Operasional Prosedur Pengelolaan Fasilitas
@@ -189,7 +189,7 @@ export default function PanduanSection() {
               <BookOpen size={24} className="text-[#9f1521] shrink-0" />
               <div>
                 <p className="text-xs font-bold text-slate-800">
-                  SOP Peminjaman Ruang & Kendaraan Dinas.pdf
+                  Panduan Peminjaman Ruang & Kendaraan Dinas.pdf
                 </p>
                 <p className="text-[10px] text-slate-400">
                   Dokumen Regulasi Internal Kantor OJK Prov. Sumsel
