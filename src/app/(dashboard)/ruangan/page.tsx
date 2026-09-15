@@ -169,7 +169,6 @@ export default function RuanganPage() {
     return [...rooms].sort((a, b) => a.name.localeCompare(b.name));
   }, [rooms]);
 
-  // Logika Filter Ruangan Berdasarkan Nama dan Jumlah Orang (Kapasitas)
   const filteredRooms = useMemo(() => {
     return sortedRooms.filter((r) => {
       const matchesSearch =
@@ -180,11 +179,10 @@ export default function RuanganPage() {
       if (filterCapacity !== "" && r.capacity) {
         const numbers = String(r.capacity).match(/\d+/g);
         if (numbers && numbers.length > 0) {
+          // Mengambil kapasitas maksimal dari ruangan
           const maxCapacity = Math.max(...numbers.map(Number));
-          const minCapacity = Math.min(...numbers.map(Number));
-          matchesCapacity =
-            Number(filterCapacity) <= maxCapacity &&
-            Number(filterCapacity) >= minCapacity;
+
+          matchesCapacity = maxCapacity >= Number(filterCapacity);
         }
       }
 
