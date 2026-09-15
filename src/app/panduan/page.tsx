@@ -7,7 +7,6 @@ import {
   ChevronDown,
   FileText,
   HelpCircle,
-  ArrowLeft,
   Download,
   Building,
   Car,
@@ -65,7 +64,7 @@ export default function PanduanSection() {
             </div>
             <div>
               <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                Panduan System & SOP
+                Panduan Sistem 
               </h2>
               <p className="text-xs text-slate-500 font-medium">
                 Sistem Operasional AMPERA — OJK Provinsi Sumatera Selatan
@@ -77,9 +76,9 @@ export default function PanduanSection() {
             href="/Eksternal-PANDUAN PENGGUNAAN APLIKASI PORTAL AMPERA OJK SUMSEL.pdf"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/10 shrink-0"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/10 shrink-0 cursor-pointer"
           >
-            <Download size={15} /> Unduh PDF SOP
+            <Download size={15} /> Unduh PDF Panduan
           </a>
         </div>
 
@@ -138,6 +137,7 @@ export default function PanduanSection() {
                   <button
                     onClick={() => toggleAccordion(idx)}
                     className="w-full p-4 text-left flex items-center justify-between gap-4 cursor-pointer"
+                    type="button"
                   >
                     <div className="flex items-center gap-3">
                       <div
@@ -175,7 +175,7 @@ export default function PanduanSection() {
               </div>
               <div>
                 <h3 className="font-bold text-slate-800 text-base">
-                  Dokumen SOP Resmi OJK Sumsel
+                  Dokumen panduan penggunaan ampera OJK Sumsel
                 </h3>
                 <p className="text-xs text-slate-400">
                   Standar Operasional Prosedur Pengelolaan Fasilitas
@@ -189,7 +189,7 @@ export default function PanduanSection() {
               <BookOpen size={24} className="text-[#9f1521] shrink-0" />
               <div>
                 <p className="text-xs font-bold text-slate-800">
-                  SOP Peminjaman Ruang & Kendaraan Dinas.pdf
+                  Panduan Peminjaman Ruang & Kendaraan Dinas.pdf
                 </p>
                 <p className="text-[10px] text-slate-400">
                   Dokumen Regulasi Internal Kantor OJK Prov. Sumsel
@@ -197,10 +197,10 @@ export default function PanduanSection() {
               </div>
             </div>
             <a
-              href="\Eksternal-PANDUAN PENGGUNAAN APLIKASI PORTAL AMPERA OJK SUMSEL (1).pdf"
+              href="/Eksternal-PANDUAN PENGGUNAAN APLIKASI PORTAL AMPERA OJK SUMSEL.pdf"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-colors shadow-sm shrink-0"
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-colors shadow-sm shrink-0 cursor-pointer"
             >
               Buka Dokumen
             </a>
