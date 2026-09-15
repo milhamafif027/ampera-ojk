@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 2. POST: Tambah reservasi (1 Record utuh untuk multi-hari & Eksternal Pending)
+// 2. POST: Tambah reservasi dengan aturan ketat Ballroom vs Komunal
 export async function POST(request: NextRequest) {
   try {
     const authUser = await getAuthenticatedUser(request);
@@ -101,6 +101,13 @@ export async function POST(request: NextRequest) {
         ? end_date.slice(0, 10)
         : cleanStartDate;
 
+    const participantsNum = Number(total_participants) || 1;
+    const targetRoomLower = (room_name || "").toLowerCase();
+    const isTargetBallroom =
+      targetRoomLower.includes("ballroom") ||
+      targetRoomLower.includes("sriwidjaya");
+    const isTargetKomunal = targetRoomLower.includes("komunal");
+
     // Evaluasi Role Pemohon: Eksternal WAJIB "Pending"
     const effectiveRole = (
       authUser?.role ||
@@ -116,23 +123,64 @@ export async function POST(request: NextRequest) {
 
     const finalStatus = isAutoApprove ? "Disetujui" : "Pending";
 
-    // Pengecekan Bentrok Jadwal di Database
-    const conflicts: any = await db.$queryRaw`
-      SELECT id FROM agendas 
-      WHERE room_name = ${room_name} 
-        AND status != 'Ditolak'
-        AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
-        AND (start_time < ${end_time} AND end_time > ${start_time})
-      LIMIT 1
-    `;
+    // =========================================================================
+    // PENGECEKAN BENTROK JADWAL & ATURAN SILANG (BALLROOM VS KOMUNAL) DI DATABASE
+    // =========================================================================
+    let conflictQuery;
+
+    if (isTargetKomunal) {
+      // Jika memesan Komunal, cek apakah Komunal terisi ATAU Ballroom terisi dengan peserta >= 450 di jam yang sama
+      conflictQuery = await db.$queryRaw`
+        SELECT id FROM agendas 
+        WHERE status != 'Ditolak'
+          AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
+          AND (start_time < ${end_time} AND end_time > ${start_time})
+          AND (
+            LOWER(room_name) LIKE '%komunal%' 
+            OR (LOWER(room_name) LIKE '%ballroom%' AND total_participants >= 450)
+          )
+        LIMIT 1
+      `;
+    } else if (isTargetBallroom && participantsNum >= 450) {
+      // Jika memesan Ballroom >= 450 orang, cek apakah Ballroom terisi ATAU Komunal terisi di jam yang sama
+      conflictQuery = await db.$queryRaw`
+        SELECT id FROM agendas 
+        WHERE status != 'Ditolak'
+          AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
+          AND (start_time < ${end_time} AND end_time > ${start_time})
+          AND (
+            LOWER(room_name) LIKE '%ballroom%' 
+            OR LOWER(room_name) LIKE '%komunal%'
+          )
+        LIMIT 1
+      `;
+    } else {
+      // Pengecekan standar untuk ruangan reguler lainnya atau Ballroom < 450 orang
+      conflictQuery = await db.$queryRaw`
+        SELECT id FROM agendas 
+        WHERE room_name = ${room_name} 
+          AND status != 'Ditolak'
+          AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
+          AND (start_time < ${end_time} AND end_time > ${start_time})
+        LIMIT 1
+      `;
+    }
+
+    const conflicts: any = conflictQuery;
 
     if (conflicts.length > 0) {
+      let customMessage =
+        "Jadwal bentrok! Ruangan sudah terisi pada rentang tanggal dan jam tersebut.";
+      if (isTargetKomunal) {
+        customMessage =
+          "Ruangan Komunal tidak dapat dipesan karena Ballroom Sriwidjaya sedang digunakan untuk acara kapasitas besar (>= 450 orang) pada jam tersebut.";
+      } else if (isTargetBallroom && participantsNum >= 450) {
+        customMessage =
+          "Ballroom dengan kapasitas besar (>= 450 orang) tidak dapat dipesan karena Ruangan Komunal atau Ballroom lain sudah terisi pada jam tersebut.";
+      }
+
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Jadwal bentrok! Ruangan sudah terisi pada rentang tanggal dan jam tersebut.",
-        },
+        { success: false, message: customMessage },
         { status: 400 },
       );
     }
@@ -142,7 +190,7 @@ export async function POST(request: NextRequest) {
         ? `tanggal ${cleanStartDate}`
         : `tanggal ${cleanStartDate} s.d. ${finalEndDate}`;
 
-    // Eksekusi mutasi sebagai 1 record utuh (Single Card di dashboard admin)
+    // Eksekusi mutasi sebagai 1 record utuh
     const insertedId = await db.$transaction(async (tx) => {
       const insertResult: any = await tx.$queryRaw`
         INSERT INTO agendas 
@@ -152,7 +200,7 @@ export async function POST(request: NextRequest) {
           ${pic || authUser?.name || "Pemohon"}, 
           ${dept || authUser?.dept || "-"}, 
           ${phone || null}, 
-          ${Number(total_participants) || 1}, 
+          ${participantsNum}, 
           ${meeting_leader || "-"}, 
           ${room_id ? Number(room_id) : null}, 
           ${room_name}, 
@@ -170,7 +218,7 @@ export async function POST(request: NextRequest) {
 
       const id = insertResult[0]?.id;
 
-      // Notifikasi Admin (Hanya 1 kartu notifikasi)
+      // Notifikasi Admin
       const adminNotifTitle =
         finalStatus === "Disetujui"
           ? "Reservasi Otomatis (Internal/Admin)"
@@ -371,7 +419,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Agenda berhasil dihapus.",
+      message: "Agenda berhasil diperbarui / dihapus.",
     });
   } catch (error: any) {
     console.error("API DELETE AGENDAS ERROR:", error);

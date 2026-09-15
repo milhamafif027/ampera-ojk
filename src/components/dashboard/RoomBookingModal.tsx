@@ -112,10 +112,9 @@ function BookingFormContent({
   const [fetchedBookings, setFetchedBookings] = useState<Agenda[]>([]);
   const [isCheckingConflict, setIsCheckingConflict] = useState(false);
 
-  // Gabungkan agenda dari props (jika ada) dan fetch API untuk memastikan data selalu up-to-date
-  const existingBookings = useMemo(() => {
+  // Gabungkan agenda secara bersih tanpa useMemo manual agar bebas dari warning React Compiler
+  const existingBookings = (() => {
     const combined = [...agendas, ...fetchedBookings];
-    // Hilangkan duplikat berdasarkan ID
     const unique = Array.from(
       new Map(combined.map((item) => [item.id, item])).values(),
     );
@@ -124,7 +123,7 @@ function BookingFormContent({
         String(item.status || "").toLowerCase() !== "ditolak" &&
         (!editData?.id || String(item.id) !== String(editData.id)),
     );
-  }, [agendas, fetchedBookings, editData?.id]);
+  })();
 
   const [formData, setFormData] = useState(() => {
     const agendaRecord = editData as unknown as Record<string, unknown> | null;
@@ -208,7 +207,7 @@ function BookingFormContent({
     return getRoomCapacity(currentRoom, formData.layout);
   }, [currentRoom, formData.layout]);
 
-  // Fetch cadangan data agenda dari database
+  // Fetch seluruh data agenda dari database saat modal dibuka
   useEffect(() => {
     let isCancelled = false;
 
@@ -265,7 +264,7 @@ function BookingFormContent({
     }
   };
 
-  // Validasi Konflik Utama & Aturan Kapasitas Besar Ballroom (450 - 500 Orang) vs Komunal
+  // Validasi Konflik Utama: Ballroom >= 450 orang mengunci Komunal secara mutlak di jam yang sama
   const conflictDetails = (() => {
     if (
       !formData.date ||
@@ -281,6 +280,15 @@ function BookingFormContent({
     const targetEndTime = formData.endTime;
     const targetRoomId = String(formData.room_id || "");
     const targetRoomNameLower = (formData.roomName || "").toLowerCase();
+
+    // Helper untuk mengubah string peserta ("500 Orang") menjadi angka murni (500)
+    const parseNum = (val: any) => {
+      if (typeof val === "number") return val;
+      const clean = String(val || "0").replace(/[^0-9]/g, "");
+      return Number(clean) || 0;
+    };
+
+    const targetParticipants = parseNum(formData.total_participants);
 
     const isTargetBallroom =
       targetRoomId === "11" ||
@@ -301,7 +309,7 @@ function BookingFormContent({
 
       if (!existingStart || !existingEnd) continue;
 
-      // Cek apakah jamnya beririsan
+      // Cek irisan waktu (Time Overlap)
       const isTimeOverlap =
         targetStartTime < existingEnd && targetEndTime > existingStart;
       if (!isTimeOverlap) continue;
@@ -310,7 +318,7 @@ function BookingFormContent({
       const bookedRoomName = String(
         rawBooking.room_name || rawBooking.room || "",
       ).toLowerCase();
-      const bookedParticipants = Number(rawBooking.total_participants || 0);
+      const bookedParticipants = parseNum(rawBooking.total_participants);
 
       const isBookedBallroom =
         bookedRoomId === "11" ||
@@ -320,7 +328,7 @@ function BookingFormContent({
       const isBookedKomunal =
         bookedRoomId === "12" || bookedRoomName.includes("komunal");
 
-      // 1. Konflik reguler (ruangan yang sama persis di jam yang sama)
+      // 1. Konflik reguler (pesan ruangan yang sama persis di jam yang sama)
       if (
         bookedRoomId === targetRoomId ||
         bookedRoomName === targetRoomNameLower ||
@@ -334,25 +342,20 @@ function BookingFormContent({
         };
       }
 
-      // 2. ATURAN UTAMA: Jika Komunal ingin dipesan, tapi Ballroom sudah dibooking dengan kapasitas 450 - 500 orang
+      // 2. ATURAN UTAMA: Jika user pesan Komunal, tetapi Ballroom sudah dibooking dengan kapasitas >= 450 orang
       if (isTargetKomunal && isBookedBallroom && bookedParticipants >= 450) {
         return {
           hasConflict: true,
-          message:
-            "Ruangan Komunal tidak dapat dipesan karena Ballroom Sriwidjaya sedang digunakan untuk acara kapasitas besar (450 - 500 orang) pada jam tersebut.",
+          message: `Ruangan Komunal tidak dapat dipesan karena Ballroom Sriwidjaya sedang digunakan untuk acara kapasitas besar (${bookedParticipants} Orang) pada jam tersebut.`,
         };
       }
 
-      // 3. SEBALIKNYA: Jika Ballroom ingin dipesan kapasitas besar (450 - 500 orang), tapi Komunal sudah terisi
-      if (
-        isTargetBallroom &&
-        Number(formData.total_participants || 0) >= 450 &&
-        isBookedKomunal
-      ) {
+      // 3. SEBALIKNYA: Jika user pesan Ballroom >= 450 orang, tetapi Komunal sudah terisi di jam yang sama
+      if (isTargetBallroom && targetParticipants >= 450 && isBookedKomunal) {
         return {
           hasConflict: true,
           message:
-            "Ballroom dengan kapasitas besar (450 - 500 orang) tidak dapat dipesan karena Ruangan Komunal sudah terisi pada jam tersebut.",
+            "Ballroom dengan kapasitas besar (>= 450 orang) tidak dapat dipesan karena Ruangan Komunal sudah terisi pada jam tersebut.",
         };
       }
     }
