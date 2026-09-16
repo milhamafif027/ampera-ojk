@@ -23,6 +23,7 @@ import {
   Loader2,
   Pencil,
   Save,
+  Eye,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -38,6 +39,7 @@ type ExtendedAgenda = Agenda & {
   endDate?: string;
   start_time?: string;
   end_time?: string;
+  notes?: string;
   [key: string]: any;
 };
 
@@ -55,6 +57,7 @@ interface RawAgendaResponse {
   dept?: string;
   layout?: string;
   status?: string;
+  notes?: string;
 }
 
 interface AgendaFormData {
@@ -136,6 +139,7 @@ function mapAgendaRecord(item: RawAgendaResponse): ExtendedAgenda {
     dept: item.dept || "OJK Sumsel",
     layout: item.layout || "-",
     status: (item.status as StatusPengajuan) || "Pending",
+    notes: item.notes || "",
   };
 
   return {
@@ -167,6 +171,7 @@ export default function AgendaPage() {
 
   const [isExporting, setIsExporting] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
@@ -186,6 +191,14 @@ export default function AgendaPage() {
     data: null,
   });
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+
+  const [detailModal, setDetailModal] = useState<{
+    isOpen: boolean;
+    data: ExtendedAgenda | null;
+  }>({
+    isOpen: false,
+    data: null,
+  });
 
   const isAdmin = user?.role === "admin";
 
@@ -339,7 +352,7 @@ export default function AgendaPage() {
       csvContent += `"KANTOR OJK PROVINSI SUMATERA SELATAN"\n`;
       csvContent += `"LAPORAN REKAPITULASI AGENDA & KEGIATAN RUANGAN"\n`;
       csvContent += `"Tanggal Cetak: ${currentDate} | Filter Status: ${statusFilter} | Filter Ruangan: ${roomFilter} | Filter Tahun: ${yearFilter} | Filter Bulan: ${monthFilter}"\n\n`;
-      csvContent += `"No","Tanggal Pelaksanaan","Waktu","Nama Kegiatan / Acara","Penanggung Jawab (PIC)","Satuan Kerja (Satker)","Ruangan","Tata Letak","Status Pengajuan"\n`;
+      csvContent += `"No","Tanggal Pelaksanaan","Waktu","Nama Kegiatan / Acara","Penanggung Jawab (PIC)","Satuan Kerja (Satker)","Ruangan","Tata Letak","Status Pengajuan","Catatan"\n`;
 
       filteredAgendas.forEach((a, index) => {
         const dateFormatted = formatAgendaDate(a.date, a.endDate);
@@ -353,6 +366,7 @@ export default function AgendaPage() {
           `"${(a.room || "").replace(/"/g, '""')}"`,
           `"${(a.layout || "-").replace(/"/g, '""')}"`,
           a.smartStatus,
+          `"${(a.notes || "").replace(/"/g, '""')}"`,
         ];
         csvContent += row.join(",") + "\n";
       });
@@ -444,6 +458,7 @@ export default function AgendaPage() {
         "Ruangan",
         "Layout",
         "Status",
+        "Catatan",
       ];
       const tableRows = filteredAgendas.map((item, index) => [
         index + 1,
@@ -453,6 +468,7 @@ export default function AgendaPage() {
         item.room,
         item.layout || "-",
         item.smartStatus,
+        item.notes || "-",
       ]);
 
       autoTable(doc, {
@@ -468,9 +484,9 @@ export default function AgendaPage() {
         },
         bodyStyles: { fontSize: 8, textColor: [30, 30, 30] },
         columnStyles: {
-          0: { halign: "center", cellWidth: 12 },
-          1: { cellWidth: 42 },
-          6: { halign: "center", cellWidth: 32 },
+          0: { halign: "center", cellWidth: 10 },
+          1: { cellWidth: 38 },
+          6: { halign: "center", cellWidth: 26 },
         },
         didDrawPage: () => {
           doc.setFontSize(8);
@@ -543,6 +559,37 @@ export default function AgendaPage() {
       alert("Gagal menghubungi server untuk menghapus agenda.");
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  const handleCancelAgenda = async (agendaId: string) => {
+    if (
+      !confirm("Apakah Anda yakin ingin membatalkan kegiatan/reservasi ini?")
+    ) {
+      return;
+    }
+
+    try {
+      setIsCancelling(true);
+      const res = await fetch(`/api/agendas?id=${agendaId}`, {
+        method: "DELETE",
+      });
+
+      const result = await res.json();
+      if (res.ok) {
+        alert("Kegiatan berhasil dibatalkan.");
+        setDetailModal({ isOpen: false, data: null });
+        await fetchAgendas();
+      } else {
+        alert(
+          `Gagal membatalkan kegiatan: ${result.message || "Terjadi kesalahan"}`,
+        );
+      }
+    } catch (error) {
+      console.error("Error cancelling agenda:", error);
+      alert("Terjadi kesalahan saat menghubungi server.");
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -763,7 +810,7 @@ export default function AgendaPage() {
                 <th className="p-4">PIC / Satker</th>
                 <th className="p-4">Ruangan</th>
                 <th className="p-4 text-center">Status</th>
-                {isAdmin && <th className="p-4 text-center">Aksi</th>}
+                <th className="p-4 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
@@ -832,23 +879,32 @@ export default function AgendaPage() {
                       </span>
                     </td>
 
-                    {isAdmin && (
-                      <td className="p-4 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {item.smartStatus === "Pending" && (
-                            <button
-                              onClick={() => handleApprove(item.id)}
-                              disabled={actionLoadingId === item.id}
-                              className="p-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                              title="Setujui Agenda"
-                            >
-                              {actionLoadingId === item.id ? (
-                                <Loader2 size={15} className="animate-spin" />
-                              ) : (
-                                <CheckCircle2 size={15} />
-                              )}
-                            </button>
-                          )}
+                    <td className="p-4 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() =>
+                            setDetailModal({ isOpen: true, data: item })
+                          }
+                          className="p-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 rounded-lg transition-colors cursor-pointer"
+                          title="Lihat Detail"
+                        >
+                          <Eye size={15} />
+                        </button>
+                        {isAdmin && item.smartStatus === "Pending" && (
+                          <button
+                            onClick={() => handleApprove(item.id)}
+                            disabled={actionLoadingId === item.id}
+                            className="p-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            title="Setujui Agenda"
+                          >
+                            {actionLoadingId === item.id ? (
+                              <Loader2 size={15} className="animate-spin" />
+                            ) : (
+                              <CheckCircle2 size={15} />
+                            )}
+                          </button>
+                        )}
+                        {isAdmin && (
                           <button
                             onClick={() => openEditModal(item)}
                             className="p-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 rounded-lg transition-colors cursor-pointer"
@@ -856,6 +912,8 @@ export default function AgendaPage() {
                           >
                             <Pencil size={15} />
                           </button>
+                        )}
+                        {isAdmin && (
                           <button
                             onClick={() => openDeleteModal(item.id, item.title)}
                             disabled={actionLoadingId === item.id}
@@ -864,15 +922,15 @@ export default function AgendaPage() {
                           >
                             <Trash2 size={15} />
                           </button>
-                        </div>
-                      </td>
-                    )}
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 6 : 5}
+                    colSpan={6}
                     className="p-8 text-center text-xs text-slate-400 font-medium italic"
                   >
                     Tidak ditemukan data agenda yang sesuai dengan kriteria
@@ -885,7 +943,129 @@ export default function AgendaPage() {
         </div>
       </div>
 
-      {/* 4. MODAL EDIT AGENDA (KHUSUS ADMIN) */}
+      {/* 4. MODAL DETAIL AGENDA */}
+      {detailModal.isOpen && detailModal.data && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-lg w-full shadow-2xl space-y-4 my-auto"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
+                  INFORMASI DETAIL KEGIATAN
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-0.5">
+                  Detail Rapat & Agenda
+                </h3>
+              </div>
+              <button
+                onClick={() => setDetailModal({ isOpen: false, data: null })}
+                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 text-xs">
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
+                    Nama Kegiatan:
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold text-right">
+                    {detailModal.data?.title || "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
+                    Tanggal Pelaksanaan:
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {formatAgendaDate(
+                      detailModal.data?.date,
+                      detailModal.data?.endDate,
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
+                    Waktu Acara:
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {detailModal.data?.time || "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
+                    Ruangan Dipilih:
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {detailModal.data?.room || "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
+                    Tata Letak (Layout):
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {detailModal.data?.layout || "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
+                    Penanggung Jawab (PIC):
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {detailModal.data?.pic || "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
+                    Satuan Kerja (Satker):
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {detailModal.data?.dept || "-"}
+                  </span>
+                </div>
+
+                {/* BARIS CATATAN / REQUEST TAMBAHAN */}
+                <div className="flex justify-between items-start pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <span className="text-slate-500 font-medium">
+                    Catatan / Request:
+                  </span>
+                  <span className="text-slate-800 dark:text-slate-200 font-medium text-right max-w-[240px] italic">
+                    {detailModal.data?.notes || "Tidak ada catatan tambahan."}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+              {detailModal.data?.status !== "Ditolak" && (
+                <button
+                  type="button"
+                  disabled={isCancelling}
+                  onClick={() => handleCancelAgenda(detailModal.data!.id)}
+                  className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-900 rounded-xl text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isCancelling ? "Membatalkan..." : "Batalkan Kegiatan"}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setDetailModal({ isOpen: false, data: null })}
+                className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* 5. MODAL EDIT AGENDA (KHUSUS ADMIN) */}
       {editModal.isOpen && editModal.data && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
@@ -1175,7 +1355,7 @@ export default function AgendaPage() {
         </div>
       )}
 
-      {/* 5. MODAL KONFIRMASI HAPUS AGENDA */}
+      {/* 6. MODAL KONFIRMASI HAPUS AGENDA */}
       {deleteModal.isOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
