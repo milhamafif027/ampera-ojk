@@ -812,7 +812,157 @@ export default function KendaraanPage() {
       </div>
 
       {/* MODAL TAMBAH / EDIT KENDARAAN (KHUSUS ADMIN) */}
-      {/* ... [SAMA SEPERTI SEBELUMNYA] ... */}
+      {isAddVehicleModalOpen && isAdmin && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl flex flex-col my-auto"
+          >
+            <div className="px-6 py-5 bg-slate-900 text-white flex justify-between items-center">
+              <h3 className="font-bold text-base">
+                {editingVehicleId
+                  ? "Edit Data Kendaraan"
+                  : "Tambah Armada Kendaraan Baru"}
+              </h3>
+              <button
+                onClick={() => setIsAddVehicleModalOpen(false)}
+                disabled={isSubmitting}
+                className="p-1 hover:bg-white/20 rounded-full cursor-pointer disabled:opacity-50"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleAddOrUpdateVehicleSubmit}
+              className="p-6 space-y-4 text-xs font-medium text-slate-800 dark:text-slate-100 max-h-[70vh] overflow-y-auto custom-scrollbar"
+            >
+              <div>
+                <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
+                  Nama Kendaraan / Model
+                </label>
+                <input
+                  type="text"
+                  value={newVehicleData.name}
+                  onChange={(e) =>
+                    setNewVehicleData({
+                      ...newVehicleData,
+                      name: e.target.value,
+                    })
+                  }
+                  disabled={isSubmitting}
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none disabled:opacity-50"
+                  placeholder="Contoh: Toyota Fortuner VRZ"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
+                    Nomor Plat
+                  </label>
+                  <input
+                    type="text"
+                    value={newVehicleData.plate_number}
+                    onChange={(e) =>
+                      setNewVehicleData({
+                        ...newVehicleData,
+                        plate_number: e.target.value,
+                      })
+                    }
+                    disabled={isSubmitting}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none disabled:opacity-50"
+                    placeholder="Contoh: BG 1025 OJK"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
+                    Kapasitas / Jenis
+                  </label>
+                  <input
+                    type="text"
+                    value={newVehicleData.type}
+                    onChange={(e) =>
+                      setNewVehicleData({
+                        ...newVehicleData,
+                        type: e.target.value,
+                      })
+                    }
+                    disabled={isSubmitting}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none disabled:opacity-50"
+                    placeholder="Contoh: 7 Penumpang / Sepeda Motor"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
+                    Status Kendaraan
+                  </label>
+                  <select
+                    value={newVehicleData.status}
+                    onChange={(e) =>
+                      setNewVehicleData({
+                        ...newVehicleData,
+                        status: e.target.value,
+                      })
+                    }
+                    disabled={isSubmitting}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none cursor-pointer disabled:opacity-50"
+                  >
+                    <option value="Tersedia">Tersedia</option>
+                    <option value="Terpakai">Terpakai</option>
+                    <option value="Perawatan">Perawatan</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
+                    Kategori Kendaraan
+                  </label>
+                  <select
+                    value={newVehicleData.category}
+                    onChange={(e) =>
+                      setNewVehicleData({
+                        ...newVehicleData,
+                        category: e.target.value,
+                      })
+                    }
+                    disabled={isSubmitting}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none cursor-pointer disabled:opacity-50"
+                  >
+                    <option value="Operasional">Operasional</option>
+                    <option value="Khusus Pimpinan">Khusus Pimpinan</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-3 flex flex-col sm:flex-row justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddVehicleModalOpen(false)}
+                  disabled={isSubmitting}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold cursor-pointer disabled:opacity-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full sm:w-auto px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 cursor-pointer disabled:opacity-50"
+                >
+                  {isSubmitting ? "Menyimpan..." : "Simpan Kendaraan"}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
 
       {/* MODAL PLOTTING & VERIFIKASI ADMIN */}
       {approvalModal.isOpen && isAdmin && (
@@ -1038,7 +1188,7 @@ export default function KendaraanPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleSubmit}
-        vehicles={vehicles} // Optional, bisa diubah di komponen modal jika tidak ingin render list sama sekali
+        vehicles={vehicles}
         formData={formData}
         setFormData={setFormData}
         isSubmitting={isSubmitting}
