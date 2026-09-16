@@ -24,6 +24,7 @@ import { motion, animate } from "framer-motion";
 
 interface ExtendedAgenda extends Agenda {
   endDate?: string;
+  notes?: string;
 }
 
 interface LocalUser {
@@ -133,7 +134,7 @@ export default function DashboardPage() {
             status: item.status || "Pending",
             total_participants: item.total_participants || 1,
             meeting_leader: item.meeting_leader || "-",
-            notes: item.notes || "", 
+            notes: item.notes || "",
           };
 
           return {
@@ -207,6 +208,7 @@ export default function DashboardPage() {
                 status: item.status || "Pending",
                 total_participants: item.total_participants || 1,
                 meeting_leader: item.meeting_leader || "-",
+                notes: item.notes || "",
               };
 
               return {
