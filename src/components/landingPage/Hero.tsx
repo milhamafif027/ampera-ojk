@@ -60,11 +60,19 @@ export default function Hero() {
   return (
     <section
       id="profil"
-      // Background Gradient Merah Putih Dominan Putih + Pattern Grid Halus
-      className="relative bg-gradient-to-b from-rose-50/50 via-white to-slate-50 border-b border-slate-200/80 py-16 sm:py-24 lg:py-32 overflow-hidden"
+      className="relative bg-white border-b border-slate-200/80 py-16 sm:py-24 lg:py-32 overflow-hidden"
     >
-      {/* Background Grid Pattern Tipis */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:28px_28px] pointer-events-none"></div>
+      {/* ================= AURORA / MESH GRADIENT BACKGROUND ================= */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+        {/* Blob Merah Utama (Kanan Atas / Tengah) */}
+        <div className="absolute -top-[20%] -right-[10%] w-[600px] h-[600px] rounded-full bg-gradient-to-br from-rose-500/20 via-red-400/15 to-transparent blur-[120px] transform rotate-12"></div>
+
+        {/* Blob Pendukung Merah Pudar (Kiri Bawah) */}
+        <div className="absolute -bottom-[20%] -left-[10%] w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-rose-600/15 via-red-300/10 to-transparent blur-[100px]"></div>
+
+        {/* Lapisan Noise Tipis (Opsional untuk menyempurnakan tekstur mesh) */}
+        <div className="absolute inset-0 opacity-[0.015] bg-[radial-gradient(#000_1px,transparent_1px)] bg-[size:16px_16px]"></div>
+      </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-12 items-center z-10">
         {/* ================= BAGIAN KIRI: TEKS (CLEAN CORPORATE) ================= */}
@@ -75,6 +83,11 @@ export default function Hero() {
           variants={textVariants}
           className="space-y-6 text-center lg:text-left flex flex-col items-center lg:items-start"
         >
+          {/* Label Sub-judul gaya editorial */}
+          <div className="flex items-center gap-2 text-slate-500 font-bold tracking-widest text-[10px] sm:text-xs uppercase">
+            <span className="w-6 h-[2px] bg-[#9f1521] rounded-full"></span>
+            Platform Integrasi Perkantoran
+          </div>
 
           <div className="space-y-3">
             <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight leading-none">
@@ -113,7 +126,7 @@ export default function Hero() {
             >
               <Link
                 href="/panduan"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs sm:text-sm font-bold px-7 py-3.5 rounded-xl transition-all shadow-sm"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white/80 backdrop-blur-sm hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs sm:text-sm font-bold px-7 py-3.5 rounded-xl transition-all shadow-sm"
               >
                 <BookOpen className="w-4 h-4 text-slate-500 shrink-0" /> Panduan
                 & SOP
