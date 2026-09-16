@@ -57,6 +57,7 @@ export async function PUT(request: NextRequest) {
       driver_name,
       status,
       id,
+      nama_kendaraan, // <-- Ditambahkan untuk menangkap nama kendaraan hasil plotting admin
       total_passengers,
       approval_notes,
     } = body;
@@ -74,13 +75,17 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    // Aksi untuk menyetujui / memperbarui status peminjaman kendaraan
+    // Aksi untuk menyetujui / mem-plotting kendaraan (Admin)
     if (action === "approve_booking") {
       const finalStatus = status || "Disetujui";
 
+      // UPDATE database dengan menyertakan vehicle_name (mengganti tulisan "Menunggu Plotting Admin")
       await db.$executeRaw`
         UPDATE vehicle_bookings 
-        SET status = ${finalStatus}, total_passengers = ${total_passengers || 1}, approval_notes = ${approval_notes || ""}
+        SET status = ${finalStatus}, 
+            vehicle_name = COALESCE(${nama_kendaraan}, vehicle_name),
+            total_passengers = ${total_passengers ? Number(total_passengers) : 1}, 
+            approval_notes = ${approval_notes || ""}
         WHERE id = ${Number(id)}
       `;
 
@@ -109,10 +114,10 @@ export async function PUT(request: NextRequest) {
             : "Peminjaman Kendaraan Ditolak";
         const notifInfoUser =
           finalStatus === "Disetujui"
-            ? `Pengajuan peminjaman kendaraan ${booking.vehicle_name} Anda telah DISETUJUI oleh Admin.`
-            : `Mohon maaf, pengajuan peminjaman kendaraan ${booking.vehicle_name} Anda DITOLAK.${approval_notes ? ` Alasan: ${approval_notes}` : ""}`;
+            ? `Pengajuan kendaraan Anda DISETUJUI. Armada: ${booking.vehicle_name}.`
+            : `Mohon maaf, pengajuan kendaraan Anda DITOLAK.${approval_notes ? ` Alasan: ${approval_notes}` : ""}`;
 
-        const notifInfoAdmin = `Peminjaman kendaraan "${booking.vehicle_name}" oleh ${booking.borrower} telah ${finalStatus.toUpperCase()}.`;
+        const notifInfoAdmin = `Kendaraan "${booking.vehicle_name}" di-plotting untuk ${booking.borrower} (${finalStatus.toUpperCase()}).`;
 
         // 1. Kirim notifikasi ke pemohon jika user_id ada dan bukan admin
         if (booking.user_id && userRole.toLowerCase() !== "admin") {
@@ -138,7 +143,7 @@ export async function PUT(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: `Peminjaman kendaraan berhasil ${finalStatus.toLowerCase()}`,
+        message: `Peminjaman kendaraan berhasil ${finalStatus.toLowerCase()} dan di-plotting.`,
       });
     }
 
@@ -155,7 +160,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// 3. POST: Menambahkan kendaraan via FormData atau Peminjaman via JSON
+// 3. POST: Menambahkan kendaraan via FormData atau Request Peminjaman via JSON
 export async function POST(request: NextRequest) {
   try {
     const contentType = request.headers.get("content-type") || "";
@@ -199,6 +204,7 @@ export async function POST(request: NextRequest) {
         satker,
         tanggal_mulai,
         tanggal_selesai,
+        total_passengers, // <-- Tangkap jumlah penumpang dari frontend
         status,
         user_id,
         role,
@@ -216,35 +222,47 @@ export async function POST(request: NextRequest) {
       }
 
       const cleanRole = role?.toLowerCase() || "eksternal";
-
       const bookingStatus =
         status ||
         (cleanRole === "admin" || cleanRole === "internal"
           ? "Disetujui"
           : "Pending");
 
-      // Logika Pengaman Bentrok Tanggal
-      const vehicleConflicts: any = await db.$queryRaw`
-        SELECT id FROM vehicle_bookings 
-        WHERE vehicle_name = ${nama_kendaraan} 
-          AND status != 'Ditolak' 
-          AND (start_date <= ${tanggal_selesai}::date AND end_date >= ${tanggal_mulai}::date)
-      `;
+      // Logika Pengaman Bentrok Tanggal (Di-Bypass jika sedang "Menunggu Plotting Admin")
+      if (nama_kendaraan !== "Menunggu Plotting Admin") {
+        const vehicleConflicts: any = await db.$queryRaw`
+          SELECT id FROM vehicle_bookings 
+          WHERE vehicle_name = ${nama_kendaraan} 
+            AND status != 'Ditolak' 
+            AND (start_date <= ${tanggal_selesai}::date AND end_date >= ${tanggal_mulai}::date)
+        `;
 
-      if (vehicleConflicts.length > 0) {
-        return NextResponse.json(
-          {
-            success: false,
-            message:
-              "Jadwal bentrok! Kendaraan tersebut sudah dipesan atau sedang diajukan pada rentang tanggal tersebut.",
-          },
-          { status: 400 },
-        );
+        if (vehicleConflicts.length > 0) {
+          return NextResponse.json(
+            {
+              success: false,
+              message:
+                "Jadwal bentrok! Kendaraan tersebut sudah dipesan atau sedang diajukan pada rentang tanggal tersebut.",
+            },
+            { status: 400 },
+          );
+        }
       }
 
+      // INSERT database, sertakan total_passengers
       await db.$executeRaw`
-        INSERT INTO vehicle_bookings (vehicle_name, destination, borrower, dept, start_date, end_date, status, user_id)
-        VALUES (${nama_kendaraan}, ${tujuan}, ${peminjam}, ${satker}, ${tanggal_mulai}::date, ${tanggal_selesai}::date, ${bookingStatus}, ${user_id ? Number(user_id) : null})
+        INSERT INTO vehicle_bookings (vehicle_name, destination, borrower, dept, start_date, end_date, status, user_id, total_passengers)
+        VALUES (
+          ${nama_kendaraan}, 
+          ${tujuan}, 
+          ${peminjam}, 
+          ${satker}, 
+          ${tanggal_mulai}::date, 
+          ${tanggal_selesai}::date, 
+          ${bookingStatus}, 
+          ${user_id ? Number(user_id) : null},
+          ${total_passengers ? Number(total_passengers) : 1}
+        )
       `;
 
       // Logika Pembagian Notifikasi Agar Tidak Dobel
@@ -258,8 +276,8 @@ export async function POST(request: NextRequest) {
         `;
       } else {
         // 1. Notifikasi untuk Admin
-        const adminNotifTitle = "Pengajuan Kendaraan Baru";
-        const adminNotifInfo = `Kendaraan: ${nama_kendaraan} oleh ${peminjam}`;
+        const adminNotifTitle = "Request Plotting Kendaraan Baru";
+        const adminNotifInfo = `Tujuan: ${tujuan} (${total_passengers} Penumpang) oleh ${peminjam}`;
 
         await db.$executeRaw`
           INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
@@ -276,7 +294,7 @@ export async function POST(request: NextRequest) {
           const userNotifInfo =
             bookingStatus === "Disetujui"
               ? `Peminjaman kendaraan ${nama_kendaraan} Anda berhasil dan langsung disetujui.`
-              : `Pengajuan peminjaman kendaraan ${nama_kendaraan} Anda berhasil dikirim dan menunggu verifikasi Admin.`;
+              : `Pengajuan tujuan ${tujuan} Anda berhasil dikirim dan menunggu plotting/verifikasi Admin.`;
 
           if (targetTable === "notifikasi_internal") {
             await db.$executeRaw`
