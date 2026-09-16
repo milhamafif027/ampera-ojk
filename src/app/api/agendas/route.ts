@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 2. POST: Tambah reservasi dengan aturan ketat Round Table Ballroom vs Komunal
+// 2. POST: Tambah reservasi dengan sistem Plotting Admin
 export async function POST(request: NextRequest) {
   try {
     const authUser = await getAuthenticatedUser(request);
@@ -102,7 +102,8 @@ export async function POST(request: NextRequest) {
         : cleanStartDate;
 
     const participantsNum = Number(total_participants) || 1;
-    const targetRoomLower = (room_name || "").toLowerCase();
+    const targetRoomName = room_name || "Menunggu Plotting Admin";
+    const targetRoomLower = targetRoomName.toLowerCase();
     const targetLayoutLower = (layout || "").toLowerCase();
 
     const isTargetBallroom =
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Evaluasi Role Pemohon: Eksternal WAJIB "Pending"
+    // Evaluasi Role Pemohon
     const effectiveRole = (
       authUser?.role ||
       clientRole ||
@@ -139,67 +140,66 @@ export async function POST(request: NextRequest) {
     const finalStatus = isAutoApprove ? "Disetujui" : "Pending";
 
     // =========================================================================
-    // PENGECEKAN BENTROK JADWAL & ATURAN ROUND TABLE (BALLROOM VS KOMUNAL)
+    // PENGECEKAN BENTROK JADWAL (DI-BYPASS JIKA MASIH "Menunggu Plotting Admin")
     // =========================================================================
-    let conflictQuery;
+    if (targetRoomName !== "Menunggu Plotting Admin") {
+      let conflictQuery;
 
-    if (isTargetKomunal && isRoundTable) {
-      // Jika Komunal Round Table dipesan, cek apakah Ballroom Round Table sudah dipesan dengan kapasitas >= 200
-      conflictQuery = await db.$queryRaw`
-        SELECT id FROM agendas 
-        WHERE status != 'Ditolak'
-          AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
-          AND (start_time < ${end_time} AND end_time > ${start_time})
-          AND LOWER(room_name) LIKE '%ballroom%'
-          AND LOWER(layout) LIKE '%round table%'
-          AND total_participants >= 200
-        LIMIT 1
-      `;
-    } else if (
-      isTargetBallroom &&
-      isRoundTable &&
-      participantsNum >= 200 &&
-      participantsNum <= 250
-    ) {
-      // Jika Ballroom Round Table dipesan di rentang 200 - 250 orang, cek apakah Komunal Round Table sudah terisi
-      conflictQuery = await db.$queryRaw`
-        SELECT id FROM agendas 
-        WHERE status != 'Ditolak'
-          AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
-          AND (start_time < ${end_time} AND end_time > ${start_time})
-          AND LOWER(room_name) LIKE '%komunal%'
-          AND LOWER(layout) LIKE '%round table%'
-        LIMIT 1
-      `;
-    } else {
-      // Pengecekan standar untuk ruangan reguler lainnya atau Ballroom Round Table < 200 orang
-      conflictQuery = await db.$queryRaw`
-        SELECT id FROM agendas 
-        WHERE room_name = ${room_name} 
-          AND status != 'Ditolak'
-          AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
-          AND (start_time < ${end_time} AND end_time > ${start_time})
-        LIMIT 1
-      `;
-    }
-
-    const conflicts: any = conflictQuery;
-
-    if (conflicts.length > 0) {
-      let customMessage =
-        "Jadwal bentrok! Ruangan sudah terisi pada rentang tanggal dan jam tersebut.";
       if (isTargetKomunal && isRoundTable) {
-        customMessage =
-          "Layout 'Round Table' di Ruangan Komunal tidak dapat dipesan karena Ballroom sedang menggunakan 'Round Table' kapasitas besar (>= 200 orang).";
-      } else if (isTargetBallroom && isRoundTable && participantsNum >= 200) {
-        customMessage =
-          "Ballroom dengan layout 'Round Table' (200 - 250 orang) tidak dapat dipesan karena Ruangan Komunal sudah terisi layout 'Round Table'.";
+        conflictQuery = await db.$queryRaw`
+          SELECT id FROM agendas 
+          WHERE status != 'Ditolak'
+            AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
+            AND (start_time < ${end_time} AND end_time > ${start_time})
+            AND LOWER(room_name) LIKE '%ballroom%'
+            AND LOWER(layout) LIKE '%round table%'
+            AND total_participants >= 200
+          LIMIT 1
+        `;
+      } else if (
+        isTargetBallroom &&
+        isRoundTable &&
+        participantsNum >= 200 &&
+        participantsNum <= 250
+      ) {
+        conflictQuery = await db.$queryRaw`
+          SELECT id FROM agendas 
+          WHERE status != 'Ditolak'
+            AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
+            AND (start_time < ${end_time} AND end_time > ${start_time})
+            AND LOWER(room_name) LIKE '%komunal%'
+            AND LOWER(layout) LIKE '%round table%'
+          LIMIT 1
+        `;
+      } else {
+        conflictQuery = await db.$queryRaw`
+          SELECT id FROM agendas 
+          WHERE room_name = ${targetRoomName} 
+            AND status != 'Ditolak'
+            AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
+            AND (start_time < ${end_time} AND end_time > ${start_time})
+          LIMIT 1
+        `;
       }
 
-      return NextResponse.json(
-        { success: false, message: customMessage },
-        { status: 400 },
-      );
+      const conflicts: any = conflictQuery;
+
+      if (conflicts.length > 0) {
+        let customMessage =
+          "Jadwal bentrok! Ruangan sudah terisi pada rentang tanggal dan jam tersebut.";
+        if (isTargetKomunal && isRoundTable) {
+          customMessage =
+            "Layout 'Round Table' di Ruangan Komunal tidak dapat dipesan karena Ballroom sedang menggunakan 'Round Table' kapasitas besar (>= 200 orang).";
+        } else if (isTargetBallroom && isRoundTable && participantsNum >= 200) {
+          customMessage =
+            "Ballroom dengan layout 'Round Table' (200 - 250 orang) tidak dapat dipesan karena Ruangan Komunal sudah terisi layout 'Round Table'.";
+        }
+
+        return NextResponse.json(
+          { success: false, message: customMessage },
+          { status: 400 },
+        );
+      }
     }
 
     const dateInfoStr =
@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
           ${participantsNum}, 
           ${meeting_leader || "-"}, 
           ${room_id ? Number(room_id) : null}, 
-          ${room_name}, 
+          ${targetRoomName}, 
           ${cleanStartDate}::date, 
           ${finalEndDate}::date, 
           ${start_time}, 
@@ -236,15 +236,12 @@ export async function POST(request: NextRequest) {
       const id = insertResult[0]?.id;
 
       // Notifikasi Admin
-      const adminNotifTitle =
-        finalStatus === "Disetujui"
-          ? "Reservasi Otomatis (Internal/Admin)"
-          : "Pengajuan Ruangan Baru (Perlu Verifikasi)";
-      const adminNotifInfo = `Ruangan ${room_name} diajukan oleh ${pic} (${dept}) untuk ${dateInfoStr} (${start_time} - ${end_time}). Status: ${finalStatus}`;
+      const adminNotifTitle = "Pengajuan Ruangan Baru (Menunggu Plotting)";
+      const adminNotifInfo = `Request ruangan oleh ${pic} (${dept}) untuk ${dateInfoStr} (${start_time} - ${end_time}).`;
 
       await tx.$executeRaw`
         INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
-        VALUES (${adminNotifTitle}, 'room', ${finalStatus}, ${adminNotifInfo}, 0, CURRENT_TIMESTAMP)
+        VALUES (${adminNotifTitle}, 'room', 'Pending', ${adminNotifInfo}, 0, CURRENT_TIMESTAMP)
       `;
 
       // Notifikasi Pemohon
@@ -254,25 +251,18 @@ export async function POST(request: NextRequest) {
             ? "notifikasi_internal"
             : "notifikasi_eksternal";
 
-        const userNotifTitle =
-          finalStatus === "Disetujui"
-            ? "Reservasi Disetujui Otomatis"
-            : "Pengajuan Menunggu Verifikasi Admin";
-
-        const userNotifInfo =
-          finalStatus === "Disetujui"
-            ? `Reservasi ruangan ${room_name} (${dateInfoStr}) berhasil dan disetujui.`
-            : `Pengajuan ruangan ${room_name} (${dateInfoStr}) berhasil dikirim dan menunggu verifikasi Admin.`;
+        const userNotifTitle = "Pengajuan Berhasil Dikirim";
+        const userNotifInfo = `Pengajuan ruangan (${dateInfoStr}) berhasil dikirim dan menunggu plotting serta verifikasi Admin.`;
 
         if (targetTable === "notifikasi_internal") {
           await tx.$executeRaw`
             INSERT INTO notifikasi_internal (user_id, title, type, status, info, is_read, created_at) 
-            VALUES (${Number(effectiveUserId)}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
+            VALUES (${Number(effectiveUserId)}, ${userNotifTitle}, 'room', 'Pending', ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
           `;
         } else {
           await tx.$executeRaw`
             INSERT INTO notifikasi_eksternal (user_id, title, type, status, info, is_read, created_at) 
-            VALUES (${Number(effectiveUserId)}, ${userNotifTitle}, 'room', ${finalStatus}, ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
+            VALUES (${Number(effectiveUserId)}, ${userNotifTitle}, 'room', 'Pending', ${userNotifInfo}, 0, CURRENT_TIMESTAMP)
           `;
         }
       }
@@ -294,7 +284,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 3. PUT: Update data agenda
+// 3. PUT: Update data agenda (Termasuk Plotting Ruangan oleh Admin)
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
@@ -306,6 +296,7 @@ export async function PUT(request: NextRequest) {
       start_time,
       end_time,
       room,
+      room_name, // Mendukung room_name dari modal plotting admin
       pic,
       dept,
       layout,
@@ -336,13 +327,21 @@ export async function PUT(request: NextRequest) {
     const targetAgenda = existingAgenda[0];
     const finalStatus = status ? String(status) : targetAgenda.status;
     const finalEndDate = end_date ? end_date : date;
-    const targetRoomName = room || targetAgenda.room_name;
+    const targetRoom = room || room_name || targetAgenda.room_name;
 
     await db.$transaction(async (tx) => {
-      if (title && date && start_time && end_time && room) {
+      // Jika Admin melakukan plotting ruangan atau mengedit jadwal, cek bentrok pada ruangan tersebut
+      if (
+        title &&
+        date &&
+        start_time &&
+        end_time &&
+        targetRoom &&
+        targetRoom !== "Menunggu Plotting Admin"
+      ) {
         const conflicts: any = await tx.$queryRaw`
           SELECT id FROM agendas 
-          WHERE room_name = ${room} 
+          WHERE room_name = ${targetRoom} 
             AND id != ${agendaId}
             AND status != 'Ditolak'
             AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${date}::date)
@@ -363,7 +362,7 @@ export async function PUT(request: NextRequest) {
               end_date = ${finalEndDate}::date,
               start_time = ${start_time},
               end_time = ${end_time},
-              room_name = ${room},
+              room_name = ${targetRoom},
               pic = ${pic || "-"},
               dept = ${dept || "-"},
               layout = ${layout || "-"},
@@ -374,19 +373,21 @@ export async function PUT(request: NextRequest) {
       } else {
         await tx.$executeRaw`
           UPDATE agendas 
-          SET status = ${finalStatus}, 
+          SET room_name = ${targetRoom},
+              status = ${finalStatus}, 
               notes = ${String(notes)}
           WHERE id = ${agendaId}
         `;
       }
 
-      if (status && targetAgenda.user_id) {
+      // Kirim Notifikasi ke Pemohon jika status atau ruangan di-update
+      if (targetAgenda.user_id) {
         const userRows: any = await tx.$queryRaw`
           SELECT role FROM users WHERE id = ${targetAgenda.user_id} LIMIT 1
         `;
         const ownerRole = (userRows[0]?.role || "eksternal").toLowerCase();
-        const userNotifTitle = `Status Reservasi ${finalStatus}`;
-        const userNotifInfo = `Reservasi ruangan ${targetRoomName} diubah menjadi: ${finalStatus}.`;
+        const userNotifTitle = `Pembaruan Reservasi: ${finalStatus}`;
+        const userNotifInfo = `Reservasi Anda di-plotting ke ruangan ${targetRoom}. Status: ${finalStatus}.`;
 
         if (ownerRole === "internal") {
           await tx.$executeRaw`
@@ -436,7 +437,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Agenda berhasil diperbarui / dihapus.",
+      message: "Agenda berhasil dihapus.",
     });
   } catch (error: any) {
     console.error("API DELETE AGENDAS ERROR:", error);

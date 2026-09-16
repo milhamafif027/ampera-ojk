@@ -33,7 +33,7 @@ export default function RuanganPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [agendas, setAgendas] = useState<Agenda[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterCapacity, setFilterCapacity] = useState<number | "">(""); // State baru untuk filter jumlah orang
+  const [filterCapacity, setFilterCapacity] = useState<number | "">("");
   const [isLoading, setIsLoading] = useState(true);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -179,9 +179,7 @@ export default function RuanganPage() {
       if (filterCapacity !== "" && r.capacity) {
         const numbers = String(r.capacity).match(/\d+/g);
         if (numbers && numbers.length > 0) {
-          // Mengambil kapasitas maksimal dari ruangan
           const maxCapacity = Math.max(...numbers.map(Number));
-
           matchesCapacity = maxCapacity >= Number(filterCapacity);
         }
       }
@@ -398,7 +396,7 @@ export default function RuanganPage() {
       {/* POPUP ALERT */}
       {customAlert.isOpen && (
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl text-center space-y-4 border border-slate-100 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center space-y-4 border border-slate-100 dark:border-slate-800">
             <div
               className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto ${
                 customAlert.type === "success"
@@ -414,7 +412,7 @@ export default function RuanganPage() {
             </div>
 
             <div className="space-y-1">
-              <h3 className="font-black text-slate-900 dark:text-white text-base">
+              <h3 className="font-extrabold text-slate-900 dark:text-white text-base">
                 {customAlert.title}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
@@ -445,7 +443,7 @@ export default function RuanganPage() {
       )}
 
       {/* HEADER BAR */}
-      <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
         <div>
           <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Building2 className="text-[#9f1521] shrink-0" size={22} /> Katalog
@@ -526,7 +524,7 @@ export default function RuanganPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
           <h2 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+            <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
             Ruangan Pertemuan ({conferenceRooms.length})
           </h2>
         </div>
@@ -536,7 +534,7 @@ export default function RuanganPage() {
             [1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 w-full"
+                className="bg-white dark:bg-slate-900 rounded-2xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 w-full"
               />
             ))
           ) : conferenceRooms.length > 0 ? (
@@ -555,7 +553,7 @@ export default function RuanganPage() {
               </div>
             ))
           ) : (
-            <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
+            <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
               Tidak ada data ruangan pertemuan yang sesuai dengan filter.
             </div>
           )}
@@ -566,7 +564,7 @@ export default function RuanganPage() {
       <div className="space-y-4 pt-4">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
           <h2 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+            <span className="w-2 h-2 rounded-full bg-blue-600"></span>
             Ruangan Rapat ({meetingRooms.length})
           </h2>
         </div>
@@ -576,7 +574,7 @@ export default function RuanganPage() {
             [1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 w-full"
+                className="bg-white dark:bg-slate-900 rounded-2xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 w-full"
               />
             ))
           ) : meetingRooms.length > 0 ? (
@@ -595,7 +593,7 @@ export default function RuanganPage() {
               </div>
             ))
           ) : (
-            <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
+            <div className="col-span-full py-8 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
               Tidak ada data ruangan rapat yang sesuai dengan filter.
             </div>
           )}
@@ -605,7 +603,7 @@ export default function RuanganPage() {
       {/* MODAL TAMBAH / EDIT DATA RUANGAN */}
       {isEditModalOpen && editingRoom && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-xl w-full p-5 sm:p-6 shadow-2xl space-y-4 my-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl space-y-4 my-auto">
             <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
@@ -677,7 +675,7 @@ export default function RuanganPage() {
                     onChange={(e) =>
                       setEditingRoom({ ...editingRoom, type: e.target.value })
                     }
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] disabled:opacity-50"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] disabled:opacity-50 cursor-pointer"
                   >
                     <option value="pertemuan">
                       Ruangan Pertemuan / Ballroom
@@ -713,7 +711,7 @@ export default function RuanganPage() {
                     onChange={(e) =>
                       setEditingRoom({ ...editingRoom, layout: e.target.value })
                     }
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] disabled:opacity-50"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] disabled:opacity-50 cursor-pointer"
                   >
                     <option value="Theater">Theater</option>
                     <option value="Klasikal">Klasikal</option>
@@ -739,7 +737,7 @@ export default function RuanganPage() {
                     })
                   }
                   placeholder="Kapasitas disesuaikan dengan layout yakni Theater (500 Orang), dll..."
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] disabled:opacity-50"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] disabled:opacity-50 resize-none"
                 />
               </div>
 
@@ -754,7 +752,7 @@ export default function RuanganPage() {
                     </span>
                   </div>
                   <label
-                    className={`px-3 py-1.5 bg-[#9f1521] text-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 shadow-sm w-fit ${
+                    className={`px-3 py-1.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 shadow-sm w-fit transition-colors ${
                       isSubmitting
                         ? "opacity-50 cursor-not-allowed"
                         : "cursor-pointer"
@@ -856,14 +854,14 @@ export default function RuanganPage() {
                   type="button"
                   disabled={isSubmitting}
                   onClick={() => setIsEditModalOpen(false)}
-                  className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
+                  className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50 transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full sm:w-auto px-4 py-2.5 bg-[#9f1521] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md cursor-pointer disabled:opacity-75"
+                  className="w-full sm:w-auto px-5 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md cursor-pointer disabled:opacity-75 transition-colors"
                 >
                   {isSubmitting ? (
                     <>
