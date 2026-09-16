@@ -24,6 +24,7 @@ import {
   Pencil,
   Save,
   Eye,
+  XCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -171,6 +172,17 @@ export default function AgendaPage() {
 
   const [isExporting, setIsExporting] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
+  // State Modal Konfirmasi Pembatalan
+  const [cancelModal, setCancelModal] = useState<{
+    isOpen: boolean;
+    agendaId: string | null;
+    title: string | null;
+  }>({
+    isOpen: false,
+    agendaId: null,
+    title: null,
+  });
   const [isCancelling, setIsCancelling] = useState(false);
 
   const [deleteModal, setDeleteModal] = useState<{
@@ -201,6 +213,7 @@ export default function AgendaPage() {
   });
 
   const isAdmin = user?.role === "admin";
+  const isInternal = user?.role === "internal";
 
   const fetchAgendas = useCallback(async () => {
     try {
@@ -562,23 +575,22 @@ export default function AgendaPage() {
     }
   };
 
-  const handleCancelAgenda = async (agendaId: string) => {
-    if (
-      !confirm("Apakah Anda yakin ingin membatalkan kegiatan/reservasi ini?")
-    ) {
-      return;
-    }
+  const openCancelModal = (id: string, title: string) => {
+    setCancelModal({ isOpen: true, agendaId: id, title });
+  };
+
+  const confirmCancelAgenda = async () => {
+    if (!cancelModal.agendaId) return;
 
     try {
       setIsCancelling(true);
-      const res = await fetch(`/api/agendas?id=${agendaId}`, {
+      const res = await fetch(`/api/agendas?id=${cancelModal.agendaId}`, {
         method: "DELETE",
       });
 
       const result = await res.json();
       if (res.ok) {
-        alert("Kegiatan berhasil dibatalkan.");
-        setDetailModal({ isOpen: false, data: null });
+        setCancelModal({ isOpen: false, agendaId: null, title: null });
         await fetchAgendas();
       } else {
         alert(
@@ -890,6 +902,7 @@ export default function AgendaPage() {
                         >
                           <Eye size={15} />
                         </button>
+
                         {isAdmin && item.smartStatus === "Pending" && (
                           <button
                             onClick={() => handleApprove(item.id)}
@@ -904,6 +917,7 @@ export default function AgendaPage() {
                             )}
                           </button>
                         )}
+
                         {isAdmin && (
                           <button
                             onClick={() => openEditModal(item)}
@@ -913,6 +927,18 @@ export default function AgendaPage() {
                             <Pencil size={15} />
                           </button>
                         )}
+
+                        {/* TOMBOL BATALKAN KEGIATAN DI ROW AKSI (KHUSUS INTERNAL / ADMIN) */}
+                        {item.smartStatus !== "Ditolak" && (
+                          <button
+                            onClick={() => openCancelModal(item.id, item.title)}
+                            className="p-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg transition-colors cursor-pointer"
+                            title="Batalkan Kegiatan"
+                          >
+                            <XCircle size={15} />
+                          </button>
+                        )}
+
                         {isAdmin && (
                           <button
                             onClick={() => openDeleteModal(item.id, item.title)}
@@ -1043,16 +1069,6 @@ export default function AgendaPage() {
             </div>
 
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
-              {detailModal.data?.status !== "Ditolak" && (
-                <button
-                  type="button"
-                  disabled={isCancelling}
-                  onClick={() => handleCancelAgenda(detailModal.data!.id)}
-                  className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-900 rounded-xl text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {isCancelling ? "Membatalkan..." : "Batalkan Kegiatan"}
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => setDetailModal({ isOpen: false, data: null })}
@@ -1065,7 +1081,55 @@ export default function AgendaPage() {
         </div>
       )}
 
-      {/* 5. MODAL EDIT AGENDA (KHUSUS ADMIN) */}
+      {/* 5. MODAL KONFIRMASI PEMBATALAN KEGIATAN */}
+      {cancelModal.isOpen && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl text-center space-y-4"
+          >
+            <div className="w-14 h-14 bg-rose-100 dark:bg-rose-900/40 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+              <AlertCircle size={28} />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="font-black text-slate-900 dark:text-white text-base">
+                Konfirmasi Pembatalan
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Apakah Anda yakin ingin membatalkan kegiatan{" "}
+                <strong>&quot;{cancelModal.title}&quot;</strong>? Tindakan ini
+                akan menghapus jadwal terkait dari sistem.
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isCancelling}
+                onClick={() =>
+                  setCancelModal({ isOpen: false, agendaId: null, title: null })
+                }
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Kembali
+              </button>
+              <button
+                type="button"
+                disabled={isCancelling}
+                onClick={confirmCancelAgenda}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75"
+              >
+                {isCancelling && <Loader2 size={14} className="animate-spin" />}
+                {isCancelling ? "Memproses..." : "Ya, Batalkan"}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* 6. MODAL EDIT AGENDA (KHUSUS ADMIN) */}
       {editModal.isOpen && editModal.data && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
@@ -1355,7 +1419,7 @@ export default function AgendaPage() {
         </div>
       )}
 
-      {/* 6. MODAL KONFIRMASI HAPUS AGENDA */}
+      {/* 7. MODAL KONFIRMASI HAPUS AGENDA */}
       {deleteModal.isOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
