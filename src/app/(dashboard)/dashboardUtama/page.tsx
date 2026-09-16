@@ -854,65 +854,82 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
             </div>
 
             <div className="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 text-xs">
-              <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-2.5 border border-slate-200/60 dark:border-slate-800">
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-                  <span className="text-slate-400 font-medium">
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 space-y-3 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
                     Nama Kegiatan:
                   </span>
-                  <strong className="text-slate-900 dark:text-white sm:text-right">
-                    {detailModal.data.title}
-                  </strong>
+                  <span className="text-slate-900 dark:text-white font-bold text-right">
+                    {detailModal.data?.title || "-"}
+                  </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-medium">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
                     Tanggal Pelaksanaan:
                   </span>
-                  <strong className="text-slate-900 dark:text-white">
-                    {formatAgendaDate(
-                      detailModal.data.date,
-                      detailModal.data.endDate || detailModal.data.end_date,
-                    )}
-                  </strong>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {detailModal.data?.date
+                      ? detailModal.data.date.slice(0, 10)
+                      : "-"}
+                  </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-medium">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
                     Waktu Acara:
                   </span>
-                  <strong className="text-slate-900 dark:text-white">
-                    {detailModal.data.time}
-                  </strong>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {detailModal.data?.start_time
+                      ? `${detailModal.data.start_time.slice(0, 5)} - ${detailModal.data.end_time?.slice(0, 5)}`
+                      : detailModal.data?.time || "-"}
+                  </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-medium">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
                     Ruangan Dipilih:
                   </span>
-                  <strong className="text-slate-900 dark:text-white">
-                    {detailModal.data.room}
-                  </strong>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {detailModal.data?.room_name ||
+                      detailModal.data?.room ||
+                      "-"}
+                  </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-medium">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
                     Tata Letak (Layout):
                   </span>
-                  <strong className="text-slate-900 dark:text-white">
-                    {detailModal.data.layout || "Standard"}
-                  </strong>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {detailModal.data?.layout || "-"}
+                  </span>
                 </div>
-                <div className="flex justify-between items-center pt-2 border-t border-slate-200/40 dark:border-slate-700/50">
-                  <span className="text-slate-400 font-medium">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
                     Jumlah Peserta:
                   </span>
-                  <strong className="text-emerald-600 font-bold">
-                    {detailModal.data.total_participants} Orang
-                  </strong>
+                  <span className="text-emerald-600 font-bold">
+                    {detailModal.data?.total_participants
+                      ? `${detailModal.data.total_participants} Orang`
+                      : "-"}
+                  </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-medium">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
                     Pimpinan Rapat:
                   </span>
-                  <strong className="text-slate-900 dark:text-white">
-                    {detailModal.data.meeting_leader}
-                  </strong>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {detailModal.data?.meeting_leader || "-"}
+                  </span>
+                </div>
+
+                {/* BARIS CATATAN / REQUEST TAMBAHAN */}
+                <div className="flex justify-between items-start pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <span className="text-slate-500 font-medium">
+                    Catatan / Request:
+                  </span>
+                  <span className="text-slate-800 dark:text-slate-200 font-medium text-right max-w-[240px] italic">
+                    {detailModal.data?.notes ||
+                      detailModal.data?.note ||
+                      "Tidak ada catatan tambahan."}
+                  </span>
                 </div>
               </div>
 
