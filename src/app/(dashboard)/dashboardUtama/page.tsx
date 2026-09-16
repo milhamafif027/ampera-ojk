@@ -418,43 +418,88 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
                   PEMBARUAN SISTEM V2.5
                 </span>
                 <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                  Selamat Datang di AMPERA OJK Sumsel
+                  Selamat Datang di AMPERA
                 </h3>
               </div>
             </div>
 
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-              Kami telah memperbarui antarmuka dan sistem peminjaman fasilitas
-              untuk memberikan pengalaman operasional yang lebih cepat,
-              transparan, dan terstruktur.
+              Kami telah merilis sejumlah pembaruan fitur untuk mengoptimalkan
+              manajemen fasilitas dan pengalaman operasional di lingkungan OJK
+              Provinsi Sumatera Selatan:
             </p>
 
-            <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300">
-              <div className="flex items-start gap-2.5">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5">
+            <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-4 sm:p-5 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 max-h-[45vh] overflow-y-auto custom-scrollbar">
+              <div className="flex items-start gap-3">
+                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
                   <Check size={12} />
                 </div>
-                <div>
-                  <strong>Plotting Admin Otomatis:</strong> Validasi bentrok
-                  jadwal dan manajemen ruang rapat kini disempurnakan.
+                <div className="leading-relaxed">
+                  <strong className="text-slate-900 dark:text-white">
+                    Validasi Cerdas Ruang Komunal:
+                  </strong>{" "}
+                  Reservasi Ruang Komunal kini terintegrasi dengan status
+                  Ballroom. Komunal otomatis tidak dapat dipesan apabila
+                  Ballroom sedang digunakan dalam kapasitas maksimal (500
+                  peserta) atau menggunakan konfigurasi <em>Round Table</em>{" "}
+                  (≥200 peserta).
                 </div>
               </div>
-              <div className="flex items-start gap-2.5">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5">
+
+              <div className="flex items-start gap-3">
+                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
                   <Check size={12} />
                 </div>
-                <div>
-                  <strong>Ekspor Excel & PDF Presisi:</strong> Unduh
-                  rekapitulasi agenda langsung dalam format resmi instansi.
+                <div className="leading-relaxed">
+                  <strong className="text-slate-900 dark:text-white">
+                    Sistem Plotting Armada Dinas:
+                  </strong>{" "}
+                  Mekanisme peminjaman kendaraan dialihkan menjadi pengajuan
+                  terpusat. Alokasi unit armada kini akan dikelola dan di-
+                  <em>plot</em> secara langsung oleh Admin LMSt.
                 </div>
               </div>
-              <div className="flex items-start gap-2.5">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5">
+
+              <div className="flex items-start gap-3">
+                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
                   <Check size={12} />
                 </div>
-                <div>
-                  <strong>Real-Time Data Sync:</strong> Pengajuan pending dan
-                  status live sinkron otomatis tanpa refresh manual.
+                <div className="leading-relaxed">
+                  <strong className="text-slate-900 dark:text-white">
+                    Pembatalan Agenda Mandiri:
+                  </strong>{" "}
+                  Pengguna dengan hak akses Internal kini diberikan otoritas
+                  penuh untuk membatalkan pengajuan agenda secara langsung
+                  melalui menu Daftar Agenda.
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                  <Check size={12} />
+                </div>
+                <div className="leading-relaxed">
+                  <strong className="text-slate-900 dark:text-white">
+                    Rekomendasi Kapasitas Ruangan:
+                  </strong>{" "}
+                  Direktori ruangan kini dilengkapi filter presisi yang
+                  merekomendasikan fasilitas terbaik berdasarkan spesifikasi
+                  jumlah peserta kegiatan Anda.
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                  <Check size={12} />
+                </div>
+                <div className="leading-relaxed">
+                  <strong className="text-slate-900 dark:text-white">
+                    Transparansi Rincian Kegiatan:
+                  </strong>{" "}
+                  Tinjauan detail setiap agenda kini dapat diakses lebih
+                  mendalam secara langsung melalui{" "}
+                  <em>Dashboard Live Status</em> oleh pengguna Internal dan
+                  Admin.
                 </div>
               </div>
             </div>
@@ -471,7 +516,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
           </motion.div>
         </div>
       )}
-
+      
       {/* ================= TOP HEADER BAR ================= */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm border-l-4 border-l-[#9f1521]">
         <div>
