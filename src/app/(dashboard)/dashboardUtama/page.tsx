@@ -133,6 +133,7 @@ export default function DashboardPage() {
             status: item.status || "Pending",
             total_participants: item.total_participants || 1,
             meeting_leader: item.meeting_leader || "-",
+            notes: item.notes || "", 
           };
 
           return {
