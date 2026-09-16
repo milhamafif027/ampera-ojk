@@ -19,6 +19,9 @@ import {
   XCircle,
   Eye,
   ShieldCheck,
+  Sparkles,
+  Check,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -70,9 +73,9 @@ export default function DashboardPage() {
   const [agendas, setAgendas] = useState<ExtendedAgenda[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"all" | "Disetujui" | "Pending">(
-    "all",
-  );
+
+  // State Pop-up Pengumuman Update (Aman dari Cascading Render Error)
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -98,7 +101,24 @@ export default function DashboardPage() {
     data: null,
   });
 
-  // Fungsi fetch data dengan opsi initial load agar tidak flicker saat polling background
+  // Cek sessionStorage untuk menampilkan Welcome Update Modal sekali per sesi
+  useEffect(() => {
+    // Gunakan setTimeout untuk menghindari error "Cascading Renders"
+    const timer = setTimeout(() => {
+      const hasSeenUpdate = sessionStorage.getItem("ampera_update_v2_seen");
+      if (!hasSeenUpdate) {
+        setShowUpdateModal(true);
+      }
+    }, 100); // Jeda 100 milidetik setelah halaman dirender
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleCloseUpdateModal = () => {
+    sessionStorage.setItem("ampera_update_v2_seen", "true");
+    setShowUpdateModal(false);
+  };
+
   const loadDashboardData = useCallback(async (isInitial = false) => {
     try {
       if (isInitial) setIsLoading(true);
@@ -174,7 +194,7 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // Real-time Auto Polling setiap 5 detik tanpa refresh manual
+  // Real-time Auto Polling setiap 5 detik agar data pending muncul tanpa refresh manual
   useEffect(() => {
     let isCancelled = false;
 
@@ -186,7 +206,7 @@ export default function DashboardPage() {
 
     const interval = setInterval(() => {
       if (!isCancelled) {
-        loadDashboardData(false); // Poling senyap di latar belakang
+        loadDashboardData(false);
       }
     }, 5000);
 
@@ -380,6 +400,77 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
           background: rgba(159, 21, 33, 0.6);
         }
       `}</style>
+
+      {/* ================= MODAL PENGUMUMAN UPDATE TERBARU (WELCOME POPUP) ================= */}
+      {showUpdateModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6 border border-slate-100 dark:border-slate-800"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 text-[#9f1521] flex items-center justify-center shrink-0">
+                <Sparkles size={24} />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
+                  PEMBARUAN SISTEM V2.5
+                </span>
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                  Selamat Datang di AMPERA OJK Sumsel
+                </h3>
+              </div>
+            </div>
+
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+              Kami telah memperbarui antarmuka dan sistem peminjaman fasilitas
+              untuk memberikan pengalaman operasional yang lebih cepat,
+              transparan, dan terstruktur.
+            </p>
+
+            <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300">
+              <div className="flex items-start gap-2.5">
+                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5">
+                  <Check size={12} />
+                </div>
+                <div>
+                  <strong>Plotting Admin Otomatis:</strong> Validasi bentrok
+                  jadwal dan manajemen ruang rapat kini disempurnakan.
+                </div>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5">
+                  <Check size={12} />
+                </div>
+                <div>
+                  <strong>Ekspor Excel & PDF Presisi:</strong> Unduh
+                  rekapitulasi agenda langsung dalam format resmi instansi.
+                </div>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5">
+                  <Check size={12} />
+                </div>
+                <div>
+                  <strong>Real-Time Data Sync:</strong> Pengajuan pending dan
+                  status live sinkron otomatis tanpa refresh manual.
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleCloseUpdateModal}
+                className="w-full py-3.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-xl transition-all shadow-lg shadow-rose-900/20 cursor-pointer flex items-center justify-center gap-2"
+              >
+                Mengerti, Lanjutkan ke Dashboard <ArrowRight size={16} />
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* ================= TOP HEADER BAR ================= */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm border-l-4 border-l-[#9f1521]">
