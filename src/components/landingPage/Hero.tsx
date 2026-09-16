@@ -83,7 +83,6 @@ export default function Hero() {
           variants={textVariants}
           className="space-y-6 text-center lg:text-left flex flex-col items-center lg:items-start"
         >
-
           <div className="space-y-3">
             <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight leading-none">
               AMPERA
@@ -195,18 +194,18 @@ export default function Hero() {
               <div className="flex items-center gap-1.5">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
                 </span>
                 <span className="text-[9px] font-black text-slate-500 tracking-wider">
                   LIVE OCCUPANCY
                 </span>
               </div>
               <span className="text-[10px] font-bold text-slate-400">
-                Lt. 5
+                Lt. 3
               </span>
             </div>
             <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
-              Ruang Rapat Sriwijaya
+              Ruang Rapat Ampera
             </h4>
             <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed line-clamp-2">
               Rapat Koordinasi Tim Pengawasan Perbankan Daerah
@@ -215,7 +214,7 @@ export default function Hero() {
               <span className="text-[10px] font-bold text-slate-500">
                 14:00 - 16:30 WIB
               </span>
-              <span className="text-[10px] font-extrabold text-[#9f1521]">
+              <span className="text-[10px] font-extrabold text-[#510400]">
                 Berlangsung
               </span>
             </div>
@@ -231,26 +230,25 @@ export default function Hero() {
             <div className="flex justify-between items-center mb-3">
               <div className="flex items-center gap-1.5">
                 <span className="relative flex h-2 w-2">
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
                 </span>
                 <span className="text-[9px] font-black text-slate-500 tracking-wider">
                   FLEET DISPATCH
                 </span>
               </div>
               <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                EV 01
+                Inova
               </span>
             </div>
             <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
-              Kendaraan Dinas Listrik
+              Kendaraan Dinas
             </h4>
             <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1">
               Lobby Ground Floor
             </p>
             <div className="flex justify-between items-end mt-3 pt-3 border-t border-slate-100">
-              <span className="text-xs font-black text-slate-800">94%</span>
-              <span className="text-[9px] sm:text-[10px] font-extrabold text-emerald-600">
-                BATERAI SIAP
+              <span className="text-[9px] sm:text-[10px] font-extrabold text-rose-600">
+                Kendaraan Sedang Digunakan
               </span>
             </div>
           </motion.div>
