@@ -75,11 +75,6 @@ export default function Hero() {
           variants={textVariants}
           className="space-y-6 text-center lg:text-left flex flex-col items-center lg:items-start"
         >
-          {/* Label Sub-judul gaya editorial */}
-          <div className="flex items-center gap-2 text-slate-500 font-bold tracking-widest text-[10px] sm:text-xs uppercase">
-            <span className="w-6 h-[2px] bg-[#9f1521] rounded-full"></span>
-            Platform Integrasi Perkantoran
-          </div>
 
           <div className="space-y-3">
             <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight leading-none">
