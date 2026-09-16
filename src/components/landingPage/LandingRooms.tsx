@@ -5,7 +5,6 @@ import {
   Building2,
   Users,
   Info,
-  Database,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -37,26 +36,27 @@ function LandingRooms({ rooms, isLoading }: LandingRoomsProps) {
   return (
     <section
       id="fasilitas"
-      className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24 w-full space-y-8 sm:space-y-12 overflow-hidden"
+      className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24 w-full space-y-10 sm:space-y-12 overflow-hidden"
     >
+      {/* Header Section - Bersih Tanpa Kapsul Berlebihan */}
       <div className="text-center max-w-2xl mx-auto space-y-3">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-50 border border-rose-200 text-[#9f1521] text-[10px] sm:text-xs font-extrabold tracking-wider shadow-sm">
-          FASILITAS UNGGULAN KANTOR OJK SUMSEL
-        </div>
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+        <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
           Katalog Ruang Pertemuan & Rapat
         </h2>
+
         <p className="text-xs sm:text-sm md:text-base text-slate-600 leading-relaxed font-medium">
           Pratinjau inventaris fasilitas ruang rapat dan ballroom modern yang
           terintegrasi langsung dengan database sistem reservasi.
         </p>
       </div>
 
+      {/* Main Container Katalog */}
       <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-slate-200/80 shadow-xl shadow-slate-100 p-5 sm:p-8 md:p-12 space-y-6 sm:space-y-8">
+        {/* Top Bar Kontainer */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5 sm:pb-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#9f1521]/10 text-[#9f1521] flex items-center justify-center shrink-0">
-              <Building2 size={24} />
+            <div className="w-12 h-12 rounded-xl bg-[#9f1521]/10 text-[#9f1521] flex items-center justify-center shrink-0">
+              <Building2 size={22} />
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-bold text-slate-900">
@@ -68,25 +68,22 @@ function LandingRooms({ rooms, isLoading }: LandingRoomsProps) {
             </div>
           </div>
 
-          <div className="flex items-center justify-between sm:justify-end gap-3">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold w-fit">
-              <Database size={13} className="animate-pulse shrink-0" /> LIVE
-              DATABASE SYNC
-            </div>
-
-            {/* Tombol Navigasi Geser Kiri / Kanan */}
+          {/* Tombol Navigasi Geser Kiri / Kanan */}
+          <div className="flex items-center justify-end gap-3">
             {!isLoading && rooms.length > 0 && (
               <div className="hidden sm:flex lg:hidden items-center gap-1.5">
                 <button
+                  type="button"
                   onClick={() => scroll("left")}
-                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                  className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
                   title="Geser Kiri"
                 >
                   <ChevronLeft size={18} />
                 </button>
                 <button
+                  type="button"
                   onClick={() => scroll("right")}
-                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                  className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
                   title="Geser Kanan"
                 >
                   <ChevronRight size={18} />
@@ -106,7 +103,7 @@ function LandingRooms({ rooms, isLoading }: LandingRoomsProps) {
             [1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="rounded-3xl bg-slate-100 animate-pulse h-64 min-w-[300px] sm:min-w-[420px] lg:min-w-0 shrink-0"
+                className="rounded-2xl bg-slate-100 animate-pulse h-64 min-w-[300px] sm:min-w-[420px] lg:min-w-0 shrink-0"
               />
             ))
           ) : rooms.length > 0 ? (
@@ -128,7 +125,7 @@ function LandingRooms({ rooms, isLoading }: LandingRoomsProps) {
               return (
                 <div
                   key={room.id}
-                  className="group bg-slate-50/60 hover:bg-white border border-slate-200/90 hover:border-[#9f1521]/40 rounded-3xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col sm:flex-row lg:flex-col min-w-[300px] sm:min-w-[480px] lg:min-w-0 max-w-[520px] lg:max-w-none shrink-0 lg:shrink snap-start transform-gpu"
+                  className="group bg-slate-50/60 hover:bg-white border border-slate-200/90 hover:border-[#9f1521]/40 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col sm:flex-row lg:flex-col min-w-[300px] sm:min-w-[480px] lg:min-w-0 max-w-[520px] lg:max-w-none shrink-0 lg:shrink snap-start transform-gpu"
                   style={{
                     contentVisibility: "auto",
                     containIntrinsicSize: "auto 350px",
@@ -144,7 +141,7 @@ function LandingRooms({ rooms, isLoading }: LandingRoomsProps) {
                       className="w-full h-full object-cover transform-gpu group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute top-3 left-3">
-                      <span className="px-2.5 py-1 bg-black/60 text-white text-[10px] font-bold rounded-lg shadow-md uppercase tracking-wider">
+                      <span className="px-2.5 py-1 bg-slate-900/80 backdrop-blur-sm text-white text-[10px] font-bold rounded-md shadow-md uppercase tracking-wider">
                         {room.type || "Rapat"}
                       </span>
                     </div>
@@ -154,18 +151,18 @@ function LandingRooms({ rooms, isLoading }: LandingRoomsProps) {
                     <div className="space-y-2">
                       <div className="flex flex-col sm:flex-row lg:flex-col sm:justify-between sm:items-start lg:items-stretch gap-2">
                         <h4
-                          className="font-black text-slate-900 text-base md:text-lg group-hover:text-[#9f1521] transition-colors leading-snug truncate"
+                          className="font-extrabold text-slate-900 text-base md:text-lg group-hover:text-[#9f1521] transition-colors leading-snug truncate"
                           title={room.name}
                         >
                           {room.name}
                         </h4>
-                        <span className="px-3 py-1 bg-rose-50 text-[#9f1521] border border-rose-100 rounded-xl text-xs font-black shrink-0 flex items-center gap-1 shadow-xs w-fit">
+                        <span className="px-3 py-1 bg-rose-50 text-[#9f1521] border border-rose-100 rounded-lg text-xs font-extrabold shrink-0 flex items-center gap-1 w-fit">
                           <Users size={13} className="shrink-0" />{" "}
                           {room.capacity || "Fleksibel"} Orang
                         </span>
                       </div>
 
-                      <div className="h-[45px] overflow-y-auto custom-scrollbar pr-1 text-xs text-slate-600 bg-white p-3 rounded-2xl border border-slate-100 flex items-start gap-2 leading-relaxed font-medium">
+                      <div className="h-[45px] overflow-y-auto custom-scrollbar pr-1 text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-100 flex items-start gap-2 leading-relaxed font-medium">
                         <Info
                           size={14}
                           className="text-slate-400 shrink-0 mt-0.5"
@@ -184,7 +181,7 @@ function LandingRooms({ rooms, isLoading }: LandingRoomsProps) {
               );
             })
           ) : (
-            <div className="col-span-full py-16 text-center text-xs text-slate-400 font-medium italic bg-slate-50 rounded-3xl border border-slate-200">
+            <div className="col-span-full py-16 text-center text-xs text-slate-400 font-medium italic bg-slate-50 rounded-2xl border border-slate-200">
               Belum ada data ruangan yang tersedia di database.
             </div>
           )}
