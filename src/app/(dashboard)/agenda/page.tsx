@@ -6,6 +6,7 @@ import { getSmartStatus, formatAgendaDate } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx"; // <-- Tambahan Library Excel
 import {
   ClipboardList,
   Search,
@@ -356,52 +357,81 @@ export default function AgendaPage() {
       });
   }, [agendas, searchTerm, statusFilter, roomFilter, monthFilter, yearFilter]);
 
+  // =============== FUNGSI EXPORT EXCEL BARU (XLSX) ===============
   const handleExportExcel = () => {
     setIsExporting(true);
-    let blobUrl: string | null = null;
     try {
       const currentDate = new Date().toISOString().split("T")[0];
-      let csvContent = "\uFEFF";
-      csvContent += `"KANTOR OJK PROVINSI SUMATERA SELATAN"\n`;
-      csvContent += `"LAPORAN REKAPITULASI AGENDA & KEGIATAN RUANGAN"\n`;
-      csvContent += `"Tanggal Cetak: ${currentDate} | Filter Status: ${statusFilter} | Filter Ruangan: ${roomFilter} | Filter Tahun: ${yearFilter} | Filter Bulan: ${monthFilter}"\n\n`;
-      csvContent += `"No","Tanggal Pelaksanaan","Waktu","Nama Kegiatan / Acara","Penanggung Jawab (PIC)","Satuan Kerja (Satker)","Ruangan","Tata Letak","Status Pengajuan","Catatan"\n`;
 
+      // 1. Siapkan kerangka data (Array of Arrays) agar header laporan tetap ada
+      const exportData: any[][] = [];
+
+      // Baris Header Judul Laporan
+      exportData.push(["KANTOR OJK PROVINSI SUMATERA SELATAN"]);
+      exportData.push(["LAPORAN REKAPITULASI AGENDA & KEGIATAN RUANGAN"]);
+      exportData.push([
+        `Tanggal Cetak: ${currentDate} | Filter Status: ${statusFilter} | Filter Ruangan: ${roomFilter} | Filter Tahun: ${yearFilter} | Filter Bulan: ${monthFilter}`,
+      ]);
+      exportData.push([]); // Baris Kosong sebagai pemisah
+
+      // Header Kolom Tabel
+      exportData.push([
+        "No",
+        "Tanggal Pelaksanaan",
+        "Waktu",
+        "Nama Kegiatan / Acara",
+        "Penanggung Jawab (PIC)",
+        "Satuan Kerja (Satker)",
+        "Ruangan",
+        "Tata Letak",
+        "Status Pengajuan",
+        "Catatan",
+      ]);
+
+      // 2. Masukkan isi data dari tabel
       filteredAgendas.forEach((a, index) => {
         const dateFormatted = formatAgendaDate(a.date, a.endDate);
-        const row = [
+        exportData.push([
           index + 1,
-          `"${dateFormatted}"`,
+          dateFormatted,
           a.time,
-          `"${(a.title || "").replace(/"/g, '""')}"`,
-          `"${(a.pic || "").replace(/"/g, '""')}"`,
-          `"${(a.dept || "-").replace(/"/g, '""')}"`,
-          `"${(a.room || "").replace(/"/g, '""')}"`,
-          `"${(a.layout || "-").replace(/"/g, '""')}"`,
+          a.title || "-",
+          a.pic || "-",
+          a.dept || "-",
+          a.room || "-",
+          a.layout || "-",
           a.smartStatus,
-          `"${(a.notes || "").replace(/"/g, '""')}"`,
-        ];
-        csvContent += row.join(",") + "\n";
+          a.notes || "-",
+        ]);
       });
 
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.setAttribute(
-        "download",
-        `Laporan_Agenda_OJK_Sumsel_${currentDate}.csv`,
-      );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // 3. Konversi array ke worksheet Excel
+      const ws = XLSX.utils.aoa_to_sheet(exportData);
+
+      // 4. Atur lebar kolom (Column Widths) agar tulisan rapi dan tidak terpotong
+      ws["!cols"] = [
+        { wch: 5 }, // No
+        { wch: 25 }, // Tanggal Pelaksanaan
+        { wch: 15 }, // Waktu
+        { wch: 45 }, // Nama Kegiatan (Lebar)
+        { wch: 25 }, // PIC
+        { wch: 25 }, // Satker
+        { wch: 30 }, // Ruangan
+        { wch: 18 }, // Tata Letak
+        { wch: 20 }, // Status Pengajuan
+        { wch: 40 }, // Catatan (Lebar)
+      ];
+
+      // 5. Buat file Excel dan simpan
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Rekap Agenda");
+
+      // Mengunduh langsung sebagai file .xlsx
+      XLSX.writeFile(wb, `Laporan_Agenda_OJK_Sumsel_${currentDate}.xlsx`);
     } catch (error) {
       console.error("Gagal mengekspor Excel:", error);
-      alert("Gagal melakukan ekspor data CSV.");
+      alert("Gagal melakukan ekspor data Excel.");
     } finally {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-      }
       setTimeout(() => setIsExporting(false), 500);
     }
   };

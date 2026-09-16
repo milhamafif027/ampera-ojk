@@ -1,12 +1,6 @@
 "use client";
 
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Car,
   Plus,
@@ -14,15 +8,12 @@ import {
   Calendar,
   X,
   RefreshCw,
-  ChevronLeft,
-  ChevronRight,
   Trash2,
   AlertTriangle,
   User,
   MapPin,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import VehicleCard from "@/components/dashboard/VehicleCard";
 import VehicleBookingModal from "@/components/dashboard/VehicleBookingModal";
 
 interface Vehicle {
@@ -63,27 +54,6 @@ export default function KendaraanPage() {
   const [bookings, setBookings] = useState<VehicleBooking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Ref untuk Scroll Horizontal Katalog Kendaraan (Khusus Admin)
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  const scrollVehicles = (direction: "left" | "right") => {
-    if (scrollRef.current) {
-      const { scrollLeft, clientWidth } = scrollRef.current;
-      const scrollAmount = clientWidth * 0.75;
-      scrollRef.current.scrollTo({
-        left:
-          direction === "left"
-            ? scrollLeft - scrollAmount
-            : scrollLeft + scrollAmount,
-        behavior: "smooth",
-      });
-    }
-  };
-
-  const [filterType, setFilterType] = useState<
-    "Semua" | "Mobil" | "Sepeda Motor"
-  >("Semua");
-
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [isAddVehicleModalOpen, setIsAddVehicleModalOpen] = useState(false);
@@ -106,7 +76,7 @@ export default function KendaraanPage() {
     userId?: string | number;
   }>({ isOpen: false, bookingId: null, vehicleName: "", userId: undefined });
 
-  // Ditambahkan state selectedVehicle untuk Admin mem-plotting kendaraan
+  // State form untuk Admin mem-plotting kendaraan
   const [approvalForm, setApprovalForm] = useState({
     selectedVehicle: "",
     totalPassengers: "1",
@@ -125,7 +95,6 @@ export default function KendaraanPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Ditambahkan field passengers pada formData untuk request awal user
   const [formData, setFormData] = useState({
     vehicleName: "Menunggu Plotting Admin",
     destination: "",
@@ -214,46 +183,6 @@ export default function KendaraanPage() {
     initData();
   }, [fetchVehicleData]);
 
-  const filteredVehicles = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
-
-    let list = vehicles.map((v) => {
-      const isBooked = bookings.some(
-        (b) =>
-          b.vehicleName === v.name &&
-          b.status === "Disetujui" &&
-          today >= b.startDate &&
-          today <= b.endDate,
-      );
-
-      return {
-        ...v,
-        status:
-          v.status === "Perawatan"
-            ? "Perawatan"
-            : isBooked
-              ? "Terpakai"
-              : "Tersedia",
-      };
-    });
-
-    if (filterType !== "Semua") {
-      list = list.filter((v) => {
-        const isMotorcycle =
-          v.capacity.toLowerCase().includes("motor") ||
-          v.name.toLowerCase().includes("motor") ||
-          v.name.toLowerCase().includes("stylo") ||
-          v.name.toLowerCase().includes("cb 150");
-
-        if (filterType === "Sepeda Motor") return isMotorcycle;
-        if (filterType === "Mobil") return !isMotorcycle;
-        return true;
-      });
-    }
-
-    return list;
-  }, [vehicles, bookings, filterType]);
-
   const isAdmin = user?.role === "admin";
 
   const isExternalUser = useMemo(() => {
@@ -306,18 +235,6 @@ export default function KendaraanPage() {
       type: "7 Penumpang",
       status: "Tersedia",
       category: "Operasional",
-    });
-    setIsAddVehicleModalOpen(true);
-  };
-
-  const handleOpenEditModal = (vehicle: Vehicle) => {
-    setEditingVehicleId(vehicle.id);
-    setNewVehicleData({
-      name: vehicle.name,
-      plate_number: vehicle.plateNumber,
-      type: vehicle.capacity,
-      status: vehicle.status,
-      category: vehicle.category || "Operasional",
     });
     setIsAddVehicleModalOpen(true);
   };
@@ -592,22 +509,6 @@ export default function KendaraanPage() {
                 className={isLoading ? "animate-spin" : ""}
               />
             </button>
-            {isAdmin && !isLoading && filteredVehicles.length > 0 && (
-              <div className="hidden sm:flex lg:hidden items-center gap-1.5">
-                <button
-                  onClick={() => scrollVehicles("left")}
-                  className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  onClick={() => scrollVehicles("right")}
-                  className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            )}
           </div>
 
           <div className="flex items-center gap-2 flex-1 justify-end flex-wrap sm:flex-nowrap">
@@ -629,61 +530,6 @@ export default function KendaraanPage() {
           </div>
         </div>
       </div>
-
-      {/* KATALOG KENDARAAN (HANYA DITAMPILKAN UNTUK ADMIN) */}
-      {isAdmin && (
-        <>
-          <div className="flex bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm w-fit gap-1 overflow-x-auto">
-            {(["Semua", "Mobil", "Sepeda Motor"] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => setFilterType(type)}
-                className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
-                  filterType === type
-                    ? "bg-[#9f1521] text-white shadow-md shadow-rose-900/10"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                }`}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
-
-          <div
-            ref={scrollRef}
-            className="flex lg:grid lg:grid-cols-3 gap-6 overflow-x-auto lg:overflow-x-visible custom-scrollbar pb-4 lg:pb-0 snap-x lg:snap-none snap-mandatory scroll-smooth"
-            style={{ scrollbarWidth: "thin" }}
-          >
-            {isLoading ? (
-              [1, 2, 3].map((n) => (
-                <div
-                  key={n}
-                  className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 min-w-[280px] sm:min-w-[340px] lg:min-w-0 shrink-0"
-                />
-              ))
-            ) : filteredVehicles.length > 0 ? (
-              filteredVehicles.map((vehicle) => (
-                <div
-                  key={vehicle.id}
-                  className="min-w-[280px] sm:min-w-[340px] lg:min-w-0 shrink-0 lg:shrink snap-start optimize-card-render"
-                >
-                  <VehicleCard
-                    vehicle={vehicle}
-                    isAdmin={isAdmin}
-                    user={user}
-                    onOpenModal={handleOpenModal}
-                    onOpenEditModal={handleOpenEditModal}
-                  />
-                </div>
-              ))
-            ) : (
-              <div className="col-span-full py-12 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                Tidak ada data kendaraan untuk kategori ini.
-              </div>
-            )}
-          </div>
-        </>
-      )}
 
       {/* RIWAYAT & PENGAJUAN KENDARAAN */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
