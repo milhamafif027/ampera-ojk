@@ -20,7 +20,10 @@ function LandingRooms({ rooms, isLoading }: LandingRoomsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollRefRapat = useRef<HTMLDivElement>(null);
 
-  const scroll = (ref: React.RefObject<HTMLDivElement | null>, direction: "left" | "right") => {
+  const scroll = (
+    ref: React.RefObject<HTMLDivElement | null>,
+    direction: "left" | "right",
+  ) => {
     if (ref.current) {
       const { scrollLeft, clientWidth } = ref.current;
       const scrollAmount = clientWidth * 0.75;
@@ -108,9 +111,7 @@ function LandingRooms({ rooms, isLoading }: LandingRoomsProps) {
 
             <div className="h-[45px] overflow-y-auto custom-scrollbar pr-1 text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-100 flex items-start gap-2 leading-relaxed font-medium">
               <Info size={14} className="text-slate-400 shrink-0 mt-0.5" />
-              <span>
-                {room.description || "Fasilitas rapat standar OJK."}
-              </span>
+              <span>{room.description || "Fasilitas rapat standar OJK."}</span>
             </div>
           </div>
 
@@ -133,7 +134,8 @@ function LandingRooms({ rooms, isLoading }: LandingRoomsProps) {
           Katalog Ruang Pertemuan & Rapat
         </h2>
         <p className="text-xs sm:text-sm md:text-base text-slate-600 leading-relaxed font-medium">
-          Pratinjau inventaris fasilitas ruang rapat dan ballroom modern yang terintegrasi langsung dengan database sistem reservasi.
+          Pratinjau inventaris fasilitas ruang rapat dan ballroom modern yang
+          terintegrasi langsung dengan database sistem reservasi.
         </p>
       </div>
 

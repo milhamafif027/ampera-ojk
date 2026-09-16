@@ -18,8 +18,10 @@ import {
   HelpCircle,
   XCircle,
   Eye,
+  ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, animate } from "framer-motion";
 
 interface ExtendedAgenda extends Agenda {
@@ -54,6 +56,7 @@ function Counter({ value }: { value: number }) {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [user] = useState<LocalUser | null>(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -65,7 +68,11 @@ export default function DashboardPage() {
   });
 
   const [agendas, setAgendas] = useState<ExtendedAgenda[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"all" | "Disetujui" | "Pending">(
+    "all",
+  );
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -91,152 +98,107 @@ export default function DashboardPage() {
     data: null,
   });
 
-  const fetchAgendas = useCallback(async () => {
+  // Fungsi fetch data dengan opsi initial load agar tidak flicker saat polling background
+  const loadDashboardData = useCallback(async (isInitial = false) => {
     try {
-      const res = await fetch("/api/agendas");
-      const result = await res.json();
+      if (isInitial) setIsLoading(true);
+      const [resAgendas, resRooms] = await Promise.all([
+        fetch("/api/agendas"),
+        fetch("/api/ruangan"),
+      ]);
 
-      if (res.ok && result.data) {
-        const mappedAgendas: ExtendedAgenda[] = result.data.map((item: any) => {
-          const formattedDate = item.date ? String(item.date).slice(0, 10) : "";
-          const formattedEndDate = item.end_date
-            ? String(item.end_date).slice(0, 10)
-            : formattedDate;
+      const resultAgendas = await resAgendas.json();
+      const resultRooms = await resRooms.json();
 
-          let formattedTime = "";
-          if (item.start_time && item.end_time) {
-            const startStr = String(item.start_time);
-            const endStr = String(item.end_time);
+      if (resAgendas.ok && resultAgendas.data) {
+        const mappedAgendas: ExtendedAgenda[] = resultAgendas.data.map(
+          (item: any) => {
+            const formattedDate = item.date
+              ? String(item.date).slice(0, 10)
+              : "";
+            const formattedEndDate = item.end_date
+              ? String(item.end_date).slice(0, 10)
+              : formattedDate;
 
-            const cleanStart = startStr.includes("T")
-              ? startStr.split("T")[1]
-              : startStr;
-            const cleanEnd = endStr.includes("T")
-              ? endStr.split("T")[1]
-              : endStr;
+            let formattedTime = "";
+            if (item.start_time && item.end_time) {
+              const startStr = String(item.start_time);
+              const endStr = String(item.end_time);
 
-            formattedTime = `${cleanStart.slice(0, 5)} - ${cleanEnd.slice(0, 5)}`;
-          } else {
-            formattedTime = item.time || "";
-          }
+              const cleanStart = startStr.includes("T")
+                ? startStr.split("T")[1]
+                : startStr;
+              const cleanEnd = endStr.includes("T")
+                ? endStr.split("T")[1]
+                : endStr;
 
-          const agendaItem = {
-            id: String(item.id),
-            title: item.title,
-            date: formattedDate,
-            endDate: formattedEndDate,
-            time: formattedTime,
-            room: item.room_name || item.room || "Ruang Rapat OJK",
-            pic: item.pic || "Pegawai OJK",
-            dept: item.dept || "OJK Sumsel",
-            phone: item.phone || "",
-            layout: item.layout || "-",
-            status: item.status || "Pending",
-            total_participants: item.total_participants || 1,
-            meeting_leader: item.meeting_leader || "-",
-            notes: item.notes || "",
-          };
+              formattedTime = `${cleanStart.slice(0, 5)} - ${cleanEnd.slice(0, 5)}`;
+            } else {
+              formattedTime = item.time || "";
+            }
 
-          return {
-            ...agendaItem,
-            smartStatus: getSmartStatus(agendaItem) as StatusPengajuan,
-          };
-        });
+            const agendaItem = {
+              id: String(item.id),
+              title: item.title,
+              date: formattedDate,
+              endDate: formattedEndDate,
+              time: formattedTime,
+              room: item.room_name || item.room || "Ruang Rapat OJK",
+              pic: item.pic || "Pegawai OJK",
+              dept: item.dept || "OJK Sumsel",
+              phone: item.phone || "",
+              layout: item.layout || "-",
+              status: item.status || "Pending",
+              total_participants: item.total_participants || 1,
+              meeting_leader: item.meeting_leader || "-",
+              notes: item.notes || "",
+            };
+
+            return {
+              ...agendaItem,
+              smartStatus: getSmartStatus(agendaItem) as StatusPengajuan,
+            };
+          },
+        );
 
         setAgendas(mappedAgendas);
       }
+
+      if (resRooms.ok && Array.isArray(resultRooms.data)) {
+        setRooms(resultRooms.data);
+      }
     } catch (error) {
-      console.error("Gagal mengambil data agenda:", error);
+      console.error("Gagal mengambil data dashboard:", error);
     } finally {
-      setIsLoading(false);
+      if (isInitial) setIsLoading(false);
     }
   }, []);
 
-  const handleManualRefresh = () => {
-    setIsLoading(true);
-    fetchAgendas();
-  };
-
+  // Real-time Auto Polling setiap 5 detik tanpa refresh manual
   useEffect(() => {
     let isCancelled = false;
 
-    const loadInitialData = async () => {
-      try {
-        const res = await fetch("/api/agendas");
-        const result = await res.json();
-
-        if (isCancelled) return;
-
-        if (res.ok && result.data) {
-          const mappedAgendas: ExtendedAgenda[] = result.data.map(
-            (item: any) => {
-              const formattedDate = item.date
-                ? String(item.date).slice(0, 10)
-                : "";
-              const formattedEndDate = item.end_date
-                ? String(item.end_date).slice(0, 10)
-                : formattedDate;
-
-              let formattedTime = "";
-              if (item.start_time && item.end_time) {
-                const startStr = String(item.start_time);
-                const endStr = String(item.end_time);
-
-                const cleanStart = startStr.includes("T")
-                  ? startStr.split("T")[1]
-                  : startStr;
-                const cleanEnd = endStr.includes("T")
-                  ? endStr.split("T")[1]
-                  : endStr;
-
-                formattedTime = `${cleanStart.slice(0, 5)} - ${cleanEnd.slice(0, 5)}`;
-              } else {
-                formattedTime = item.time || "";
-              }
-
-              const agendaItem = {
-                id: String(item.id),
-                title: item.title,
-                date: formattedDate,
-                endDate: formattedEndDate,
-                time: formattedTime,
-                room: item.room_name || item.room || "Ruang Rapat OJK",
-                pic: item.pic || "Pegawai OJK",
-                dept: item.dept || "OJK Sumsel",
-                phone: item.phone || "",
-                layout: item.layout || "-",
-                status: item.status || "Pending",
-                total_participants: item.total_participants || 1,
-                meeting_leader: item.meeting_leader || "-",
-                notes: item.notes || "",
-              };
-
-              return {
-                ...agendaItem,
-                smartStatus: getSmartStatus(agendaItem) as StatusPengajuan,
-              };
-            },
-          );
-
-          setAgendas(mappedAgendas);
-        }
-      } catch (error) {
-        if (!isCancelled) {
-          console.error("Gagal mengambil data agenda:", error);
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsLoading(false);
-        }
-      }
+    const init = async () => {
+      if (!isCancelled) await loadDashboardData(true);
     };
 
-    loadInitialData();
+    init();
+
+    const interval = setInterval(() => {
+      if (!isCancelled) {
+        loadDashboardData(false); // Poling senyap di latar belakang
+      }
+    }, 5000);
 
     return () => {
       isCancelled = true;
+      clearInterval(interval);
     };
-  }, []);
+  }, [loadDashboardData]);
+
+  const handleManualRefresh = () => {
+    loadDashboardData(true);
+  };
 
   const isAdmin = user?.role === "admin";
   const isExternal = user?.role === "eksternal";
@@ -284,7 +246,7 @@ export default function DashboardPage() {
       })
       .map((item) => item.room),
   );
-  const totalMasterRooms = 9;
+  const totalMasterRooms = rooms.length > 0 ? rooms.length : 9;
   const availableRoomsCount = Math.max(
     0,
     totalMasterRooms - bookedRoomsToday.size,
@@ -306,7 +268,6 @@ export default function DashboardPage() {
     }
 
     const statusText = status === "Disetujui" ? "DISETUJUI ✅" : "DITOLAK ❌";
-
     const dateRangeText =
       agendaData.date === agendaData.endDate || !agendaData.endDate
         ? `tanggal ${agendaData.date}`
@@ -375,7 +336,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
           confirmModal.rejectReason,
         );
 
-        await fetchAgendas();
+        await loadDashboardData(false);
         setConfirmModal({
           isOpen: false,
           agendaId: null,
@@ -420,50 +381,46 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
         }
       `}</style>
 
-      {/* WELCOME BANNER */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5 }}
-        className="bg-gradient-to-r from-[#9f1521] to-[#7a1019] text-white p-6 sm:p-8 rounded-3xl shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6"
-      >
-        <div className="relative z-10 space-y-2 max-w-2xl">
-          <span className="px-3 py-1 bg-white/20 border border-white/35 backdrop-blur-md rounded-full text-[10px] font-extrabold uppercase tracking-widest text-rose-200">
-            {isExternal ? "PORTAL EKSTERNAL AMPERA" : "PORTAL INTERNAL AMPERA"}
-          </span>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-snug">
+      {/* ================= TOP HEADER BAR ================= */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm border-l-4 border-l-[#9f1521]">
+        <div>
+          <div className="flex items-center gap-2 text-[#9f1521] font-extrabold text-[10px] tracking-widest uppercase mb-1">
+            <ShieldCheck size={14} /> Panel Operasional OJK Sumsel
+          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
             Selamat Datang,{" "}
-            {isAdmin ? "Admin TIM LMSt" : user?.name || "Tamu Eksternal OJK"}
+            {user?.name || (isExternal ? "Tamu Eksternal" : "Pegawai OJK")}
           </h1>
-          <p className="text-xs sm:text-sm text-rose-100 font-medium leading-relaxed">
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
             {isExternal
-              ? "Akses portal eksternal OJK Sumsel untuk melihat katalog fasilitas ruangan, layanan peminjaman kendaraan, hotel rekanan, dan pusat bantuan."
-              : "Pantau ketersediaan ruang rapat, jadwal kegiatan live, dan status pengajuan fasilitas secara real-time dari database."}
+              ? "Akses portal eksternal OJK Sumsel untuk melihat katalog fasilitas ruangan dan layanan instansi."
+              : "Pantau ketersediaan ruang rapat, jadwal kegiatan live, dan status pengajuan fasilitas secara real-time."}
           </p>
         </div>
-        <div className="relative z-10 shrink-0 flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+
+        <div className="flex items-center gap-3">
           <button
             onClick={handleManualRefresh}
-            className="p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-2xl text-white transition-colors cursor-pointer"
+            className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
             title="Refresh Data"
           >
-            <RefreshCw size={18} className={isLoading ? "animate-spin" : ""} />
+            <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
           </button>
-          <div className="px-4 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl text-right flex-1 md:flex-initial">
-            <p className="text-[10px] font-bold text-rose-200 uppercase">
-              Hari Ini
-            </p>
-            <p className="text-xs sm:text-sm font-black text-white">
+          <div className="px-4 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/50 text-right">
+            <span className="block text-[9px] font-extrabold text-[#9f1521] uppercase tracking-wider">
+              HARI INI
+            </span>
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
               {new Date().toLocaleDateString("id-ID", {
                 weekday: "long",
                 day: "numeric",
-                month: "long",
+                month: "short",
                 year: "numeric",
               })}
-            </p>
+            </span>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* DASHBOARD EKSTERNAL */}
       {isExternal ? (
@@ -473,7 +430,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
           transition={{ duration: 0.4, delay: 0.1 }}
           className="space-y-6"
         >
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 rounded-3xl shadow-sm">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 rounded-2xl shadow-sm">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
               Menu & Layanan Eksternal Tersedia
             </h2>
@@ -560,67 +517,92 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
           transition={{ duration: 0.4, delay: 0.1 }}
           className="space-y-6 sm:space-y-8"
         >
-          {/* STATISTIK METRIK */}
+          {/* ================= OVERVIEW METRICS CARDS ================= */}
           <div
-            className={`grid grid-cols-2 ${isAdmin ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-3 sm:gap-4`}
+            className={`grid grid-cols-2 ${isAdmin ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-4`}
           >
-            {[
-              {
-                title: "Total Agenda",
-                value: totalAgendas,
-                icon: <CalendarDays size={18} className="text-[#9f1521]" />,
-                textColor: "text-slate-800 dark:text-white",
-              },
-              {
-                title: "Terkonfirmasi",
-                value: totalDisetujui,
-                icon: <CheckCircle2 size={18} className="text-emerald-600" />,
-                textColor: "text-emerald-600",
-              },
-              ...(isAdmin
-                ? [
-                    {
-                      title: "Pending",
-                      value: totalPending,
-                      icon: (
-                        <AlertCircle size={18} className="text-amber-500" />
-                      ),
-                      textColor: "text-amber-500",
-                    },
-                  ]
-                : []),
-              {
-                title: "Ruangan Tersedia",
-                value: availableRoomsCount,
-                icon: <CheckCircle2 size={18} className="text-emerald-600" />,
-                textColor: "text-emerald-600 dark:text-emerald-400",
-              },
-            ].map((stat, idx) => (
-              <motion.div
-                key={stat.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: idx * 0.1 }}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-5 rounded-2xl shadow-sm space-y-1 hover:shadow-md transition-shadow"
-              >
-                <div className="flex justify-between items-center text-slate-400">
-                  <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider">
-                    {stat.title}
-                  </span>
-                  {stat.icon}
+            <div className="bg-gradient-to-br from-amber-50/70 to-white dark:from-slate-900 dark:to-slate-900 p-5 rounded-2xl border border-amber-200/60 shadow-sm flex flex-col justify-between">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900/70 dark:text-amber-400">
+                  Total Agenda
+                </span>
+                <div className="p-2 rounded-xl bg-amber-100 text-amber-700">
+                  <CalendarDays size={16} />
                 </div>
-                <p
-                  className={`text-2xl sm:text-3xl font-black ${stat.textColor}`}
-                >
-                  <Counter value={stat.value} />
+              </div>
+              <div className="mt-4">
+                <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+                  <Counter value={totalAgendas} />
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                  Agenda kedinasan tercatat
                 </p>
-              </motion.div>
-            ))}
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-emerald-50/70 to-white dark:from-slate-900 dark:to-slate-900 p-5 rounded-2xl border border-emerald-200/60 shadow-sm flex flex-col justify-between">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-900/70 dark:text-emerald-400">
+                  Disetujui
+                </span>
+                <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
+                  <CheckCircle2 size={16} />
+                </div>
+              </div>
+              <div className="mt-4">
+                <h3 className="text-2xl sm:text-3xl font-black text-emerald-700 dark:text-emerald-400">
+                  <Counter value={totalDisetujui} />
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                  Jadwal aktif & siap pakai
+                </p>
+              </div>
+            </div>
+
+            {isAdmin && (
+              <div className="bg-gradient-to-br from-rose-50/70 to-white dark:from-slate-900 dark:to-slate-900 p-5 rounded-2xl border border-rose-200/60 shadow-sm flex flex-col justify-between">
+                <div className="flex justify-between items-center">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-rose-900/70 dark:text-rose-400">
+                    Pending Review
+                  </span>
+                  <div className="p-2 rounded-xl bg-rose-100 text-[#9f1521]">
+                    <Clock size={16} />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <h3 className="text-2xl sm:text-3xl font-black text-[#9f1521] dark:text-rose-400">
+                    <Counter value={totalPending} />
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                    Menunggu verifikasi admin
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-gradient-to-br from-blue-50/70 to-white dark:from-slate-900 dark:to-slate-900 p-5 rounded-2xl border border-blue-200/60 shadow-sm flex flex-col justify-between">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-900/70 dark:text-blue-400">
+                  Ruangan Tersedia
+                </span>
+                <div className="p-2 rounded-xl bg-blue-100 text-blue-700">
+                  <Building2 size={16} />
+                </div>
+              </div>
+              <div className="mt-4">
+                <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+                  <Counter value={availableRoomsCount} />
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-1 font-medium">
+                  Unit siap dipesan hari ini
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* GRID LIVE & AGENDA TERDEKAT */}
+          {/* ================= GRID LIVE & AGENDA TERDEKAT ================= */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col h-[320px] sm:h-[340px]">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col h-[320px] sm:h-[340px]">
               <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
@@ -644,7 +626,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
                       onClick={() =>
                         setDetailModal({ isOpen: true, data: item })
                       }
-                      className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 hover:border-emerald-400 rounded-2xl space-y-2 cursor-pointer transition-all shadow-2xs group"
+                      className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 hover:border-emerald-400 rounded-xl space-y-2 cursor-pointer transition-all shadow-2xs group"
                     >
                       <h3 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-emerald-700 transition-colors">
                         {item.title}
@@ -682,7 +664,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col h-[320px] sm:h-[340px]">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col h-[320px] sm:h-[340px]">
               <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521] dark:text-rose-400">
@@ -705,7 +687,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
                       onClick={() =>
                         setDetailModal({ isOpen: true, data: item })
                       }
-                      className="p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 hover:border-[#9f1521]/60 rounded-2xl space-y-2 cursor-pointer transition-all shadow-2xs group"
+                      className="p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 hover:border-[#9f1521]/60 rounded-xl space-y-2 cursor-pointer transition-all shadow-2xs group"
                     >
                       <div className="flex justify-between items-start gap-2">
                         <h3 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-[#9f1521] transition-colors">
@@ -742,9 +724,9 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
             </div>
           </div>
 
-          {/* PANEL PENGAJUAN PENDING (ADMIN) */}
+          {/* ================= PANEL PENGAJUAN PENDING (ADMIN) ================= */}
           {isAdmin && (
-            <div className="bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/30 rounded-3xl p-5 sm:p-8 space-y-6">
+            <div className="bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-5 sm:p-8 space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-amber-200/60 dark:border-amber-900/30 pb-4">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
@@ -765,7 +747,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
                   {pendingAgendas.map((item) => (
                     <div
                       key={item.id}
-                      className="bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-5 shadow-sm space-y-3 flex flex-col justify-between"
+                      className="bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-xl p-5 shadow-sm space-y-3 flex flex-col justify-between"
                     >
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
@@ -821,7 +803,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
                   ))}
                 </div>
               ) : (
-                <div className="p-6 text-center text-xs text-slate-500 font-medium italic bg-white/50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-amber-200">
+                <div className="p-6 text-center text-xs text-slate-500 font-medium italic bg-white/50 dark:bg-slate-900/50 rounded-xl border border-dashed border-amber-200">
                   Tidak ada pengajuan yang membutuhkan tindakan persetujuan saat
                   ini.
                 </div>
@@ -837,7 +819,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4 overflow-hidden my-auto"
+            className="relative bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4 overflow-hidden my-auto"
           >
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
@@ -857,7 +839,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
             </div>
 
             <div className="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 text-xs">
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 space-y-3 text-xs">
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3 text-xs">
                 <div className="flex justify-between">
                   <span className="text-slate-500 font-medium">
                     Nama Kegiatan:
@@ -923,7 +905,6 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
                   </span>
                 </div>
 
-                {/* BARIS CATATAN / REQUEST TAMBAHAN */}
                 <div className="flex justify-between items-start pt-2 border-t border-slate-200 dark:border-slate-700">
                   <span className="text-slate-500 font-medium">
                     Catatan / Request:
@@ -936,7 +917,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
                 </div>
               </div>
 
-              <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-2.5 border border-slate-200/60 dark:border-slate-800">
+              <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-2.5 border border-slate-200/60 dark:border-slate-800">
                 <div className="flex justify-between items-center">
                   <span className="text-slate-400 font-medium">
                     Penanggung Jawab (PIC):
@@ -977,13 +958,13 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
         </div>
       )}
 
-      {/* MODAL POP-UP KONFIRMASI (ADMIN) */}
+      {/* ================= MODAL KONFIRMASI (ADMIN) ================= */}
       {confirmModal.isOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white dark:bg-slate-900 rounded-[2rem] p-5 sm:p-6 max-w-sm w-full shadow-2xl space-y-4 text-center"
+            className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 max-w-sm w-full shadow-2xl space-y-4 text-center border border-slate-100 dark:border-slate-800"
           >
             <div
               className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto ${
