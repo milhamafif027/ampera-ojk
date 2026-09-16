@@ -53,18 +53,18 @@ export default function Hero() {
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentIndex((prevIndex) => (prevIndex + 1) % buildingImages.length);
-    }, 4000); // Diperlambat sedikit agar user sempat membaca widget
+    }, 4000);
     return () => clearInterval(timer);
   }, []);
 
   return (
     <section
       id="profil"
-      // Latar belakang dengan pattern grid halus ala "blueprint"
-      className="relative bg-slate-50 border-b border-slate-200 py-16 sm:py-24 lg:py-32 overflow-hidden"
+      // Background Gradient Merah Putih Dominan Putih + Pattern Grid Halus
+      className="relative bg-gradient-to-b from-rose-50/50 via-white to-slate-50 border-b border-slate-200/80 py-16 sm:py-24 lg:py-32 overflow-hidden"
     >
-      {/* Background Grid Pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
+      {/* Background Grid Pattern Tipis */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:28px_28px] pointer-events-none"></div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-12 items-center z-10">
         {/* ================= BAGIAN KIRI: TEKS (CLEAN CORPORATE) ================= */}
@@ -75,6 +75,12 @@ export default function Hero() {
           variants={textVariants}
           className="space-y-6 text-center lg:text-left flex flex-col items-center lg:items-start"
         >
+          {/* Label Sub-judul gaya editorial */}
+          <div className="flex items-center gap-2 text-slate-500 font-bold tracking-widest text-[10px] sm:text-xs uppercase">
+            <span className="w-6 h-[2px] bg-[#9f1521] rounded-full"></span>
+            Platform Integrasi Perkantoran
+          </div>
+
           <div className="space-y-3">
             <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight leading-none">
               AMPERA
