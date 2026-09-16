@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { X, CheckCircle2, AlertCircle, Loader2, Info } from "lucide-react";
 import { Room, Agenda } from "@/types";
 
 export interface RoomBookingModalProps {
@@ -27,7 +27,8 @@ interface RawRoomConfig {
 }
 
 const getRoomLayouts = (room: RawRoomConfig | null | undefined): string[] => {
-  if (!room) return ["Ruang Rapat"];
+  if (!room)
+    return ["Ruang Rapat", "Theater", "Klasikal", "U-Shape", "Round Table"];
 
   if (room.layout_config) {
     try {
@@ -50,40 +51,6 @@ const getRoomLayouts = (room: RawRoomConfig | null | undefined): string[] => {
     return ["Theater"];
   }
   return ["Ruang Rapat"];
-};
-
-const getRoomCapacity = (
-  room: RawRoomConfig | null | undefined,
-  layout: string,
-): string | number => {
-  if (!room) return "-";
-
-  let capacityVal = "";
-  if (room.layout_config) {
-    try {
-      const config =
-        typeof room.layout_config === "string"
-          ? JSON.parse(room.layout_config)
-          : room.layout_config;
-      if (config[layout]) {
-        capacityVal = String(config[layout]);
-      } else {
-        const firstVal = Object.values(config)[0];
-        if (firstVal) capacityVal = String(firstVal);
-      }
-    } catch (e) {
-      console.error("Gagal membaca kapasitas layout:", e);
-    }
-  }
-
-  if (!capacityVal) {
-    capacityVal = room.capacity ? String(room.capacity) : "-";
-  }
-
-  const cleanCapacity = capacityVal.replace(/orang/gi, "").trim();
-  return cleanCapacity !== "-" && cleanCapacity !== ""
-    ? `${cleanCapacity} Orang`
-    : "-";
 };
 
 function BookingFormContent({
@@ -112,7 +79,6 @@ function BookingFormContent({
   const [fetchedBookings, setFetchedBookings] = useState<Agenda[]>([]);
   const [isCheckingConflict, setIsCheckingConflict] = useState(false);
 
-  // Gabungkan agenda secara bersih tanpa useMemo manual agar bebas dari warning React Compiler
   const existingBookings = (() => {
     const combined = [...agendas, ...fetchedBookings];
     const unique = Array.from(
@@ -137,7 +103,7 @@ function BookingFormContent({
       selectedRoom ||
       (editData &&
         rooms.find((r) => String(r.id) === String(agendaRecord?.room_id))) ||
-      (rooms.length > 0 ? rooms[0] : null);
+      null;
 
     const validLayouts = getRoomLayouts(activeRoom);
     const existingLayout = agendaRecord?.layout as string | undefined;
@@ -175,8 +141,11 @@ function BookingFormContent({
         "",
       total_participants: String(agendaRecord?.total_participants || "1"),
       meeting_leader: (agendaRecord?.meeting_leader as string) || "",
-      room_id: activeRoom ? String(activeRoom.id) : "",
-      roomName: activeRoom?.name || "",
+      room_id: "",
+      roomName:
+        (agendaRecord?.room_name as string) ||
+        (agendaRecord?.room as string) ||
+        "Menunggu Plotting Admin",
       isMultiDay: isMultiDayDetected,
       date: initialDate,
       endDate: isMultiDayDetected ? initialEndDate : "",
@@ -188,26 +157,11 @@ function BookingFormContent({
     };
   });
 
-  const currentRoom = useMemo(() => {
-    return (
-      rooms.find(
-        (r) =>
-          String(r.id) === String(formData.room_id) ||
-          r.name.trim().toLowerCase() ===
-            formData.roomName.trim().toLowerCase(),
-      ) || null
-    );
-  }, [rooms, formData.room_id, formData.roomName]);
-
   const availableLayouts = useMemo(() => {
-    return getRoomLayouts(currentRoom);
-  }, [currentRoom]);
+    // Memberikan semua opsi layout umum karena ruang belum diketahui
+    return ["Ruang Rapat", "Theater", "Klasikal", "U-Shape", "Round Table"];
+  }, []);
 
-  const currentCapacityInfo = useMemo(() => {
-    return getRoomCapacity(currentRoom, formData.layout);
-  }, [currentRoom, formData.layout]);
-
-  // Fetch seluruh data agenda dari database saat modal dibuka
   useEffect(() => {
     let isCancelled = false;
 
@@ -249,66 +203,26 @@ function BookingFormContent({
         ? (target as HTMLInputElement).checked
         : target.value;
 
-    if (name === "room_id") {
-      const selected = rooms.find((r) => String(r.id) === String(value));
-      const layouts = getRoomLayouts(selected);
-
-      setFormData((prev) => ({
-        ...prev,
-        room_id: String(value),
-        roomName: selected ? selected.name : prev.roomName,
-        layout: layouts[0] || "Ruang Rapat",
-      }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Validasi Konflik & Aturan Kapasitas Round Table (Ballroom 200-250 vs Komunal Round Table)
   const conflictDetails = (() => {
+    // BYPASS Pengecekan Bentrok jika belum diplotting oleh admin
     if (
       !formData.date ||
       !formData.startTime ||
       !formData.endTime ||
-      existingBookings.length === 0
+      existingBookings.length === 0 ||
+      formData.roomName === "Menunggu Plotting Admin"
     ) {
       return { hasConflict: false, message: null };
     }
 
+    // Jika masuk ke mode edit yang sudah ada ruangannya, cek seperti biasa
     const targetDate = formData.date.slice(0, 10);
     const targetStartTime = formData.startTime;
     const targetEndTime = formData.endTime;
-    const targetRoomId = String(formData.room_id || "");
     const targetRoomNameLower = (formData.roomName || "").toLowerCase();
-    const targetLayoutLower = (formData.layout || "").toLowerCase();
-
-    // Helper untuk mengubah string peserta ("250 Orang") menjadi angka murni (250)
-    const parseNum = (val: any) => {
-      if (typeof val === "number") return val;
-      const clean = String(val || "0").replace(/[^0-9]/g, "");
-      return Number(clean) || 0;
-    };
-
-    const targetParticipants = parseNum(formData.total_participants);
-
-    const isTargetBallroom =
-      targetRoomId === "11" ||
-      targetRoomNameLower.includes("ballroom") ||
-      targetRoomNameLower.includes("sriwidjaya");
-
-    const isTargetKomunal =
-      targetRoomId === "12" || targetRoomNameLower.includes("komunal");
-
-    const isTargetRoundTable = targetLayoutLower.includes("round table");
-
-    // Validasi mutlak maksimal kapasitas Ballroom Round Table tidak boleh > 250
-    if (isTargetBallroom && isTargetRoundTable && targetParticipants > 250) {
-      return {
-        hasConflict: true,
-        message:
-          "Kapasitas maksimal Ballroom untuk layout 'Round Table' adalah 250 orang.",
-      };
-    }
 
     for (const booking of existingBookings) {
       const rawBooking = booking as unknown as Record<string, unknown>;
@@ -321,69 +235,18 @@ function BookingFormContent({
 
       if (!existingStart || !existingEnd) continue;
 
-      // Cek irisan waktu (Time Overlap)
       const isTimeOverlap =
         targetStartTime < existingEnd && targetEndTime > existingStart;
       if (!isTimeOverlap) continue;
 
-      const bookedRoomId = String(rawBooking.room_id || "");
       const bookedRoomName = String(
         rawBooking.room_name || rawBooking.room || "",
       ).toLowerCase();
-      const bookedParticipants = parseNum(rawBooking.total_participants);
-      const bookedLayoutLower = String(rawBooking.layout || "").toLowerCase();
 
-      const isBookedBallroom =
-        bookedRoomId === "11" ||
-        bookedRoomName.includes("ballroom") ||
-        bookedRoomName.includes("sriwidjaya");
-
-      const isBookedKomunal =
-        bookedRoomId === "12" || bookedRoomName.includes("komunal");
-
-      const isBookedRoundTable = bookedLayoutLower.includes("round table");
-
-      // 1. Konflik reguler (pesan ruangan yang sama persis di jam yang sama)
-      if (
-        bookedRoomId === targetRoomId ||
-        bookedRoomName === targetRoomNameLower ||
-        (isTargetBallroom && isBookedBallroom) ||
-        (isTargetKomunal && isBookedKomunal)
-      ) {
+      if (bookedRoomName === targetRoomNameLower) {
         return {
           hasConflict: true,
-          message:
-            "Ruangan sudah terisi/dipesan pada rentang jam tersebut di tanggal ini.",
-        };
-      }
-
-      // 2. ATURAN 1: Jika user pesan Komunal (Round Table), cek apakah Ballroom sudah pesan Round Table >= 200 orang
-      if (
-        isTargetKomunal &&
-        isTargetRoundTable &&
-        isBookedBallroom &&
-        isBookedRoundTable &&
-        bookedParticipants >= 200
-      ) {
-        return {
-          hasConflict: true,
-          message: `Layout 'Round Table' di Ruangan Komunal tidak dapat dipesan karena Ballroom Sriwidjaya sedang menggunakan 'Round Table' kapasitas besar (${bookedParticipants} orang) pada jam tersebut.`,
-        };
-      }
-
-      // 3. ATURAN 2: Jika user pesan Ballroom (Round Table) dengan kapasitas 200 - 250 orang, cek apakah Komunal Round Table sudah terisi
-      if (
-        isTargetBallroom &&
-        isTargetRoundTable &&
-        targetParticipants >= 200 &&
-        targetParticipants <= 250 &&
-        isBookedKomunal &&
-        isBookedRoundTable
-      ) {
-        return {
-          hasConflict: true,
-          message:
-            "Ballroom dengan layout 'Round Table' (200 - 250 orang) tidak dapat dipesan karena Ruangan Komunal sudah terisi layout 'Round Table'.",
+          message: "Ruangan tersebut sudah terisi pada rentang jam ini.",
         };
       }
     }
@@ -403,7 +266,6 @@ function BookingFormContent({
   );
 
   const isStep2Valid = Boolean(
-    (formData.room_id || formData.roomName.trim()) &&
     formData.date &&
     (!formData.isMultiDay ||
       (formData.endDate && formData.endDate >= formData.date)) &&
@@ -513,7 +375,7 @@ function BookingFormContent({
             </span>
           )}
           <h2 className="text-2xl font-black tracking-tight">
-            {isViewMode ? "Detail Agenda / Kegiatan" : "Reservasi Ruangan"}
+            {isViewMode ? "Detail Agenda / Kegiatan" : "Request Ruangan"}
           </h2>
         </div>
         <button
@@ -529,6 +391,12 @@ function BookingFormContent({
       <div className="p-8 overflow-y-auto flex-1 space-y-4">
         {step === 1 && (
           <>
+            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-400 font-medium mb-2">
+              💡 <strong>Info:</strong> Silakan lengkapi detail kegiatan Anda.
+              Ruangan rapat akan ditentukan (di-plotting) oleh Admin berdasarkan
+              kapasitas dan ketersediaan.
+            </div>
+
             <div>
               <label className={labelClassName}>Nama Kegiatan / Acara</label>
               <input
@@ -628,48 +496,17 @@ function BookingFormContent({
         {step === 2 && (
           <>
             <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <label className={labelClassName} style={{ marginBottom: 0 }}>
-                  Pilih Ruangan
-                </label>
-                {currentCapacityInfo !== "-" && (
-                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-900">
-                    Kapasitas ({formData.layout}): {currentCapacityInfo}
-                  </span>
-                )}
-              </div>
-
-              {rooms.length > 0 ? (
-                <select
-                  name="room_id"
-                  value={formData.room_id}
-                  onChange={handleChange}
-                  disabled={isSubmitting}
-                  className={inputClassName}
-                  required
-                >
-                  <option value="">-- Pilih Ruangan --</option>
-                  {rooms.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name} - Kapasitas:{" "}
-                      {String(r.capacity || "-")
-                        .replace(/orang/gi, "")
-                        .trim()}{" "}
-                      Orang
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  name="roomName"
-                  value={formData.roomName}
-                  onChange={handleChange}
-                  disabled={isSubmitting}
-                  className={inputClassName}
-                  placeholder="Nama Ruangan"
-                  required
-                />
-              )}
+              <label className={labelClassName}>Ruangan Rapat</label>
+              {/* Tampilan input readonly karena ruangan akan diplotting admin */}
+              <input
+                name="roomName"
+                value={formData.roomName}
+                disabled
+                className={`${inputClassName} bg-slate-100 dark:bg-slate-800/80 font-bold text-slate-500 cursor-not-allowed`}
+              />
+              <p className="text-[10px] text-amber-600 mt-1 italic">
+                * Ruangan akan dialokasikan oleh Admin setelah disetujui.
+              </p>
             </div>
 
             <div className="flex items-center gap-2.5 pt-1">
@@ -869,7 +706,7 @@ function BookingFormContent({
             className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs disabled:opacity-50 cursor-pointer flex items-center gap-2"
           >
             {isSubmitting && <Loader2 size={14} className="animate-spin" />}
-            {isSubmitting ? "Menyimpan..." : "Kirim Reservasi"}
+            {isSubmitting ? "Menyimpan..." : "Kirim Request"}
           </button>
         )}
       </div>
@@ -928,11 +765,11 @@ export default function RoomBookingModal({
           </div>
           <div className="space-y-1">
             <h3 className="text-xl font-black text-slate-900 dark:text-white">
-              Reservasi Berhasil!
+              Request Berhasil!
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Pengajuan jadwal ruangan rapat Anda telah berhasil disimpan dan
-              tercatat di database.
+              Pengajuan kebutuhan ruangan rapat Anda telah berhasil disimpan dan
+              menunggu plotting dari Admin.
             </p>
           </div>
           <button
