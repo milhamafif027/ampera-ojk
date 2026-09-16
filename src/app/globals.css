@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* 1. JADIKAN PLUS JAKARTA SANS SEBAGAI FONT DEFAULT SELURUH APLIKASI */
+@theme {
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+}
+
 /* Definisi Varian Dark Mode untuk Tailwind v4 */
 @variant dark (&:where(.dark, .dark *));
 
