@@ -214,7 +214,7 @@ export default function Hero() {
               <span className="text-[10px] font-bold text-slate-500">
                 14:00 - 16:30 WIB
               </span>
-              <span className="text-[10px] font-extrabold text-[#510400]">
+              <span className="text-[10px] font-extrabold text-[#006400]">
                 Berlangsung
               </span>
             </div>
