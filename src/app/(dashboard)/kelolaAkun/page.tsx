@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Users,
   Lock,
@@ -14,8 +14,10 @@ import {
   Copy,
   Check,
   Edit3,
+  UserPlus,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import AddUserModal from "@/components/dashboard/AddUserModal";
 
 interface UserItem {
   id: number | string;
@@ -30,13 +32,17 @@ interface UserItem {
 export default function KelolaAkunPage() {
   const [users, setUsers] = useState<UserItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState("semua");
   const [isLoading, setIsLoading] = useState(true);
 
-  // State untuk melacak password mana saja yang sedang terbuka (visible) berdasarkan ID user
+  // State untuk melacak password mana saja yang sedang terbuka
   const [visiblePasswords, setVisiblePasswords] = useState<{
     [key: string]: boolean;
   }>({});
   const [copiedId, setCopiedId] = useState<number | string | null>(null);
+
+  // State modal tambah akun baru
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // State modal ganti password
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -46,7 +52,7 @@ export default function KelolaAkunPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // State modal Edit Akun (Informasi Umum - NIP Dihilangkan)
+  // State modal Edit Akun
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
     id: "",
@@ -77,7 +83,6 @@ export default function KelolaAkunPage() {
       if (res.ok && result.data) {
         setUsers(result.data);
       } else {
-        // Fallback data simulasi jika API belum siap
         setUsers([
           {
             id: 1,
@@ -109,12 +114,21 @@ export default function KelolaAkunPage() {
     return () => clearTimeout(timer);
   }, [fetchUsers]);
 
-  const filteredUsers = users.filter(
-    (u) =>
-      u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.role.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  // Filter gabungan pencarian teks & pilihan role
+  const filteredUsers = useMemo(() => {
+    return users.filter((u) => {
+      const matchesSearch =
+        u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.role.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesRole =
+        selectedRoleFilter === "semua" ||
+        u.role.toLowerCase() === selectedRoleFilter.toLowerCase();
+
+      return matchesSearch && matchesRole;
+    });
+  }, [users, searchTerm, selectedRoleFilter]);
 
   const togglePasswordVisibility = (id: number | string) => {
     setVisiblePasswords((prev) => ({
@@ -162,12 +176,8 @@ export default function KelolaAkunPage() {
       });
 
       const result = await res.json();
-
-      if (!res.ok) {
-        throw new Error(
-          result.message || "Gagal memperbarui data akun ke database.",
-        );
-      }
+      if (!res.ok)
+        throw new Error(result.message || "Gagal memperbarui data akun.");
 
       setIsEditModalOpen(false);
       setAlertInfo({
@@ -177,7 +187,6 @@ export default function KelolaAkunPage() {
       });
       fetchUsers();
     } catch (error: any) {
-      console.error(error);
       setModalError(error.message || "Terjadi kesalahan saat menyimpan data.");
     } finally {
       setIsSubmitting(false);
@@ -224,12 +233,8 @@ export default function KelolaAkunPage() {
       });
 
       const result = await res.json();
-
-      if (!res.ok) {
-        throw new Error(
-          result.message || "Gagal memperbarui password di database",
-        );
-      }
+      if (!res.ok)
+        throw new Error(result.message || "Gagal memperbarui password");
 
       setIsPasswordModalOpen(false);
       setAlertInfo({
@@ -239,7 +244,6 @@ export default function KelolaAkunPage() {
       });
       fetchUsers();
     } catch (error: any) {
-      console.error(error);
       setModalError(
         error.message || "Terjadi kesalahan saat memproses ganti password.",
       );
@@ -271,7 +275,7 @@ export default function KelolaAkunPage() {
         </div>
       )}
 
-      {/* Header Bar */}
+      {/* Header Bar dengan Tombol Tambah Akun */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -284,28 +288,56 @@ export default function KelolaAkunPage() {
           </p>
         </div>
 
-        <button
-          onClick={fetchUsers}
-          className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors self-start sm:self-auto cursor-pointer"
-          title="Refresh Data"
-        >
-          <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchUsers}
+            className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors cursor-pointer"
+            title="Refresh Data"
+          >
+            <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
+          </button>
+
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-rose-900/10 cursor-pointer whitespace-nowrap"
+          >
+            <UserPlus size={16} /> Tambah Akun Baru
+          </button>
+        </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="relative max-w-md">
-        <Search
-          size={16}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-        />
-        <input
-          type="text"
-          placeholder="Cari nama, email, atau role pengguna..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100 shadow-sm"
-        />
+      {/* Search Bar & Filter Role */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search
+            size={16}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+          />
+          <input
+            type="text"
+            placeholder="Cari nama atau email pengguna..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100 shadow-sm"
+          />
+        </div>
+
+        {/* Filter Berdasarkan Role */}
+        <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl shadow-sm">
+          {["semua", "admin", "internal", "eksternal"].map((role) => (
+            <button
+              key={role}
+              onClick={() => setSelectedRoleFilter(role)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer capitalize ${
+                selectedRoleFilter === role
+                  ? "bg-[#9f1521] text-white shadow-2xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              {role}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Tabel Daftar Pengguna */}
@@ -335,13 +367,10 @@ export default function KelolaAkunPage() {
                       <div className="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-950 text-[#9f1521] dark:text-rose-300 flex items-center justify-center font-black text-xs shrink-0">
                         {u.name.charAt(0).toUpperCase()}
                       </div>
-                      <div>
-                        <div>{u.name}</div>
-                      </div>
+                      <div>{u.name}</div>
                     </td>
                     <td className="p-3">{u.email}</td>
 
-                    {/* Kolom Tampil Password */}
                     <td className="p-3">
                       <div className="flex items-center gap-2 font-mono bg-slate-100 dark:bg-slate-800/60 px-3 py-1.5 rounded-xl w-fit border border-slate-200 dark:border-slate-700">
                         <span>
@@ -354,11 +383,6 @@ export default function KelolaAkunPage() {
                             type="button"
                             onClick={() => togglePasswordVisibility(u.id)}
                             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-                            title={
-                              isVisible
-                                ? "Sembunyikan Password"
-                                : "Lihat Password"
-                            }
                           >
                             {isVisible ? (
                               <EyeOff size={14} />
@@ -373,7 +397,6 @@ export default function KelolaAkunPage() {
                                 handleCopyPassword(u.id, rawPassword)
                               }
                               className="text-slate-400 hover:text-emerald-600 cursor-pointer"
-                              title="Salin Password"
                             >
                               {copiedId === u.id ? (
                                 <Check size={14} className="text-emerald-600" />
@@ -391,8 +414,7 @@ export default function KelolaAkunPage() {
                         className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border ${
                           u.role === "admin"
                             ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400"
-                            : u.role === "internal" ||
-                                u.role === "internal_kopg"
+                            : u.role === "internal"
                               ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400"
                               : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400"
                         }`}
@@ -405,14 +427,12 @@ export default function KelolaAkunPage() {
                         <button
                           onClick={() => handleOpenEditModal(u)}
                           className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                          title="Edit Informasi Akun"
                         >
                           <Edit3 size={13} /> Edit
                         </button>
                         <button
                           onClick={() => handleOpenPasswordModal(u)}
                           className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition-colors shadow-sm cursor-pointer"
-                          title="Ganti Sandi"
                         >
                           <Lock size={13} /> Sandi
                         </button>
@@ -427,7 +447,7 @@ export default function KelolaAkunPage() {
                   colSpan={5}
                   className="text-center py-8 text-slate-400 italic"
                 >
-                  Tidak ada data pengguna yang ditemukan.
+                  Tidak ada data pengguna yang ditemukan sesuai filter.
                 </td>
               </tr>
             )}
@@ -435,7 +455,17 @@ export default function KelolaAkunPage() {
         </table>
       </div>
 
-      {/* MODAL EDIT INFORMASI AKUN (NIP DIHILANGKAN) */}
+      {/* MODAL TAMBAH AKUN TERPISAH */}
+      <AddUserModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={(msg) => {
+          setAlertInfo({ isOpen: true, message: msg, type: "success" });
+          fetchUsers();
+        }}
+      />
+
+      {/* MODAL EDIT INFORMASI AKUN */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
@@ -510,7 +540,7 @@ export default function KelolaAkunPage() {
                   onChange={(e) =>
                     setEditFormData({ ...editFormData, role: e.target.value })
                   }
-                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100"
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100 cursor-pointer"
                 >
                   <option value="admin">Admin</option>
                   <option value="internal">Internal</option>

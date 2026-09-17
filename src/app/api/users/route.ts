@@ -5,12 +5,11 @@ import { db } from "@/lib/db";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+// 1. GET: Mengambil daftar seluruh pengguna
 export async function GET(request: NextRequest) {
   try {
-    // 1. Ambil cookie sesi dari request
     const sessionCookie = request.cookies.get("session_token")?.value;
 
-    // 2. Jika tidak ada cookie sesi, tolak akses dengan 401 Unauthorized
     if (!sessionCookie) {
       return NextResponse.json(
         {
@@ -21,18 +20,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 3. (Opsional tapi disarankan) Validasi token/sesi dari database atau pastikan user adalah admin
-    // Contoh sederhana: Cek apakah sessionToken tersimpan di database atau valid
-    // const sessionValid = ... (lakukan verifikasi token sessionCookie di sini jika ada tabel sessions)
-
-    // Ambil kolom utama termasuk password agar terbaca oleh frontend
+    // Mengambil kolom murni sesuai tabel database Anda
     const users: any = await db.$queryRaw`
-      SELECT id, name, email, role, password 
+      SELECT id, name, email, role, password, created_at 
       FROM users 
       ORDER BY id ASC
     `;
 
-    // Mapping untuk memastikan properti password tersedia
     const sanitizedUsers = users.map((u: any) => ({
       ...u,
       password: u.password || "••••••••••••",
@@ -49,6 +43,61 @@ export async function GET(request: NextRequest) {
         success: false,
         message: error.message || "Gagal mengambil data pengguna",
       },
+      { status: 500 },
+    );
+  }
+}
+
+// 2. POST: Menambahkan akun pengguna baru (Tanpa NIP)
+export async function POST(request: NextRequest) {
+  try {
+    const sessionCookie = request.cookies.get("session_token")?.value;
+
+    if (!sessionCookie) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized: Sesi tidak valid." },
+        { status: 401 },
+      );
+    }
+
+    const body = await request.json();
+    const { name, email, password, role } = body;
+
+    if (!name || !email || !password || !role) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Nama, email, password, dan role wajib diisi.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const existing: any = await db.$queryRaw`
+      SELECT id FROM users WHERE email = ${email} LIMIT 1
+    `;
+
+    if (existing.length > 0) {
+      return NextResponse.json(
+        { success: false, message: "Email sudah terdaftar di sistem." },
+        { status: 400 },
+      );
+    }
+
+    // Insert tanpa kolom nip
+    await db.$executeRaw`
+      INSERT INTO users (name, email, password, role, created_at)
+      VALUES (${name}, ${email}, ${password}, ${role}, NOW())
+    `;
+
+    return NextResponse.json({
+      success: true,
+      message: "Akun baru berhasil ditambahkan ke sistem.",
+    });
+  } catch (error: any) {
+    console.error("API POST USERS ERROR:", error);
+    return NextResponse.json(
+      { success: false, message: error.message || "Gagal menambahkan akun." },
       { status: 500 },
     );
   }
