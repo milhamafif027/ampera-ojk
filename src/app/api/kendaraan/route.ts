@@ -204,7 +204,8 @@ export async function POST(request: NextRequest) {
         satker,
         tanggal_mulai,
         tanggal_selesai,
-        total_passengers, // <-- Tangkap jumlah penumpang dari frontend
+        total_passengers,
+        phone, // <-- TANGKAP FIELD PHONE DARI FRONTEND
         status,
         user_id,
         role,
@@ -249,9 +250,9 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // INSERT database, sertakan total_passengers
+      // INSERT database, sertakan phone
       await db.$executeRaw`
-        INSERT INTO vehicle_bookings (vehicle_name, destination, borrower, dept, start_date, end_date, status, user_id, total_passengers)
+        INSERT INTO vehicle_bookings (vehicle_name, destination, borrower, dept, start_date, end_date, status, user_id, total_passengers, phone)
         VALUES (
           ${nama_kendaraan}, 
           ${tujuan}, 
@@ -261,7 +262,8 @@ export async function POST(request: NextRequest) {
           ${tanggal_selesai}::date, 
           ${bookingStatus}, 
           ${user_id ? Number(user_id) : null},
-          ${total_passengers ? Number(total_passengers) : 1}
+          ${total_passengers ? Number(total_passengers) : 1},
+          ${phone || null}
         )
       `;
 
@@ -277,7 +279,7 @@ export async function POST(request: NextRequest) {
       } else {
         // 1. Notifikasi untuk Admin
         const adminNotifTitle = "Request Plotting Kendaraan Baru";
-        const adminNotifInfo = `Tujuan: ${tujuan} (${total_passengers} Penumpang) oleh ${peminjam}`;
+        const adminNotifInfo = `Tujuan: ${tujuan} (${total_passengers} Penumpang) oleh ${peminjam} (No. HP: ${phone || "-"})`;
 
         await db.$executeRaw`
           INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
