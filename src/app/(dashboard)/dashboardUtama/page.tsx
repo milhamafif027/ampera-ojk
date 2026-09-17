@@ -8,7 +8,6 @@ import {
   Clock,
   MapPin,
   CheckCircle2,
-  AlertCircle,
   Building2,
   Users,
   Bell,
@@ -84,7 +83,14 @@ export default function DashboardPage() {
     bookingId: string | null;
     vehicleName: string;
     phone?: string;
-  }>({ isOpen: false, bookingId: null, vehicleName: "", phone: "" });
+    actionType: "approve" | "reject" | null;
+  }>({
+    isOpen: false,
+    bookingId: null,
+    vehicleName: "",
+    phone: "",
+    actionType: null,
+  });
 
   const [vehicleApprovalForm, setVehicleApprovalForm] = useState({
     selectedVehicle: "",
@@ -335,32 +341,6 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
     window.open(waUrl, "_blank");
   };
 
-  const sendVehicleWhatsAppNotification = (
-    phoneNum: string,
-    borrowerName: string,
-    destination: string,
-    assignedVehicle: string,
-    notes: string,
-  ) => {
-    if (!phoneNum) return;
-    let cleanPhone = phoneNum.replace(/\D/g, "");
-    if (cleanPhone.startsWith("0")) {
-      cleanPhone = "62" + cleanPhone.slice(1);
-    }
-
-    const message = `Halo ${borrowerName || "Bapak/Ibu"},
-
-Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${destination}* telah *DISETUJUI ✅*.
-
-🚗 *Armada / Driver:* ${assignedVehicle}
-📝 *Catatan / Instruksi:* ${notes}
-
-Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajemen Strategis Kantor OJK Sumatera Selatan_`;
-
-    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-    window.open(waUrl, "_blank");
-  };
-
   const openConfirmModal = (
     agendaId: string,
     title: string,
@@ -437,8 +417,11 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
 
   const handleExecuteVehicleApproval = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!vehicleApprovalModal.bookingId || !vehicleApprovalModal.actionType)
+      return;
+
     if (
-      !vehicleApprovalModal.bookingId ||
+      vehicleApprovalModal.actionType === "approve" &&
       !vehicleApprovalForm.selectedVehicle
     ) {
       alert("Pilih armada kendaraan terlebih dahulu.");
@@ -447,16 +430,19 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
 
     try {
       setIsExecutingVehicleAction(true);
+      const newStatus =
+        vehicleApprovalModal.actionType === "approve" ? "Disetujui" : "Ditolak";
+
       const res = await fetch("/api/kendaraan", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "approve_booking",
           id: vehicleApprovalModal.bookingId,
-          nama_kendaraan: vehicleApprovalForm.selectedVehicle,
+          nama_kendaraan: vehicleApprovalForm.selectedVehicle || "Ditolak",
           total_passengers: vehicleApprovalForm.totalPassengers,
           approval_notes: vehicleApprovalForm.notes,
-          status: "Disetujui",
+          status: newStatus,
         }),
       });
 
@@ -466,12 +452,27 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
         );
 
         if (vehicleApprovalModal.phone && targetBooking) {
-          sendVehicleWhatsAppNotification(
-            vehicleApprovalModal.phone,
-            targetBooking.peminjam || targetBooking.borrower,
-            targetBooking.tujuan || targetBooking.destination,
-            vehicleApprovalForm.selectedVehicle,
-            vehicleApprovalForm.notes,
+          let cleanPhone = vehicleApprovalModal.phone.replace(/\D/g, "");
+          if (cleanPhone.startsWith("0"))
+            cleanPhone = "62" + cleanPhone.slice(1);
+
+          const statusText =
+            newStatus === "Disetujui" ? "DISETUJUI ✅" : "DITOLAK ❌";
+          let message = `Halo ${targetBooking.peminjam || targetBooking.borrower || "Bapak/Ibu"},
+
+Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${targetBooking.tujuan || targetBooking.destination}* telah *${statusText}*.`;
+
+          if (newStatus === "Disetujui") {
+            message += `\n\n🚗 *Armada / Driver:* ${vehicleApprovalForm.selectedVehicle}\n📝 *Catatan:* ${vehicleApprovalForm.notes}`;
+          } else {
+            message += `\n\n📝 *Alasan Penolakan:* ${vehicleApprovalForm.notes}`;
+          }
+
+          message += `\n\nTerima kasih.\n_Bagian Layanan Manajemen Strategis Kantor OJK Sumatera Selatan_`;
+
+          window.open(
+            `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`,
+            "_blank",
           );
         }
 
@@ -481,12 +482,13 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
           bookingId: null,
           vehicleName: "",
           phone: "",
+          actionType: null,
         });
       } else {
-        alert("Gagal menyetujui peminjaman kendaraan.");
+        alert("Gagal memproses status peminjaman kendaraan.");
       }
     } catch (err) {
-      console.error("Error approving vehicle:", err);
+      console.error("Error processing vehicle status:", err);
     } finally {
       setIsExecutingVehicleAction(false);
     }
@@ -977,7 +979,7 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
                           </p>
                         </div>
 
-                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex gap-2">
                           <button
                             onClick={() => {
                               setVehicleApprovalModal({
@@ -986,6 +988,33 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
                                 vehicleName:
                                   item.nama_kendaraan || item.vehicleName || "",
                                 phone: item.phone || "",
+                                actionType: "reject",
+                              });
+                              setVehicleApprovalForm({
+                                selectedVehicle: "",
+                                totalPassengers: String(
+                                  item.total_passengers ||
+                                    item.passengers ||
+                                    "1",
+                                ),
+                                notes:
+                                  "Mohon maaf, kendaraan tidak tersedia pada tanggal tersebut.",
+                              });
+                            }}
+                            className="flex-1 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+                          >
+                            <XCircle size={14} /> Tolak
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setVehicleApprovalModal({
+                                isOpen: true,
+                                bookingId: String(item.id),
+                                vehicleName:
+                                  item.nama_kendaraan || item.vehicleName || "",
+                                phone: item.phone || "",
+                                actionType: "approve",
                               });
                               setVehicleApprovalForm({
                                 selectedVehicle: "",
@@ -998,7 +1027,7 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
                                   "Disetujui, kendaraan dan driver telah disiapkan.",
                               });
                             }}
-                            className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                            className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                           >
                             <CheckCircle2 size={14} /> Plotting & Setujui
                           </button>
@@ -1017,7 +1046,152 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
         </motion.div>
       )}
 
-      {/* MODAL PLOTTING KENDARAAN DI DASHBOARD */}
+      {/* MODAL DETAIL INFORMASI LENGKAP PENGAJUAN / AGENDA */}
+      {detailModal.isOpen && detailModal.data && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4 overflow-hidden my-auto"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
+                  INFORMASI DETAIL KEGIATAN
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-0.5">
+                  Detail Rapat & Agenda
+                </h3>
+              </div>
+              <button
+                onClick={() => setDetailModal({ isOpen: false, data: null })}
+                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 text-xs">
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
+                    Nama Kegiatan:
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold text-right">
+                    {detailModal.data?.title || "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
+                    Tanggal Pelaksanaan:
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {detailModal.data?.date
+                      ? detailModal.data.date.slice(0, 10)
+                      : "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
+                    Waktu Acara:
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {detailModal.data?.start_time
+                      ? `${detailModal.data.start_time.slice(0, 5)} - ${detailModal.data.end_time?.slice(0, 5)}`
+                      : detailModal.data?.time || "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
+                    Ruangan Dipilih:
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {detailModal.data?.room_name ||
+                      detailModal.data?.room ||
+                      "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
+                    Tata Letak (Layout):
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {detailModal.data?.layout || "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
+                    Jumlah Peserta:
+                  </span>
+                  <span className="text-emerald-600 font-bold">
+                    {detailModal.data?.total_participants
+                      ? `${detailModal.data.total_participants} Orang`
+                      : "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500 font-medium">
+                    Pimpinan Rapat:
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold">
+                    {detailModal.data?.meeting_leader || "-"}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-start pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <span className="text-slate-500 font-medium">
+                    Catatan / Request:
+                  </span>
+                  <span className="text-slate-800 dark:text-slate-200 font-medium text-right max-w-[240px] italic">
+                    {detailModal.data?.notes ||
+                      detailModal.data?.note ||
+                      "Tidak ada catatan tambahan."}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-2.5 border border-slate-200/60 dark:border-slate-800">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 font-medium">
+                    Penanggung Jawab (PIC):
+                  </span>
+                  <strong className="text-slate-900 dark:text-white">
+                    {detailModal.data.pic}
+                  </strong>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 font-medium">
+                    No. WhatsApp Pemohon:
+                  </span>
+                  <strong className="text-slate-900 dark:text-white font-mono">
+                    {detailModal.data.phone || "-"}
+                  </strong>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 font-medium">
+                    Satuan Kerja (Satker):
+                  </span>
+                  <strong className="text-slate-900 dark:text-white">
+                    {detailModal.data.dept || "OJK Sumsel"}
+                  </strong>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 font-medium">
+                    Status Pengajuan:
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                    {detailModal.data.status ||
+                      detailModal.data.smartStatus ||
+                      "Disetujui"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* MODAL AKSI KENDARAAN (SETUJU / TOLAK) DI DASHBOARD */}
       {vehicleApprovalModal.isOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
@@ -1027,7 +1201,9 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
           >
             <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Plotting & Setujui Kendaraan
+                {vehicleApprovalModal.actionType === "approve"
+                  ? "Plotting & Setujui Kendaraan"
+                  : "Konfirmasi Penolakan Kendaraan"}
               </h3>
               <button
                 onClick={() =>
@@ -1036,6 +1212,7 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
                     bookingId: null,
                     vehicleName: "",
                     phone: "",
+                    actionType: null,
                   })
                 }
                 className="p-1 hover:bg-slate-100 rounded-full cursor-pointer"
@@ -1048,55 +1225,41 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
               onSubmit={handleExecuteVehicleApproval}
               className="space-y-4 text-xs"
             >
-              <div>
-                <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                  Pilih Armada Kendaraan (Tersedia)
-                </label>
-                <select
-                  value={vehicleApprovalForm.selectedVehicle}
-                  onChange={(e) =>
-                    setVehicleApprovalForm({
-                      ...vehicleApprovalForm,
-                      selectedVehicle: e.target.value,
-                    })
-                  }
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold cursor-pointer text-slate-800 dark:text-slate-100"
-                  required
-                >
-                  <option value="">-- Pilih Kendaraan --</option>
-                  {availableVehicles
-                    .filter((v: any) => v.status === "Tersedia")
-                    .map((v: any) => (
-                      <option key={v.id} value={v.name || v.nama_kendaraan}>
-                        {v.name || v.nama_kendaraan} (
-                        {v.plate_number || v.no_plat}) - {v.type || v.kapasitas}
-                      </option>
-                    ))}
-                </select>
-              </div>
+              {vehicleApprovalModal.actionType === "approve" && (
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                    Pilih Armada Kendaraan (Tersedia)
+                  </label>
+                  <select
+                    value={vehicleApprovalForm.selectedVehicle}
+                    onChange={(e) =>
+                      setVehicleApprovalForm({
+                        ...vehicleApprovalForm,
+                        selectedVehicle: e.target.value,
+                      })
+                    }
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold cursor-pointer text-slate-800 dark:text-slate-100"
+                    required
+                  >
+                    <option value="">-- Pilih Kendaraan --</option>
+                    {availableVehicles
+                      .filter((v: any) => v.status === "Tersedia")
+                      .map((v: any) => (
+                        <option key={v.id} value={v.name || v.nama_kendaraan}>
+                          {v.name || v.nama_kendaraan} (
+                          {v.plate_number || v.no_plat}) -{" "}
+                          {v.type || v.kapasitas}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                  Jumlah Penumpang Terverifikasi
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={vehicleApprovalForm.totalPassengers}
-                  onChange={(e) =>
-                    setVehicleApprovalForm({
-                      ...vehicleApprovalForm,
-                      totalPassengers: e.target.value,
-                    })
-                  }
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-medium"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                  Catatan / Instruksi Supir
+                  {vehicleApprovalModal.actionType === "approve"
+                    ? "Catatan / Instruksi Supir"
+                    : "Alasan Penolakan"}
                 </label>
                 <textarea
                   rows={3}
@@ -1108,6 +1271,12 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
                     })
                   }
                   className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none resize-none font-medium"
+                  placeholder={
+                    vehicleApprovalModal.actionType === "approve"
+                      ? "Contoh: Supir Bpk. Budi, standby jam 08:00."
+                      : "Contoh: Seluruh armada sedang digunakan untuk agenda pimpinan."
+                  }
+                  required
                 />
               </div>
 
@@ -1120,6 +1289,7 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
                       bookingId: null,
                       vehicleName: "",
                       phone: "",
+                      actionType: null,
                     })
                   }
                   className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold cursor-pointer"
@@ -1129,12 +1299,18 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
                 <button
                   type="submit"
                   disabled={isExecutingVehicleAction}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                  className={`px-6 py-2.5 text-white rounded-xl font-bold shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2 ${
+                    vehicleApprovalModal.actionType === "approve"
+                      ? "bg-emerald-600 hover:bg-emerald-700"
+                      : "bg-rose-600 hover:bg-rose-700"
+                  }`}
                 >
                   {isExecutingVehicleAction && (
                     <Loader2 size={14} className="animate-spin" />
                   )}
-                  Plotting & Setujui & Kirim WA
+                  {vehicleApprovalModal.actionType === "approve"
+                    ? "Plotting & Setujui"
+                    : "Konfirmasi Tolak"}
                 </button>
               </div>
             </form>
