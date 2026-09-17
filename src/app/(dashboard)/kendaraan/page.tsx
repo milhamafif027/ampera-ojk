@@ -37,6 +37,7 @@ interface VehicleBooking {
   passengers?: string | number;
   notes?: string;
   userId?: string | number;
+  phone?: string; // Menyimpan nomor HP pemohon
 }
 
 interface LocalUser {
@@ -46,6 +47,7 @@ interface LocalUser {
   role: string;
   nip?: string;
   dept?: string;
+  phone?: string;
 }
 
 export default function KendaraanPage() {
@@ -68,19 +70,26 @@ export default function KendaraanPage() {
     category: "Operasional",
   });
 
-  // State Modal Persetujuan Admin (Approval & Plotting)
+  // State Modal Persetujuan Admin (Approval & Plotting) dengan dukungan Phone
   const [approvalModal, setApprovalModal] = useState<{
     isOpen: boolean;
     bookingId: string | null;
     vehicleName: string;
     userId?: string | number;
-  }>({ isOpen: false, bookingId: null, vehicleName: "", userId: undefined });
+    phone?: string;
+  }>({
+    isOpen: false,
+    bookingId: null,
+    vehicleName: "",
+    userId: undefined,
+    phone: "",
+  });
 
   // State form untuk Admin mem-plotting kendaraan
   const [approvalForm, setApprovalForm] = useState({
     selectedVehicle: "",
     totalPassengers: "1",
-    notes: "Disetujui untuk kegiatan kedinasan.",
+    notes: "Disetujui, kendaraan dan driver telah disiapkan.",
   });
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
 
@@ -104,6 +113,7 @@ export default function KendaraanPage() {
     endDate: "",
     purpose: "",
     passengers: "1",
+    phone: "",
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -149,13 +159,14 @@ export default function KendaraanPage() {
               passengers: b.total_passengers || b.passengers || "-",
               notes: b.approval_notes || b.notes || "-",
               userId: b.user_id || b.userId,
+              phone: b.phone || "",
             }),
           );
           setBookings(mappedBookings);
         }
       }
     } catch (error) {
-      console.error("Gagal mengambil data kendaraan dari MySQL:", error);
+      console.error("Gagal mengambil data kendaraan:", error);
     } finally {
       setIsLoading(false);
     }
@@ -171,8 +182,8 @@ export default function KendaraanPage() {
           setUser(parsedUser);
           setFormData((prev) => ({
             ...prev,
-            borrower: parsedUser.name || "",
-            dept: parsedUser.dept || "",
+            dept: parsedUser.dept || "OJK Sumsel",
+            phone: parsedUser.phone || parsedUser.no_hp || "",
           }));
         } catch (err) {
           console.error("Gagal membaca session user:", err);
@@ -211,18 +222,19 @@ export default function KendaraanPage() {
   }, [bookings, isExternalUser, user]);
 
   const handleOpenModal = () => {
-    const defaultBorrower = user && !isExternalUser ? user.name || "" : "";
-    const defaultDept = user ? user.dept || "" : "";
+    const defaultDept = user && !isExternalUser ? "OJK Sumsel" : "";
+    const defaultPhone = user?.phone || "";
 
     setFormData({
       vehicleName: "Menunggu Plotting Admin",
       destination: "",
-      borrower: defaultBorrower,
+      borrower: "", // Blank agar menjadi placeholder sugestif
       dept: defaultDept,
       startDate: "",
       endDate: "",
       purpose: "",
       passengers: "1",
+      phone: defaultPhone,
     });
     setIsModalOpen(true);
   };
@@ -296,30 +308,16 @@ export default function KendaraanPage() {
           tanggal_mulai: formData.startDate,
           tanggal_selesai: formData.endDate,
           keperluan: formData.purpose,
-          total_passengers: formData.passengers, // Mengirim jumlah penumpang
+          total_passengers: formData.passengers,
+          phone: formData.phone,
           status: "Pending",
           user_id: user?.id || null,
+          role: user?.role || "eksternal",
         }),
       });
 
       if (!res.ok) {
         throw new Error("Gagal menyimpan pengajuan peminjaman");
-      }
-
-      try {
-        await fetch("/api/notifikasi", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: user?.id || 1,
-            title: "Pengajuan Kendaraan Baru",
-            type: "vehicle",
-            status: "Pending",
-            info: `Permintaan operasional ke ${formData.destination} oleh ${formData.borrower}`,
-          }),
-        });
-      } catch (notifErr) {
-        console.error("Gagal mengirim notifikasi:", notifErr);
       }
 
       setIsModalOpen(false);
@@ -341,12 +339,14 @@ export default function KendaraanPage() {
     vehicleName: string,
     targetUserId?: string | number,
     passengers?: string | number,
+    borrowerPhone?: string,
   ) => {
     setApprovalModal({
       isOpen: true,
       bookingId: String(bookingId),
       vehicleName,
       userId: targetUserId,
+      phone: borrowerPhone || "",
     });
     setApprovalForm({
       selectedVehicle:
@@ -354,6 +354,34 @@ export default function KendaraanPage() {
       totalPassengers: passengers ? String(passengers) : "1",
       notes: "Disetujui, kendaraan dan driver telah disiapkan.",
     });
+  };
+
+  // Helper untuk membuka WhatsApp otomatis saat disetujui
+  const sendWhatsAppNotification = (
+    phoneNum: string,
+    borrowerName: string,
+    destination: string,
+    assignedVehicle: string,
+    notes: string,
+  ) => {
+    if (!phoneNum) return;
+
+    let cleanPhone = phoneNum.replace(/\D/g, "");
+    if (cleanPhone.startsWith("0")) {
+      cleanPhone = "62" + cleanPhone.slice(1);
+    }
+
+    const message = `Halo ${borrowerName || "Bapak/Ibu"},
+
+Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${destination}* telah *DISETUJUI ✅*.
+
+🚗 *Armada / Driver:* ${assignedVehicle}
+📝 *Catatan / Instruksi:* ${notes}
+
+Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajemen Strategis Kantor OJK Sumatera Selatan_`;
+
+    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, "_blank");
   };
 
   const handleConfirmApproval = async (e: React.FormEvent) => {
@@ -373,7 +401,7 @@ export default function KendaraanPage() {
         body: JSON.stringify({
           action: "approve_booking",
           id: approvalModal.bookingId,
-          nama_kendaraan: approvalForm.selectedVehicle, // Plotting kendaraan
+          nama_kendaraan: approvalForm.selectedVehicle,
           total_passengers: approvalForm.totalPassengers,
           approval_notes: approvalForm.notes,
           status: "Disetujui",
@@ -381,6 +409,21 @@ export default function KendaraanPage() {
       });
 
       if (!res.ok) throw new Error("Gagal menyetujui peminjaman kendaraan");
+
+      const currentBooking = bookings.find(
+        (b) => String(b.id) === String(approvalModal.bookingId),
+      );
+
+      // Otomatis kirim WhatsApp ke pemohon
+      if (approvalModal.phone && currentBooking) {
+        sendWhatsAppNotification(
+          approvalModal.phone,
+          currentBooking.borrower,
+          currentBooking.destination,
+          approvalForm.selectedVehicle,
+          approvalForm.notes,
+        );
+      }
 
       if (approvalModal.userId) {
         try {
@@ -405,6 +448,7 @@ export default function KendaraanPage() {
         bookingId: null,
         vehicleName: "",
         userId: undefined,
+        phone: "",
       });
       setSuccessMessage(
         "Peminjaman kendaraan berhasil di-plotting dan disetujui.",
@@ -622,6 +666,7 @@ export default function KendaraanPage() {
                                   b.vehicleName,
                                   b.userId,
                                   b.passengers,
+                                  b.phone,
                                 )
                               }
                               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-sm transition-colors cursor-pointer text-[11px]"
@@ -834,6 +879,7 @@ export default function KendaraanPage() {
                     bookingId: null,
                     vehicleName: "",
                     userId: undefined,
+                    phone: "",
                   })
                 }
                 disabled={isSubmittingApproval}
@@ -924,6 +970,7 @@ export default function KendaraanPage() {
                       bookingId: null,
                       vehicleName: "",
                       userId: undefined,
+                      phone: "",
                     })
                   }
                   disabled={isSubmittingApproval}
