@@ -27,7 +27,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
 
-  // State baru untuk Modal Peringatan Sesi Ganda (Duplicate Login / 403)
+  // State untuk Modal Peringatan Sesi Ganda (Duplicate Login / 403)
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
   const [duplicateMessage, setDuplicateMessage] = useState("");
 
@@ -71,8 +71,7 @@ export default function LoginPage() {
     } catch (err: any) {
       setIsLoading(false);
       setError(
-        err.message ||
-          "Gagal masuk. Periksa koneksi ke database lokal phpMyAdmin Anda.",
+        err.message || "Gagal masuk. Periksa kembali kredensial akun Anda.",
       );
     }
   };
@@ -124,18 +123,18 @@ export default function LoginPage() {
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                  Email Pengguna / NIP
+                  Email Pengguna
                 </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-[#9f1521] transition-colors">
                     <User size={16} />
                   </div>
                   <input
-                    type="text"
+                    type="email"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full pl-11 pr-4 py-3 bg-slate-50/80 border-2 border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#9f1521] focus:bg-white transition-all font-medium shadow-sm"
-                    placeholder="admin@timlms.com"
+                    placeholder="adminlmst@kopg.go.id"
                     required
                   />
                 </div>
@@ -162,7 +161,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-[#9f1521] transition-colors"
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-[#9f1521] transition-colors cursor-pointer"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -216,7 +215,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* SISI KANAN: Visual Gambar Menyesuaikan Otomatis dengan Teks Baru */}
+        {/* SISI KANAN: Visual Gambar */}
         <div className="hidden lg:col-span-6 lg:flex relative p-4 items-center justify-center">
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
@@ -248,7 +247,8 @@ export default function LoginPage() {
                 Aplikasi Manajemen Peminjaman Ruangan & Kendaraan
               </p>
               <p className="text-xs text-slate-400 mt-2">
-                Jl. Jend. Sudirman No. 1025, Sei Pangeran, Ilir Timur I, Palembang 30114
+                Jl. Jend. Sudirman No. 1025, Sei Pangeran, Ilir Timur I,
+                Palembang 30114
               </p>
             </div>
           </motion.div>
@@ -300,6 +300,7 @@ export default function LoginPage() {
 
             <div className="pt-2">
               <button
+                type="button"
                 onClick={() => setShowHelpModal(false)}
                 className="w-full py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
               >
@@ -336,7 +337,6 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => {
                   setIsDuplicateModalOpen(false);
-                  // Opsional: Anda bisa mengosongkan password agar user bisa input ulang
                   setPassword("");
                 }}
                 className="w-full py-3 bg-[#9f1521] hover:bg-[#7a1019] text-white font-bold text-xs rounded-xl transition-colors shadow-lg shadow-rose-900/20 cursor-pointer"
