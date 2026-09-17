@@ -404,8 +404,7 @@ function RoomCard({
             </div>
 
             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-              <Users size={12} className="text-[#9f1521] shrink-0" /> Kapasitas
-              Muatan:{" "}
+              <Users size={12} className="text-[#9f1521] shrink-0" /> Kapasitas:{" "}
               <strong className="text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md text-[10px]">
                 {displayCapacity}
               </strong>
