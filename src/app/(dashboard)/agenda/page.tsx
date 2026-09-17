@@ -559,12 +559,16 @@ export default function AgendaPage() {
   const handleApprove = async (id: string) => {
     setActionLoadingId(id);
     try {
+      // Ambil data agenda aslinya agar notes tidak hilang tertimpa
+      const selectedAgenda = agendas.find((a) => a.id === id);
+
       const res = await fetch("/api/agendas", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id,
           status: "Disetujui",
+          notes: selectedAgenda?.notes || "", // PERTAHANKAN CATATAN ASLI
         }),
       });
       const result = await res.json().catch(() => ({}));

@@ -321,61 +321,67 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
     });
   };
 
-  const handleExecuteAction = async () => {
-    if (!confirmModal.agendaId || !confirmModal.actionType) return;
+const handleExecuteAction = async () => {
+  if (!confirmModal.agendaId || !confirmModal.actionType) return;
 
-    try {
-      setIsExecutingAction(true);
+  try {
+    setIsExecutingAction(true);
 
-      const selectedAgenda: any = agendas.find(
-        (a) => a.id === confirmModal.agendaId,
-      );
-      if (!selectedAgenda) return;
+    const selectedAgenda: any = agendas.find(
+      (a) => a.id === confirmModal.agendaId,
+    );
+    if (!selectedAgenda) return;
 
-      const newStatus =
-        confirmModal.actionType === "approve" ? "Disetujui" : "Ditolak";
-      const notesPayload =
-        confirmModal.actionType === "reject"
-          ? confirmModal.rejectReason
-          : "Disetujui oleh Admin";
+    const newStatus =
+      confirmModal.actionType === "approve" ? "Disetujui" : "Ditolak";
 
-      const res = await fetch("/api/agendas", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: confirmModal.agendaId,
-          status: newStatus,
-          notes: notesPayload,
-        }),
-      });
-
-      if (res.ok) {
-        sendWhatsAppNotification(
-          selectedAgenda,
-          newStatus,
-          confirmModal.rejectReason,
-        );
-
-        await loadDashboardData(false);
-        setConfirmModal({
-          isOpen: false,
-          agendaId: null,
-          title: null,
-          actionType: null,
-          rejectReason: "",
-        });
-      } else {
-        const errData = await res.json();
-        alert(
-          `Gagal memproses status reservasi: ${errData.message || "Unknown error"}`,
-        );
-      }
-    } catch (error) {
-      console.error("Error processing agenda status:", error);
-    } finally {
-      setIsExecutingAction(false);
+    // LOGIKA BARU: Jangan timpa notes jika disetujui!
+    // Pertahankan request asli dari pemohon agar tidak hilang.
+    let notesPayload = selectedAgenda.notes;
+    if (confirmModal.actionType === "reject") {
+      const originalNote = selectedAgenda.notes
+        ? ` (Catatan awal: ${selectedAgenda.notes})`
+        : "";
+      notesPayload = `[ALASAN DITOLAK]: ${confirmModal.rejectReason}${originalNote}`;
     }
-  };
+
+    const res = await fetch("/api/agendas", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: confirmModal.agendaId,
+        status: newStatus,
+        notes: notesPayload, // Mengirim catatan yang aman
+      }),
+    });
+
+    if (res.ok) {
+      sendWhatsAppNotification(
+        selectedAgenda,
+        newStatus,
+        confirmModal.rejectReason,
+      );
+
+      await loadDashboardData(false);
+      setConfirmModal({
+        isOpen: false,
+        agendaId: null,
+        title: null,
+        actionType: null,
+        rejectReason: "",
+      });
+    } else {
+      const errData = await res.json();
+      alert(
+        `Gagal memproses status reservasi: ${errData.message || "Unknown error"}`,
+      );
+    }
+  } catch (error) {
+    console.error("Error processing agenda status:", error);
+  } finally {
+    setIsExecutingAction(false);
+  }
+};
 
   return (
     <motion.div
