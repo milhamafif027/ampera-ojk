@@ -16,14 +16,15 @@ export async function POST(request: Request) {
     const cleanInput = email.trim();
     const cleanPassword = password.trim();
 
+    // Query dibersihkan dari referensi NIP
     const rows: any = await db.$queryRaw`
-      SELECT id, name, email, role, nip, current_session_token, last_active_at FROM users 
-      WHERE (email = ${cleanInput} OR nip = ${cleanInput}) AND password = ${cleanPassword}
+      SELECT id, name, email, role, current_session_token, last_active_at FROM users 
+      WHERE email = ${cleanInput} AND password = ${cleanPassword}
     `;
 
     if (rows.length === 0) {
       return NextResponse.json(
-        { message: "Email/NIP atau kata sandi yang Anda masukkan salah." },
+        { message: "Email atau kata sandi yang Anda masukkan salah." },
         { status: 401 },
       );
     }
@@ -35,12 +36,7 @@ export async function POST(request: Request) {
       const lastActiveTime = new Date(user.last_active_at).getTime();
       const now = new Date().getTime();
 
-      // PERBAIKAN: Turunkan durasi kunci sesi gantung menjadi 2 menit saja (2 * 60 * 1000)
-      // agar jika user salah/keluar mendadak, dalam 2 menit bisa langsung login lagi.
-      const lockDuration = 2 * 60 * 1000;
-
-      // Tambahkan pengaman tambahan: Jika selisih waktu bernilai negatif (karena beda zona waktu UTC/WIB),
-      // abaikan kunci dan langsung izinkan login.
+      const lockDuration = 2 * 60 * 1000; // 2 menit
       const timeDifference = now - lastActiveTime;
 
       if (timeDifference > 0 && timeDifference < lockDuration) {
@@ -71,7 +67,6 @@ export async function POST(request: Request) {
         name: user.name,
         email: user.email,
         role: user.role,
-        nip: user.nip,
       },
     });
 
