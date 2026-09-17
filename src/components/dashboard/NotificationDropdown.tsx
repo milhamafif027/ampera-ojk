@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   XCircle,
   RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -46,12 +47,12 @@ export default function NotificationDropdown({
 }: NotificationDropdownProps) {
   const notifRef = useRef<HTMLDivElement>(null);
   const [activeFilter, setActiveFilter] = useState<
-    "terbaru" | "Disetujui" | "Ditolak"
+    "terbaru" | "Disetujui" | "Ditolak" | "Pending"
   >("terbaru");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const prevCountRef = useRef<number>(0);
 
-  // [FITUR AUDIO] Fungsi membunyikan lonceng notifikasi secara instan menggunakan Web Audio API
+  // [FITUR AUDIO] Membunyikan lonceng notifikasi menggunakan Web Audio API
   const playNotificationSound = useCallback(() => {
     try {
       const AudioContext =
@@ -74,8 +75,8 @@ export default function NotificationDropdown({
 
       osc.start();
       osc.stop(ctx.currentTime + 0.5);
-    } catch (e) {
-      // Ignore audio policy restrictions if user hasn't interacted yet
+    } catch {
+      // Abaikan jika ada batasan kebijakan audio browser
     }
   }, []);
 
@@ -111,7 +112,6 @@ export default function NotificationDropdown({
 
   const handleMarkAllRead = async () => {
     try {
-      // Kirim payload dengan role dan userId agar API memperbarui tabel yang tepat
       const payload = {
         userId: currentUser?.id || null,
         role: currentUser?.role || "eksternal",
@@ -128,30 +128,31 @@ export default function NotificationDropdown({
       if (res.ok && result.success) {
         setHasUnread(false);
         if (onRefresh) onRefresh();
-      } else {
-        console.error("Gagal menandai semua dibaca:", result.message);
       }
     } catch (err) {
       console.error("Gagal memperbarui status baca:", err);
     }
   };
 
-  // Penyaringan berdasarkan tab aktif (Backend sudah memisahkan data sesuai role)
+  // Penyaringan berdasarkan tab aktif
   const filteredNotifications = React.useMemo(() => {
     return [...notifications]
       .filter((notif) => {
-        if (activeFilter === "Disetujui") {
-          const text = `${notif.title} ${notif.info}`.toLowerCase();
-          return (
-            notif.status === "Disetujui" ||
-            text.includes("disetujui") ||
-            text.includes("diterima")
-          );
-        }
-        if (activeFilter === "Ditolak") {
-          const text = `${notif.title} ${notif.info}`.toLowerCase();
-          return notif.status === "Ditolak" || text.includes("ditolak");
-        }
+        const text = `${notif.title} ${notif.info}`.toLowerCase();
+        const isApproved =
+          notif.status === "Disetujui" ||
+          text.includes("disetujui") ||
+          text.includes("diterima");
+        const isRejected =
+          notif.status === "Ditolak" || text.includes("ditolak");
+        const isPending =
+          notif.status === "Pending" ||
+          text.includes("pending") ||
+          text.includes("menunggu");
+
+        if (activeFilter === "Disetujui") return isApproved;
+        if (activeFilter === "Ditolak") return isRejected;
+        if (activeFilter === "Pending") return isPending;
         return true;
       })
       .sort((a, b) => {
@@ -164,11 +165,10 @@ export default function NotificationDropdown({
   const activeNotifsCount = filteredNotifications.length;
 
   // Hitung jumlah pesan yang belum dibaca (is_read === 0 / false)
-  const unreadCount = filteredNotifications.filter(
+  const unreadCount = notifications.filter(
     (n) => Number(n.is_read) === 0 || n.is_read === false,
   ).length;
 
-  // [EFEK SUARA] Cek jika ada penambahan jumlah pesan belum dibaca baru
   useEffect(() => {
     if (unreadCount > prevCountRef.current && prevCountRef.current !== 0) {
       playNotificationSound();
@@ -182,7 +182,7 @@ export default function NotificationDropdown({
         onClick={() => setIsOpen(!isOpen)}
         className={`relative p-2.5 rounded-2xl transition-all duration-300 cursor-pointer ${
           hasUnread || unreadCount > 0
-            ? "bg-rose-500/10 dark:bg-rose-500/20 text-[#9f1521] dark:text-rose-400 ring-2 ring-rose-500/50 shadow-lg shadow-rose-500/20 animate-pulse"
+            ? "bg-rose-500/10 dark:bg-rose-500/20 text-[#9f1521] dark:text-rose-400 ring-2 ring-rose-500/50 shadow-lg shadow-rose-500/25 animate-pulse"
             : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
         }`}
         title="Notifikasi"
@@ -202,53 +202,71 @@ export default function NotificationDropdown({
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="absolute right-0 mt-3 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50"
+            className="absolute right-0 mt-3 w-80 sm:w-[380px] bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden z-50"
           >
+            {/* HEADER DROPDOWN */}
             <div className="px-5 py-4 bg-gradient-to-br from-[#9f1521] via-[#85121b] to-[#7a1019] text-white">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Bell size={16} />
-                  <h3 className="font-black text-xs uppercase tracking-wider">
-                    Notifikasi Status{" "}
-                    {unreadCount > 0 && `(${unreadCount} Baru)`}
-                  </h3>
+                  <div className="p-1.5 bg-white/20 rounded-xl">
+                    <Bell size={15} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-xs uppercase tracking-wider">
+                      Pusat Notifikasi
+                    </h3>
+                    <p className="text-[10px] text-rose-200 font-medium">
+                      {unreadCount > 0
+                        ? `${unreadCount} pesan belum dibaca`
+                        : "Semua pesan sudah dibaca"}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex items-center gap-1.5">
                   <button
                     onClick={handleManualRefresh}
-                    className="p-1.5 bg-white/20 hover:bg-white/30 rounded-xl cursor-pointer"
-                    title="Refresh"
+                    className="p-2 bg-white/15 hover:bg-white/25 rounded-xl cursor-pointer transition-colors"
+                    title="Refresh Data"
                   >
                     <RefreshCw
                       size={13}
                       className={isRefreshing ? "animate-spin" : ""}
                     />
                   </button>
-                  {activeNotifsCount > 0 && (
+                  {activeNotifsCount > 0 && unreadCount > 0 && (
                     <button
                       onClick={handleMarkAllRead}
-                      className="bg-white/25 hover:bg-white/35 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-xl cursor-pointer"
+                      className="bg-white/20 hover:bg-white/30 text-white text-[10px] font-extrabold px-3 py-2 rounded-xl cursor-pointer transition-colors flex items-center gap-1"
                     >
-                      <CheckCheck size={13} className="inline mr-1" /> Baca
-                      Semua
+                      <CheckCheck size={13} /> Baca Semua
                     </button>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 pt-1">
-                {(["terbaru", "Disetujui", "Ditolak"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveFilter(tab)}
-                    className={`px-3 py-1 rounded-xl text-[10px] font-extrabold transition-all cursor-pointer ${activeFilter === tab ? "bg-white text-[#9f1521]" : "bg-white/15 text-white/80"}`}
-                  >
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  </button>
-                ))}
+
+              {/* TAB FILTER */}
+              <div className="grid grid-cols-4 gap-1.5 pt-1">
+                {(["terbaru", "Disetujui", "Ditolak", "Pending"] as const).map(
+                  (tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveFilter(tab)}
+                      className={`py-1.5 rounded-xl text-[10px] font-extrabold transition-all cursor-pointer text-center ${
+                        activeFilter === tab
+                          ? "bg-white text-[#9f1521] shadow-sm"
+                          : "bg-white/10 hover:bg-white/20 text-white/80"
+                      }`}
+                    >
+                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    </button>
+                  ),
+                )}
               </div>
             </div>
 
-            <div className="max-h-[360px] overflow-y-auto custom-scrollbar divide-y divide-slate-100 dark:divide-slate-800">
+            {/* LIST NOTIFIKASI */}
+            <div className="max-h-[380px] overflow-y-auto custom-scrollbar divide-y divide-slate-100 dark:divide-slate-800">
               {filteredNotifications.length > 0 ? (
                 filteredNotifications.map((notif) => {
                   const textToCheck =
@@ -264,17 +282,29 @@ export default function NotificationDropdown({
                     ? "Disetujui"
                     : isRejected
                       ? "Ditolak"
-                      : notif.status;
+                      : "Pending";
+
                   const isUnreadItem =
                     Number(notif.is_read) === 0 || notif.is_read === false;
 
                   return (
                     <div
                       key={notif.id}
-                      className={`p-4 flex items-start gap-3.5 border-l-4 transition-colors ${isUnreadItem ? "bg-amber-50/80 dark:bg-amber-950/30 border-amber-400" : "border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50"}`}
+                      className={`p-4 flex items-start gap-3.5 border-l-4 transition-all ${
+                        isUnreadItem
+                          ? "bg-rose-50/50 dark:bg-rose-950/20 border-[#9f1521]"
+                          : "border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                      }`}
                     >
+                      {/* IKON KATEGORI */}
                       <div
-                        className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${isApproved ? "bg-emerald-100 text-emerald-600" : isRejected ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"}`}
+                        className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs ${
+                          isApproved
+                            ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400"
+                            : isRejected
+                              ? "bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400"
+                              : "bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400"
+                        }`}
                       >
                         {notif.type === "room" ? (
                           <Building2 size={16} />
@@ -282,38 +312,54 @@ export default function NotificationDropdown({
                           <Car size={16} />
                         )}
                       </div>
+
+                      {/* KONTEN */}
                       <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="font-bold text-slate-900 dark:text-white text-xs leading-snug flex items-center gap-1.5">
                             {notif.title}
                             {isUnreadItem && (
                               <span
-                                className="w-2 h-2 rounded-full bg-amber-500 animate-ping"
+                                className="w-2 h-2 rounded-full bg-[#9f1521] animate-pulse"
                                 title="Belum dibaca"
                               />
                             )}
                           </h4>
                           <span
-                            className={`px-2 py-0.5 text-[9px] font-extrabold rounded-full border ${isApproved ? "text-emerald-700 border-emerald-200" : isRejected ? "text-rose-700 border-rose-200" : "text-amber-700 border-amber-200"}`}
+                            className={`px-2 py-0.5 text-[9px] font-extrabold rounded-md border shrink-0 ${
+                              isApproved
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400"
+                                : isRejected
+                                  ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400"
+                                  : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400"
+                            }`}
                           >
                             {currentStatus}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
                           {notif.info}
                         </p>
-                        <div className="pt-1 flex items-center justify-between text-[10px] text-slate-400">
-                          <span className="flex items-center gap-1">
+
+                        <div className="pt-1.5 flex items-center justify-between text-[10px] text-slate-400">
+                          <span className="flex items-center gap-1 font-medium">
                             <Clock size={11} /> {notif.date}
                           </span>
+
                           {isApproved && (
-                            <span className="text-emerald-600 font-bold flex items-center gap-1">
-                              <CheckCircle2 size={11} /> Diterima
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                              <CheckCircle2 size={12} /> Selesai / Aktif
                             </span>
                           )}
                           {isRejected && (
-                            <span className="text-rose-600 font-bold flex items-center gap-1">
-                              <XCircle size={11} /> Ditolak
+                            <span className="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1">
+                              <XCircle size={12} /> Dibatalkan
+                            </span>
+                          )}
+                          {!isApproved && !isRejected && (
+                            <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
+                              <AlertCircle size={12} /> Menunggu Admin
                             </span>
                           )}
                         </div>
@@ -322,12 +368,18 @@ export default function NotificationDropdown({
                   );
                 })
               ) : (
-                <div className="py-10 text-center text-xs text-slate-400 italic">
-                  Tidak ada notifikasi untuk akun ini.
+                <div className="py-12 text-center space-y-2">
+                  <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-full flex items-center justify-center mx-auto">
+                    <Bell size={20} />
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Tidak ada notifikasi pada kategori ini.
+                  </p>
                 </div>
               )}
             </div>
 
+            {/* FOOTER DROPDOWN */}
             <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 text-center">
               <button
                 onClick={() => setIsOpen(false)}

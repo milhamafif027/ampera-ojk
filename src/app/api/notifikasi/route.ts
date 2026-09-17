@@ -22,7 +22,6 @@ export async function GET(req: NextRequest) {
 
     if (cleanRole === "admin") {
       // ADMIN: Hanya membaca notifikasi yang ditujukan untuk admin
-      // Filter out notifikasi konfirmasi pemohon jika tidak sengaja masuk
       rows = await db.$queryRaw`
         SELECT id, '' AS user_id, title, type, status, info, is_read, created_at 
         FROM notifikasi_admin 
@@ -42,24 +41,22 @@ export async function GET(req: NextRequest) {
       }
 
       if (cleanRole === "internal") {
-        // INTERNAL: Hanya notifikasi untuk user pemohon internal (Saring keluar notifikasi admin)
+        // INTERNAL: Hanya notifikasi untuk user pemohon internal
         rows = await db.$queryRaw`
           SELECT id, user_id, title, type, status, info, is_read, created_at 
           FROM notifikasi_internal 
           WHERE user_id = ${validUserId}
-            AND title NOT LIKE 'Pengajuan Kendaraan Baru%'
-            AND title NOT LIKE 'Pengajuan Ruangan Baru%'
+            AND title NOT LIKE 'Pengajuan Kendaraan Baru (Admin)%'
           ORDER BY created_at DESC 
           LIMIT 50
         `;
       } else {
-        // EKSTERNAL: Hanya notifikasi untuk user pemohon eksternal (Saring keluar notifikasi admin)
+        // EKSTERNAL: Hanya notifikasi untuk user pemohon eksternal
         rows = await db.$queryRaw`
           SELECT id, user_id, title, type, status, info, is_read, created_at 
           FROM notifikasi_eksternal 
           WHERE user_id = ${validUserId}
-            AND title NOT LIKE 'Pengajuan Kendaraan Baru%'
-            AND title NOT LIKE 'Pengajuan Ruangan Baru%'
+            AND title NOT LIKE 'Pengajuan Kendaraan Baru (Admin)%'
           ORDER BY created_at DESC 
           LIMIT 50
         `;
