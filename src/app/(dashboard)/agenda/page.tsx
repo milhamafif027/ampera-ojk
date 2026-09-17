@@ -60,6 +60,9 @@ interface RawAgendaResponse {
   layout?: string;
   status?: string;
   notes?: string;
+  phone?: string; // TAMBAHAN: Tarik No WhatsApp
+  total_participants?: number; // TAMBAHAN: Tarik Jumlah Peserta
+  meeting_leader?: string; // TAMBAHAN: Tarik Pimpinan Rapat
 }
 
 interface AgendaFormData {
@@ -142,6 +145,9 @@ function mapAgendaRecord(item: RawAgendaResponse): ExtendedAgenda {
     layout: item.layout || "-",
     status: (item.status as StatusPengajuan) || "Pending",
     notes: item.notes || "",
+    phone: item.phone || "-", // MEMASUKKAN KE STATE
+    total_participants: item.total_participants || 0, // MEMASUKKAN KE STATE
+    meeting_leader: item.meeting_leader || "-", // MEMASUKKAN KE STATE
   };
 
   return {
