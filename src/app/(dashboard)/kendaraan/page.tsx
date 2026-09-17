@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Car,
   Plus,
-  CheckCircle2,
   Calendar,
   X,
   RefreshCw,
@@ -12,6 +11,7 @@ import {
   AlertTriangle,
   User,
   MapPin,
+  CheckCircle2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import VehicleBookingModal from "@/components/dashboard/VehicleBookingModal";
@@ -37,7 +37,7 @@ interface VehicleBooking {
   passengers?: string | number;
   notes?: string;
   userId?: string | number;
-  phone?: string; // Menyimpan nomor HP pemohon
+  phone?: string;
 }
 
 interface LocalUser {
@@ -57,11 +57,11 @@ export default function KendaraanPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-
   const [isAddVehicleModalOpen, setIsAddVehicleModalOpen] = useState(false);
   const [editingVehicleId, setEditingVehicleId] = useState<
     string | number | null
   >(null);
+
   const [newVehicleData, setNewVehicleData] = useState({
     name: "",
     plate_number: "",
@@ -69,29 +69,6 @@ export default function KendaraanPage() {
     status: "Tersedia",
     category: "Operasional",
   });
-
-  // State Modal Persetujuan Admin (Approval & Plotting) dengan dukungan Phone
-  const [approvalModal, setApprovalModal] = useState<{
-    isOpen: boolean;
-    bookingId: string | null;
-    vehicleName: string;
-    userId?: string | number;
-    phone?: string;
-  }>({
-    isOpen: false,
-    bookingId: null,
-    vehicleName: "",
-    userId: undefined,
-    phone: "",
-  });
-
-  // State form untuk Admin mem-plotting kendaraan
-  const [approvalForm, setApprovalForm] = useState({
-    selectedVehicle: "",
-    totalPassengers: "1",
-    notes: "Disetujui, kendaraan dan driver telah disiapkan.",
-  });
-  const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
 
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
@@ -228,7 +205,7 @@ export default function KendaraanPage() {
     setFormData({
       vehicleName: "Menunggu Plotting Admin",
       destination: "",
-      borrower: "", // Blank agar menjadi placeholder sugestif
+      borrower: "",
       dept: defaultDept,
       startDate: "",
       endDate: "",
@@ -322,7 +299,7 @@ export default function KendaraanPage() {
 
       setIsModalOpen(false);
       setSuccessMessage(
-        "Request peminjaman kendaraan berhasil dikirim! Menunggu plotting dari Admin.",
+        "Request peminjaman kendaraan berhasil dikirim! Menunggu plotting dari Admin di Dashboard.",
       );
       setShowSuccessModal(true);
       fetchVehicleData();
@@ -331,135 +308,6 @@ export default function KendaraanPage() {
       alert("Gagal mengirim pengajuan peminjaman.");
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleOpenApprovalModal = (
-    bookingId: string | number,
-    vehicleName: string,
-    targetUserId?: string | number,
-    passengers?: string | number,
-    borrowerPhone?: string,
-  ) => {
-    setApprovalModal({
-      isOpen: true,
-      bookingId: String(bookingId),
-      vehicleName,
-      userId: targetUserId,
-      phone: borrowerPhone || "",
-    });
-    setApprovalForm({
-      selectedVehicle:
-        vehicleName !== "Menunggu Plotting Admin" ? vehicleName : "",
-      totalPassengers: passengers ? String(passengers) : "1",
-      notes: "Disetujui, kendaraan dan driver telah disiapkan.",
-    });
-  };
-
-  // Helper untuk membuka WhatsApp otomatis saat disetujui
-  const sendWhatsAppNotification = (
-    phoneNum: string,
-    borrowerName: string,
-    destination: string,
-    assignedVehicle: string,
-    notes: string,
-  ) => {
-    if (!phoneNum) return;
-
-    let cleanPhone = phoneNum.replace(/\D/g, "");
-    if (cleanPhone.startsWith("0")) {
-      cleanPhone = "62" + cleanPhone.slice(1);
-    }
-
-    const message = `Halo ${borrowerName || "Bapak/Ibu"},
-
-Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${destination}* telah *DISETUJUI ✅*.
-
-🚗 *Armada / Driver:* ${assignedVehicle}
-📝 *Catatan / Instruksi:* ${notes}
-
-Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajemen Strategis Kantor OJK Sumatera Selatan_`;
-
-    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-    window.open(waUrl, "_blank");
-  };
-
-  const handleConfirmApproval = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!approvalModal.bookingId) return;
-
-    if (!approvalForm.selectedVehicle) {
-      alert("Silakan pilih/plotting armada kendaraan terlebih dahulu.");
-      return;
-    }
-
-    setIsSubmittingApproval(true);
-    try {
-      const res = await fetch("/api/kendaraan", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "approve_booking",
-          id: approvalModal.bookingId,
-          nama_kendaraan: approvalForm.selectedVehicle,
-          total_passengers: approvalForm.totalPassengers,
-          approval_notes: approvalForm.notes,
-          status: "Disetujui",
-        }),
-      });
-
-      if (!res.ok) throw new Error("Gagal menyetujui peminjaman kendaraan");
-
-      const currentBooking = bookings.find(
-        (b) => String(b.id) === String(approvalModal.bookingId),
-      );
-
-      // Otomatis kirim WhatsApp ke pemohon
-      if (approvalModal.phone && currentBooking) {
-        sendWhatsAppNotification(
-          approvalModal.phone,
-          currentBooking.borrower,
-          currentBooking.destination,
-          approvalForm.selectedVehicle,
-          approvalForm.notes,
-        );
-      }
-
-      if (approvalModal.userId) {
-        try {
-          await fetch("/api/notifikasi", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              user_id: approvalModal.userId,
-              title: "Peminjaman Kendaraan Disetujui",
-              type: "vehicle",
-              status: "Disetujui",
-              info: `Pengajuan disetujui. Kendaraan: ${approvalForm.selectedVehicle}. Catatan: ${approvalForm.notes}`,
-            }),
-          });
-        } catch (notifErr) {
-          console.error("Gagal mengirim notifikasi approval:", notifErr);
-        }
-      }
-
-      setApprovalModal({
-        isOpen: false,
-        bookingId: null,
-        vehicleName: "",
-        userId: undefined,
-        phone: "",
-      });
-      setSuccessMessage(
-        "Peminjaman kendaraan berhasil di-plotting dan disetujui.",
-      );
-      setShowSuccessModal(true);
-      fetchVehicleData();
-    } catch (error) {
-      console.error(error);
-      alert("Gagal memproses persetujuan peminjaman.");
-    } finally {
-      setIsSubmittingApproval(false);
     }
   };
 
@@ -575,7 +423,7 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
         </div>
       </div>
 
-      {/* RIWAYAT & PENGAJUAN KENDARAAN */}
+      {/* DAFTAR PENGAJUAN KENDARAAN */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
         <h2 className="font-bold text-slate-800 dark:text-white text-base border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
           <Calendar size={18} className="text-[#9f1521]" /> Daftar Pengajuan
@@ -640,7 +488,7 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
                         <p className="italic text-[11px]">💬 {b.notes}</p>
                       ) : (
                         <span className="italic text-slate-400">
-                          Menunggu verifikasi
+                          Menunggu verifikasi admin (Cek Dashboard Utama)
                         </span>
                       )}
                     </td>
@@ -658,22 +506,6 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
                     {isAdmin && (
                       <td className="p-3 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5">
-                          {b.status === "Pending" && (
-                            <button
-                              onClick={() =>
-                                handleOpenApprovalModal(
-                                  b.id,
-                                  b.vehicleName,
-                                  b.userId,
-                                  b.passengers,
-                                  b.phone,
-                                )
-                              }
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-sm transition-colors cursor-pointer text-[11px]"
-                            >
-                              Plotting & Setujui
-                            </button>
-                          )}
                           <button
                             onClick={() =>
                               handleOpenDeleteModal(
@@ -848,142 +680,6 @@ Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajeme
                   className="w-full sm:w-auto px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 cursor-pointer disabled:opacity-50"
                 >
                   {isSubmitting ? "Menyimpan..." : "Simpan Kendaraan"}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
-
-      {/* MODAL PLOTTING & VERIFIKASI ADMIN */}
-      {approvalModal.isOpen && isAdmin && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-md w-full shadow-2xl space-y-4 my-auto"
-          >
-            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
-                  VERIFIKASI & PLOTTING ADMIN
-                </span>
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                  Plotting Kendaraan
-                </h3>
-              </div>
-              <button
-                onClick={() =>
-                  setApprovalModal({
-                    isOpen: false,
-                    bookingId: null,
-                    vehicleName: "",
-                    userId: undefined,
-                    phone: "",
-                  })
-                }
-                disabled={isSubmittingApproval}
-                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full cursor-pointer disabled:opacity-50"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form
-              onSubmit={handleConfirmApproval}
-              className="space-y-4 text-xs"
-            >
-              <div>
-                <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                  Pilih Kendaraan (Plotting)
-                </label>
-                <select
-                  value={approvalForm.selectedVehicle}
-                  onChange={(e) =>
-                    setApprovalForm({
-                      ...approvalForm,
-                      selectedVehicle: e.target.value,
-                    })
-                  }
-                  disabled={isSubmittingApproval}
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold cursor-pointer disabled:opacity-50 text-slate-800 dark:text-slate-100"
-                  required
-                >
-                  <option value="">-- Pilih Armada / Kendaraan --</option>
-                  {vehicles
-                    .filter((v) => v.status === "Tersedia")
-                    .map((v) => (
-                      <option key={v.id} value={v.name}>
-                        {v.name} ({v.plateNumber}) - {v.capacity}
-                      </option>
-                    ))}
-                </select>
-                <p className="text-[10px] text-amber-600 mt-1 italic">
-                  * Hanya menampilkan kendaraan dengan status
-                  &quot;Tersedia&quot;
-                </p>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                  Jumlah Penumpang Terverifikasi
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={approvalForm.totalPassengers}
-                  onChange={(e) =>
-                    setApprovalForm({
-                      ...approvalForm,
-                      totalPassengers: e.target.value,
-                    })
-                  }
-                  disabled={isSubmittingApproval}
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-medium disabled:opacity-50"
-                  placeholder="Contoh: 4"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                  Catatan / Instruksi Supir (Opsional)
-                </label>
-                <textarea
-                  rows={3}
-                  value={approvalForm.notes}
-                  onChange={(e) =>
-                    setApprovalForm({ ...approvalForm, notes: e.target.value })
-                  }
-                  disabled={isSubmittingApproval}
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-medium resize-none disabled:opacity-50"
-                  placeholder="Contoh: Supir Bpk. Budi, standby jam 08:00 di Lobi."
-                />
-              </div>
-
-              <div className="pt-2 flex flex-col sm:flex-row justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setApprovalModal({
-                      isOpen: false,
-                      bookingId: null,
-                      vehicleName: "",
-                      userId: undefined,
-                      phone: "",
-                    })
-                  }
-                  disabled={isSubmittingApproval}
-                  className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold cursor-pointer disabled:opacity-50"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingApproval}
-                  className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors shadow-sm cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {isSubmittingApproval ? "Memproses..." : "Plotting & Setujui"}
                 </button>
               </div>
             </form>

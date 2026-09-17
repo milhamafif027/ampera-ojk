@@ -22,6 +22,8 @@ import {
   Sparkles,
   Check,
   ArrowRight,
+  Loader2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -74,7 +76,25 @@ export default function DashboardPage() {
   const [rooms, setRooms] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // State Pop-up Pengumuman Update (Aman dari Cascading Render Error)
+  // State untuk Pengajuan Pending Kendaraan di Dashboard Utama
+  const [vehicleBookings, setVehicleBookings] = useState<any[]>([]);
+  const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
+  const [vehicleApprovalModal, setVehicleApprovalModal] = useState<{
+    isOpen: boolean;
+    bookingId: string | null;
+    vehicleName: string;
+    phone?: string;
+  }>({ isOpen: false, bookingId: null, vehicleName: "", phone: "" });
+
+  const [vehicleApprovalForm, setVehicleApprovalForm] = useState({
+    selectedVehicle: "",
+    totalPassengers: "1",
+    notes: "Disetujui, kendaraan dan driver telah disiapkan.",
+  });
+  const [isExecutingVehicleAction, setIsExecutingVehicleAction] =
+    useState(false);
+
+  // State Pop-up Pengumuman Update
   const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   const [confirmModal, setConfirmModal] = useState<{
@@ -101,15 +121,13 @@ export default function DashboardPage() {
     data: null,
   });
 
-  // Cek sessionStorage untuk menampilkan Welcome Update Modal sekali per sesi
   useEffect(() => {
-    // Gunakan setTimeout untuk menghindari error "Cascading Renders"
     const timer = setTimeout(() => {
       const hasSeenUpdate = sessionStorage.getItem("ampera_update_v2_seen");
       if (!hasSeenUpdate) {
         setShowUpdateModal(true);
       }
-    }, 100); // Jeda 100 milidetik setelah halaman dirender
+    }, 100);
 
     return () => clearTimeout(timer);
   }, []);
@@ -122,13 +140,15 @@ export default function DashboardPage() {
   const loadDashboardData = useCallback(async (isInitial = false) => {
     try {
       if (isInitial) setIsLoading(true);
-      const [resAgendas, resRooms] = await Promise.all([
+      const [resAgendas, resRooms, resVehicles] = await Promise.all([
         fetch("/api/agendas"),
         fetch("/api/ruangan"),
+        fetch("/api/kendaraan"),
       ]);
 
       const resultAgendas = await resAgendas.json();
       const resultRooms = await resRooms.json();
+      const resultVehicles = await resVehicles.json();
 
       if (resAgendas.ok && resultAgendas.data) {
         const mappedAgendas: ExtendedAgenda[] = resultAgendas.data.map(
@@ -187,6 +207,15 @@ export default function DashboardPage() {
       if (resRooms.ok && Array.isArray(resultRooms.data)) {
         setRooms(resultRooms.data);
       }
+
+      if (resVehicles.ok) {
+        if (resultVehicles.bookings) {
+          setVehicleBookings(resultVehicles.bookings);
+        }
+        if (resultVehicles.vehicles) {
+          setAvailableVehicles(resultVehicles.vehicles);
+        }
+      }
     } catch (error) {
       console.error("Gagal mengambil data dashboard:", error);
     } finally {
@@ -194,7 +223,6 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // Real-time Auto Polling setiap 5 detik agar data pending muncul tanpa refresh manual
   useEffect(() => {
     let isCancelled = false;
 
@@ -307,6 +335,32 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
     window.open(waUrl, "_blank");
   };
 
+  const sendVehicleWhatsAppNotification = (
+    phoneNum: string,
+    borrowerName: string,
+    destination: string,
+    assignedVehicle: string,
+    notes: string,
+  ) => {
+    if (!phoneNum) return;
+    let cleanPhone = phoneNum.replace(/\D/g, "");
+    if (cleanPhone.startsWith("0")) {
+      cleanPhone = "62" + cleanPhone.slice(1);
+    }
+
+    const message = `Halo ${borrowerName || "Bapak/Ibu"},
+
+Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${destination}* telah *DISETUJUI ✅*.
+
+🚗 *Armada / Driver:* ${assignedVehicle}
+📝 *Catatan / Instruksi:* ${notes}
+
+Silakan bersiap sesuai jadwal penugasan. Terima kasih.\n_Bagian Layanan Manajemen Strategis Kantor OJK Sumatera Selatan_`;
+
+    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, "_blank");
+  };
+
   const openConfirmModal = (
     agendaId: string,
     title: string,
@@ -321,67 +375,122 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
     });
   };
 
-const handleExecuteAction = async () => {
-  if (!confirmModal.agendaId || !confirmModal.actionType) return;
+  const handleExecuteAction = async () => {
+    if (!confirmModal.agendaId || !confirmModal.actionType) return;
 
-  try {
-    setIsExecutingAction(true);
+    try {
+      setIsExecutingAction(true);
 
-    const selectedAgenda: any = agendas.find(
-      (a) => a.id === confirmModal.agendaId,
-    );
-    if (!selectedAgenda) return;
-
-    const newStatus =
-      confirmModal.actionType === "approve" ? "Disetujui" : "Ditolak";
-
-    // LOGIKA BARU: Jangan timpa notes jika disetujui!
-    // Pertahankan request asli dari pemohon agar tidak hilang.
-    let notesPayload = selectedAgenda.notes;
-    if (confirmModal.actionType === "reject") {
-      const originalNote = selectedAgenda.notes
-        ? ` (Catatan awal: ${selectedAgenda.notes})`
-        : "";
-      notesPayload = `[ALASAN DITOLAK]: ${confirmModal.rejectReason}${originalNote}`;
-    }
-
-    const res = await fetch("/api/agendas", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: confirmModal.agendaId,
-        status: newStatus,
-        notes: notesPayload, // Mengirim catatan yang aman
-      }),
-    });
-
-    if (res.ok) {
-      sendWhatsAppNotification(
-        selectedAgenda,
-        newStatus,
-        confirmModal.rejectReason,
+      const selectedAgenda: any = agendas.find(
+        (a) => a.id === confirmModal.agendaId,
       );
+      if (!selectedAgenda) return;
 
-      await loadDashboardData(false);
-      setConfirmModal({
-        isOpen: false,
-        agendaId: null,
-        title: null,
-        actionType: null,
-        rejectReason: "",
+      const newStatus =
+        confirmModal.actionType === "approve" ? "Disetujui" : "Ditolak";
+
+      let notesPayload = selectedAgenda.notes;
+      if (confirmModal.actionType === "reject") {
+        const originalNote = selectedAgenda.notes
+          ? ` (Catatan awal: ${selectedAgenda.notes})`
+          : "";
+        notesPayload = `[ALASAN DITOLAK]: ${confirmModal.rejectReason}${originalNote}`;
+      }
+
+      const res = await fetch("/api/agendas", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: confirmModal.agendaId,
+          status: newStatus,
+          notes: notesPayload,
+        }),
       });
-    } else {
-      const errData = await res.json();
-      alert(
-        `Gagal memproses status reservasi: ${errData.message || "Unknown error"}`,
-      );
+
+      if (res.ok) {
+        sendWhatsAppNotification(
+          selectedAgenda,
+          newStatus,
+          confirmModal.rejectReason,
+        );
+
+        await loadDashboardData(false);
+        setConfirmModal({
+          isOpen: false,
+          agendaId: null,
+          title: null,
+          actionType: null,
+          rejectReason: "",
+        });
+      } else {
+        const errData = await res.json();
+        alert(
+          `Gagal memproses status reservasi: ${errData.message || "Unknown error"}`,
+        );
+      }
+    } catch (error) {
+      console.error("Error processing agenda status:", error);
+    } finally {
+      setIsExecutingAction(false);
     }
-  } catch (error) {
-    console.error("Error processing agenda status:", error);
-  } finally {
-    setIsExecutingAction(false);
-  }
-};
+  };
+
+  const handleExecuteVehicleApproval = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (
+      !vehicleApprovalModal.bookingId ||
+      !vehicleApprovalForm.selectedVehicle
+    ) {
+      alert("Pilih armada kendaraan terlebih dahulu.");
+      return;
+    }
+
+    try {
+      setIsExecutingVehicleAction(true);
+      const res = await fetch("/api/kendaraan", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "approve_booking",
+          id: vehicleApprovalModal.bookingId,
+          nama_kendaraan: vehicleApprovalForm.selectedVehicle,
+          total_passengers: vehicleApprovalForm.totalPassengers,
+          approval_notes: vehicleApprovalForm.notes,
+          status: "Disetujui",
+        }),
+      });
+
+      if (res.ok) {
+        const targetBooking = vehicleBookings.find(
+          (b) => String(b.id) === String(vehicleApprovalModal.bookingId),
+        );
+
+        if (vehicleApprovalModal.phone && targetBooking) {
+          sendVehicleWhatsAppNotification(
+            vehicleApprovalModal.phone,
+            targetBooking.peminjam || targetBooking.borrower,
+            targetBooking.tujuan || targetBooking.destination,
+            vehicleApprovalForm.selectedVehicle,
+            vehicleApprovalForm.notes,
+          );
+        }
+
+        await loadDashboardData(false);
+        setVehicleApprovalModal({
+          isOpen: false,
+          bookingId: null,
+          vehicleName: "",
+          phone: "",
+        });
+      } else {
+        alert("Gagal menyetujui peminjaman kendaraan.");
+      }
+    } catch (err) {
+      console.error("Error approving vehicle:", err);
+    } finally {
+      setIsExecutingVehicleAction(false);
+    }
+  };
 
   return (
     <motion.div
@@ -407,7 +516,7 @@ const handleExecuteAction = async () => {
         }
       `}</style>
 
-      {/* ================= MODAL PENGUMUMAN UPDATE TERBARU (WELCOME POPUP) ================= */}
+      {/* MODAL PENGUMUMAN UPDATE */}
       {showUpdateModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
           <motion.div
@@ -451,63 +560,6 @@ const handleExecuteAction = async () => {
                   (≥200 peserta).
                 </div>
               </div>
-
-              <div className="flex items-start gap-3">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                  <Check size={12} />
-                </div>
-                <div className="leading-relaxed">
-                  <strong className="text-slate-900 dark:text-white">
-                    Sistem Plotting Armada Dinas:
-                  </strong>{" "}
-                  Mekanisme peminjaman kendaraan dialihkan menjadi pengajuan
-                  terpusat. Alokasi unit armada kini akan dikelola dan di-
-                  <em>plot</em> secara langsung oleh Admin LMSt.
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                  <Check size={12} />
-                </div>
-                <div className="leading-relaxed">
-                  <strong className="text-slate-900 dark:text-white">
-                    Pembatalan Agenda Mandiri:
-                  </strong>{" "}
-                  Pengguna dengan hak akses Internal kini diberikan otoritas
-                  penuh untuk membatalkan pengajuan agenda secara langsung
-                  melalui menu Daftar Agenda.
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                  <Check size={12} />
-                </div>
-                <div className="leading-relaxed">
-                  <strong className="text-slate-900 dark:text-white">
-                    Rekomendasi Kapasitas Ruangan:
-                  </strong>{" "}
-                  Direktori ruangan kini dilengkapi filter presisi yang
-                  merekomendasikan fasilitas terbaik berdasarkan spesifikasi
-                  jumlah peserta kegiatan Anda.
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                  <Check size={12} />
-                </div>
-                <div className="leading-relaxed">
-                  <strong className="text-slate-900 dark:text-white">
-                    Transparansi Rincian Kegiatan:
-                  </strong>{" "}
-                  Tinjauan detail setiap agenda kini dapat diakses lebih
-                  mendalam secara langsung melalui{" "}
-                  <em>Dashboard Live Status</em> oleh pengguna Internal dan
-                  Admin.
-                </div>
-              </div>
             </div>
 
             <div className="pt-2">
@@ -522,8 +574,8 @@ const handleExecuteAction = async () => {
           </motion.div>
         </div>
       )}
-      
-      {/* ================= TOP HEADER BAR ================= */}
+
+      {/* TOP HEADER BAR */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm border-l-4 border-l-[#9f1521]">
         <div>
           <div className="flex items-center gap-2 text-[#9f1521] font-extrabold text-[10px] tracking-widest uppercase mb-1">
@@ -598,57 +650,6 @@ const handleExecuteAction = async () => {
                   </p>
                 </div>
               </Link>
-
-              <Link
-                href="/kendaraan"
-                className="p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl hover:border-[#9f1521] transition-all group flex flex-col justify-between space-y-4 hover:shadow-md"
-              >
-                <div className="p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 w-fit rounded-xl">
-                  <Car size={20} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-[#9f1521] transition-colors">
-                    Peminjaman Kendaraan
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Informasi layanan armada operasional instansi.
-                  </p>
-                </div>
-              </Link>
-
-              <Link
-                href="/partner"
-                className="p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl hover:border-[#9f1521] transition-all group flex flex-col justify-between space-y-4 hover:shadow-md"
-              >
-                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 w-fit rounded-xl">
-                  <Hotel size={20} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-[#9f1521] transition-colors">
-                    Hotel Rekanan
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Daftar hotel mitra kerja sama instansi.
-                  </p>
-                </div>
-              </Link>
-
-              <Link
-                href="/bantuan"
-                className="p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl hover:border-[#9f1521] transition-all group flex flex-col justify-between space-y-4 hover:shadow-md"
-              >
-                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 w-fit rounded-xl">
-                  <HelpCircle size={20} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-[#9f1521] transition-colors">
-                    Pusat Bantuan & Vendor
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Layanan pengaduan, kontak, dan informasi vendor.
-                  </p>
-                </div>
-              </Link>
             </div>
           </div>
         </motion.div>
@@ -659,7 +660,7 @@ const handleExecuteAction = async () => {
           transition={{ duration: 0.4, delay: 0.1 }}
           className="space-y-6 sm:space-y-8"
         >
-          {/* ================= OVERVIEW METRICS CARDS ================= */}
+          {/* OVERVIEW METRICS CARDS */}
           <div
             className={`grid grid-cols-2 ${isAdmin ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-4`}
           >
@@ -742,7 +743,7 @@ const handleExecuteAction = async () => {
             </div>
           </div>
 
-          {/* ================= GRID LIVE & AGENDA TERDEKAT ================= */}
+          {/* GRID LIVE & AGENDA TERDEKAT */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col h-[320px] sm:h-[340px]">
               <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
@@ -788,13 +789,6 @@ const handleExecuteAction = async () => {
                           />
                           {item.room}
                         </span>
-                        <span className="flex items-center gap-1">
-                          <Users
-                            size={14}
-                            className="text-emerald-600 shrink-0"
-                          />
-                          {item.pic}
-                        </span>
                       </div>
                     </div>
                   ))
@@ -839,22 +833,6 @@ const handleExecuteAction = async () => {
                           {formatAgendaDate(item.date, item.endDate)}
                         </span>
                       </div>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-400 font-medium">
-                        <span className="flex items-center gap-1">
-                          <Clock
-                            size={14}
-                            className="text-[#9f1521] shrink-0"
-                          />
-                          {item.time}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MapPin
-                            size={14}
-                            className="text-[#9f1521] shrink-0"
-                          />
-                          {item.room}
-                        </span>
-                      </div>
                     </div>
                   ))
                 ) : (
@@ -866,22 +844,18 @@ const handleExecuteAction = async () => {
             </div>
           </div>
 
-          {/* ================= PANEL PENGAJUAN PENDING (ADMIN) ================= */}
+          {/* PANEL PENGAJUAN PENDING (ADMIN - RUANGAN) */}
           {isAdmin && (
             <div className="bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-5 sm:p-8 space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-amber-200/60 dark:border-amber-900/30 pb-4">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-                    <Bell size={14} /> MENUNGGU VERIFIKASI
+                    <Bell size={14} /> MENUNGGU VERIFIKASI RUANGAN
                   </span>
                   <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-1">
                     Pengajuan Pending ({totalPending})
                   </h2>
                 </div>
-                <p className="text-xs text-slate-500 font-medium max-w-md">
-                  Daftar reservasi ruangan yang membutuhkan peninjauan dan
-                  persetujuan Admin.
-                </p>
               </div>
 
               {pendingAgendas.length > 0 ? (
@@ -906,18 +880,14 @@ const handleExecuteAction = async () => {
                         <p className="text-xs text-slate-500 font-medium">
                           {item.room} • {item.time}
                         </p>
-                        <p className="text-xs text-slate-400 truncate">
-                          PIC: {item.pic} ({item.dept || "Umum"})
-                        </p>
                       </div>
 
-                      {/* TOMBOL AKSI */}
                       <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                         <button
                           onClick={() =>
                             setDetailModal({ isOpen: true, data: item })
                           }
-                          className="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                          className="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           <Eye size={14} /> Lihat Detail Lengkap
                         </button>
@@ -946,7 +916,99 @@ const handleExecuteAction = async () => {
                 </div>
               ) : (
                 <div className="p-6 text-center text-xs text-slate-500 font-medium italic bg-white/50 dark:bg-slate-900/50 rounded-xl border border-dashed border-amber-200">
-                  Tidak ada pengajuan yang membutuhkan tindakan persetujuan saat
+                  Tidak ada pengajuan ruangan yang membutuhkan tindakan saat
+                  ini.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* PANEL PENGAJUAN PENDING KENDARAAN (ADMIN) */}
+          {isAdmin && (
+            <div className="bg-blue-50/50 dark:bg-blue-950/10 border border-blue-200 dark:border-blue-900/30 rounded-2xl p-5 sm:p-8 space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-blue-200/60 dark:border-blue-900/30 pb-4">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
+                    <Car size={14} /> REQUEST KENDARAAN DINAS PENDING
+                  </span>
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-1">
+                    Peminjaman Kendaraan Menunggu Plotting (
+                    {
+                      vehicleBookings.filter((b) => b.status === "Pending")
+                        .length
+                    }
+                    )
+                  </h2>
+                </div>
+              </div>
+
+              {vehicleBookings.filter((b) => b.status === "Pending").length >
+              0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {vehicleBookings
+                    .filter((b) => b.status === "Pending")
+                    .map((item) => (
+                      <div
+                        key={item.id}
+                        className="bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800/50 rounded-xl p-5 shadow-sm space-y-3 flex flex-col justify-between"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
+                              PENDING KENDARAAN
+                            </span>
+                            <span className="text-xs font-semibold text-slate-400">
+                              {item.tanggal_mulai || item.start_date}
+                            </span>
+                          </div>
+                          <h3 className="font-bold text-slate-900 dark:text-white text-sm leading-snug flex items-center gap-1.5">
+                            <MapPin size={14} className="text-[#9f1521]" />{" "}
+                            Tujuan: {item.tujuan || item.destination}
+                          </h3>
+                          <p className="text-xs text-slate-500 font-medium">
+                            Peminjam:{" "}
+                            <strong>{item.peminjam || item.borrower}</strong> (
+                            {item.satker || item.dept})
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            Jumlah Penumpang:{" "}
+                            {item.total_passengers || item.passengers || 1}{" "}
+                            Orang • No HP: {item.phone || "-"}
+                          </p>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                          <button
+                            onClick={() => {
+                              setVehicleApprovalModal({
+                                isOpen: true,
+                                bookingId: String(item.id),
+                                vehicleName:
+                                  item.nama_kendaraan || item.vehicleName || "",
+                                phone: item.phone || "",
+                              });
+                              setVehicleApprovalForm({
+                                selectedVehicle: "",
+                                totalPassengers: String(
+                                  item.total_passengers ||
+                                    item.passengers ||
+                                    "1",
+                                ),
+                                notes:
+                                  "Disetujui, kendaraan dan driver telah disiapkan.",
+                              });
+                            }}
+                            className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                          >
+                            <CheckCircle2 size={14} /> Plotting & Setujui
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="p-6 text-center text-xs text-slate-500 font-medium italic bg-white/50 dark:bg-slate-900/50 rounded-xl border border-dashed border-blue-200">
+                  Tidak ada pengajuan kendaraan yang membutuhkan plotting saat
                   ini.
                 </div>
               )}
@@ -955,152 +1017,132 @@ const handleExecuteAction = async () => {
         </motion.div>
       )}
 
-      {/* MODAL DETAIL INFORMASI LENGKAP PENGAJUAN / AGENDA */}
-      {detailModal.isOpen && detailModal.data && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+      {/* MODAL PLOTTING KENDARAAN DI DASHBOARD */}
+      {vehicleApprovalModal.isOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="relative bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4 overflow-hidden my-auto"
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-md w-full shadow-2xl space-y-4"
           >
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
-                  INFORMASI DETAIL KEGIATAN
-                </span>
-                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-0.5">
-                  Detail Rapat & Agenda
-                </h3>
-              </div>
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                Plotting & Setujui Kendaraan
+              </h3>
               <button
-                onClick={() => setDetailModal({ isOpen: false, data: null })}
-                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                onClick={() =>
+                  setVehicleApprovalModal({
+                    isOpen: false,
+                    bookingId: null,
+                    vehicleName: "",
+                    phone: "",
+                  })
+                }
+                className="p-1 hover:bg-slate-100 rounded-full cursor-pointer"
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 text-xs">
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">
-                    Nama Kegiatan:
-                  </span>
-                  <span className="text-slate-900 dark:text-white font-bold text-right">
-                    {detailModal.data?.title || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">
-                    Tanggal Pelaksanaan:
-                  </span>
-                  <span className="text-slate-900 dark:text-white font-bold">
-                    {detailModal.data?.date
-                      ? detailModal.data.date.slice(0, 10)
-                      : "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">
-                    Waktu Acara:
-                  </span>
-                  <span className="text-slate-900 dark:text-white font-bold">
-                    {detailModal.data?.start_time
-                      ? `${detailModal.data.start_time.slice(0, 5)} - ${detailModal.data.end_time?.slice(0, 5)}`
-                      : detailModal.data?.time || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">
-                    Ruangan Dipilih:
-                  </span>
-                  <span className="text-slate-900 dark:text-white font-bold">
-                    {detailModal.data?.room_name ||
-                      detailModal.data?.room ||
-                      "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">
-                    Tata Letak (Layout):
-                  </span>
-                  <span className="text-slate-900 dark:text-white font-bold">
-                    {detailModal.data?.layout || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">
-                    Jumlah Peserta:
-                  </span>
-                  <span className="text-emerald-600 font-bold">
-                    {detailModal.data?.total_participants
-                      ? `${detailModal.data.total_participants} Orang`
-                      : "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">
-                    Pimpinan Rapat:
-                  </span>
-                  <span className="text-slate-900 dark:text-white font-bold">
-                    {detailModal.data?.meeting_leader || "-"}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-start pt-2 border-t border-slate-200 dark:border-slate-700">
-                  <span className="text-slate-500 font-medium">
-                    Catatan / Request:
-                  </span>
-                  <span className="text-slate-800 dark:text-slate-200 font-medium text-right max-w-[240px] italic">
-                    {detailModal.data?.notes ||
-                      detailModal.data?.note ||
-                      "Tidak ada catatan tambahan."}
-                  </span>
-                </div>
+            <form
+              onSubmit={handleExecuteVehicleApproval}
+              className="space-y-4 text-xs"
+            >
+              <div>
+                <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                  Pilih Armada Kendaraan (Tersedia)
+                </label>
+                <select
+                  value={vehicleApprovalForm.selectedVehicle}
+                  onChange={(e) =>
+                    setVehicleApprovalForm({
+                      ...vehicleApprovalForm,
+                      selectedVehicle: e.target.value,
+                    })
+                  }
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold cursor-pointer text-slate-800 dark:text-slate-100"
+                  required
+                >
+                  <option value="">-- Pilih Kendaraan --</option>
+                  {availableVehicles
+                    .filter((v: any) => v.status === "Tersedia")
+                    .map((v: any) => (
+                      <option key={v.id} value={v.name || v.nama_kendaraan}>
+                        {v.name || v.nama_kendaraan} (
+                        {v.plate_number || v.no_plat}) - {v.type || v.kapasitas}
+                      </option>
+                    ))}
+                </select>
               </div>
 
-              <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-2.5 border border-slate-200/60 dark:border-slate-800">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-medium">
-                    Penanggung Jawab (PIC):
-                  </span>
-                  <strong className="text-slate-900 dark:text-white">
-                    {detailModal.data.pic}
-                  </strong>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-medium">
-                    No. WhatsApp Pemohon:
-                  </span>
-                  <strong className="text-slate-900 dark:text-white font-mono">
-                    {detailModal.data.phone || "-"}
-                  </strong>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-medium">
-                    Satuan Kerja (Satker):
-                  </span>
-                  <strong className="text-slate-900 dark:text-white">
-                    {detailModal.data.dept || "OJK Sumsel"}
-                  </strong>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-medium">
-                    Status Pengajuan:
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
-                    {detailModal.data.status ||
-                      detailModal.data.smartStatus ||
-                      "Disetujui"}
-                  </span>
-                </div>
+              <div>
+                <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                  Jumlah Penumpang Terverifikasi
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={vehicleApprovalForm.totalPassengers}
+                  onChange={(e) =>
+                    setVehicleApprovalForm({
+                      ...vehicleApprovalForm,
+                      totalPassengers: e.target.value,
+                    })
+                  }
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-medium"
+                  required
+                />
               </div>
-            </div>
+
+              <div>
+                <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                  Catatan / Instruksi Supir
+                </label>
+                <textarea
+                  rows={3}
+                  value={vehicleApprovalForm.notes}
+                  onChange={(e) =>
+                    setVehicleApprovalForm({
+                      ...vehicleApprovalForm,
+                      notes: e.target.value,
+                    })
+                  }
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none resize-none font-medium"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVehicleApprovalModal({
+                      isOpen: false,
+                      bookingId: null,
+                      vehicleName: "",
+                      phone: "",
+                    })
+                  }
+                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isExecutingVehicleAction}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isExecutingVehicleAction && (
+                    <Loader2 size={14} className="animate-spin" />
+                  )}
+                  Plotting & Setujui & Kirim WA
+                </button>
+              </div>
+            </form>
           </motion.div>
         </div>
       )}
 
-      {/* ================= MODAL KONFIRMASI (ADMIN) ================= */}
+      {/* MODAL KONFIRMASI (ADMIN) */}
       {confirmModal.isOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
@@ -1128,40 +1170,7 @@ const handleExecuteAction = async () => {
                   ? "Konfirmasi Persetujuan"
                   : "Konfirmasi Penolakan"}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                {confirmModal.actionType === "approve" ? (
-                  <>
-                    Apakah benar Anda ingin menyetujui rapat{" "}
-                    <strong>&quot;{confirmModal.title}&quot;</strong> ini?
-                  </>
-                ) : (
-                  <>
-                    Berikan alasan penolakan untuk rapat{" "}
-                    <strong>&quot;{confirmModal.title}&quot;</strong>:
-                  </>
-                )}
-              </p>
             </div>
-
-            {confirmModal.actionType === "reject" && (
-              <div className="text-left space-y-1 pt-1">
-                <label className="text-[10px] font-extrabold uppercase text-slate-500 block">
-                  Catatan / Alasan Penolakan
-                </label>
-                <textarea
-                  rows={3}
-                  value={confirmModal.rejectReason}
-                  onChange={(e) =>
-                    setConfirmModal({
-                      ...confirmModal,
-                      rejectReason: e.target.value,
-                    })
-                  }
-                  placeholder="Contoh: Ruangan sudah digunakan untuk agenda penting lain pada jam tersebut."
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100 resize-none"
-                />
-              </div>
-            )}
 
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
               <button
