@@ -12,12 +12,10 @@ import {
   User,
   MapPin,
   CheckCircle2,
-  ShieldCheck,
-  Tag,
-  Layers,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import VehicleBookingModal from "@/components/dashboard/VehicleBookingModal";
+import VehicleShowcaseGrid from "@/components/dashboard/VehicleShowcaseGrid"; // <-- Impor komponen baru
 
 interface Vehicle {
   id: string | number;
@@ -381,19 +379,19 @@ export default function KendaraanPage() {
 
       {/* HEADER BAR */}
       <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Car className="text-[#9f1521] shrink-0" size={22} /> Layanan
-              Armada & Kendaraan Dinas
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-              Kelola dan ajukan request peminjaman kendaraan operasional dinas
-              Kantor OJK Sumsel.
-            </p>
-          </div>
+        <div>
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Car className="text-[#9f1521] shrink-0" size={22} /> Layanan Armada
+            & Kendaraan Dinas
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+            Kelola dan ajukan request peminjaman kendaraan operasional dinas
+            Kantor OJK Sumsel.
+          </p>
+        </div>
 
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-end">
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap sm:flex-nowrap justify-between">
+          <div className="flex items-center gap-2">
             <button
               onClick={fetchVehicleData}
               className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors cursor-pointer shrink-0"
@@ -404,11 +402,13 @@ export default function KendaraanPage() {
                 className={isLoading ? "animate-spin" : ""}
               />
             </button>
+          </div>
 
+          <div className="flex items-center gap-2 flex-1 justify-end flex-wrap sm:flex-nowrap">
             {isAdmin && (
               <button
                 onClick={handleOpenAddModal}
-                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer whitespace-nowrap"
+                className="flex-1 sm:flex-initial px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer whitespace-nowrap"
               >
                 <Plus size={16} /> Tambah Kendaraan
               </button>
@@ -416,7 +416,7 @@ export default function KendaraanPage() {
 
             <button
               onClick={() => handleOpenModal()}
-              className="px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md shadow-rose-900/10 cursor-pointer whitespace-nowrap"
+              className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md shadow-rose-900/10 cursor-pointer whitespace-nowrap"
             >
               <Plus size={16} /> Request Kendaraan Dinas
             </button>
@@ -424,74 +424,8 @@ export default function KendaraanPage() {
         </div>
       </div>
 
-      {/* ================= SHOWCASE KATALOG KENDARAAN (MURNI INFORMASI) ================= */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
-        <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
-              KATALOG ARMADA OJK SUMSEL
-            </span>
-            <h2 className="font-bold text-slate-800 dark:text-white text-base mt-0.5">
-              Daftar Kendaraan Tersedia ({vehicles.length})
-            </h2>
-          </div>
-          <span className="text-xs text-slate-400 font-medium italic">
-            * Tanpa tombol pemesanan (Hanya Informasi Unit)
-          </span>
-        </div>
-
-        {vehicles.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {vehicles.map((v) => (
-              <div
-                key={v.id}
-                className="bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-4 shadow-2xs space-y-3 flex flex-col justify-between hover:border-[#9f1521]/40 transition-all"
-              >
-                <div className="space-y-2">
-                  <div className="flex justify-between items-start gap-2">
-                    <span className="px-2.5 py-0.5 bg-rose-50 dark:bg-rose-950/40 text-[#9f1521] dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 rounded-full text-[10px] font-extrabold tracking-wider uppercase">
-                      {v.category || "Operasional"}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                        v.status === "Tersedia"
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400"
-                          : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400"
-                      }`}
-                    >
-                      {v.status}
-                    </span>
-                  </div>
-
-                  <div>
-                    <h3 className="font-extrabold text-slate-900 dark:text-white text-sm">
-                      {v.name}
-                    </h3>
-                    <p className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400 mt-0.5 flex items-center gap-1">
-                      <Tag size={12} className="text-[#9f1521]" />{" "}
-                      {v.plateNumber}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                  <span className="flex items-center gap-1">
-                    <Layers size={13} className="text-slate-400" /> Jenis /
-                    Kapasitas:
-                  </span>
-                  <strong className="text-slate-800 dark:text-slate-200">
-                    {v.capacity}
-                  </strong>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-slate-400 italic py-6 text-center">
-            Belum ada data armada kendaraan yang dimasukkan ke dalam katalog.
-          </p>
-        )}
-      </div>
+      {/* ================= PANGGIL KOMPONEN SHOWCASE GRID KENDARAAN ================= */}
+      <VehicleShowcaseGrid vehicles={vehicles} />
 
       {/* DAFTAR PENGAJUAN KENDARAAN */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
