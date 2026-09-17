@@ -958,8 +958,8 @@ export default function AgendaPage() {
                           </button>
                         )}
 
-                        {/* TOMBOL BATALKAN KEGIATAN DI ROW AKSI (KHUSUS INTERNAL / ADMIN) */}
-                        {item.smartStatus !== "Ditolak" && (
+                        {/* TOMBOL BATALKAN KEGIATAN DI ROW AKSI (HANYA UNTUK INTERNAL) */}
+                        {!isAdmin && item.smartStatus !== "Ditolak" && (
                           <button
                             onClick={() => openCancelModal(item.id, item.title)}
                             className="p-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg transition-colors cursor-pointer"
@@ -968,7 +968,7 @@ export default function AgendaPage() {
                             <XCircle size={15} />
                           </button>
                         )}
-
+                        
                         {isAdmin && (
                           <button
                             onClick={() => openDeleteModal(item.id, item.title)}
