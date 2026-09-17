@@ -112,7 +112,10 @@ function BookingFormContent({
   const [fetchedBookings, setFetchedBookings] = useState<Agenda[]>([]);
   const [isCheckingConflict, setIsCheckingConflict] = useState(false);
 
-  // Gabungkan agenda secara bersih tanpa useMemo manual agar bebas dari warning React Compiler
+  // === STATE UNTUK VALIDASI ===
+  const [phoneError, setPhoneError] = useState("");
+  const [capacityError, setCapacityError] = useState("");
+
   const existingBookings = (() => {
     const combined = [...agendas, ...fetchedBookings];
     const unique = Array.from(
@@ -207,10 +210,16 @@ function BookingFormContent({
     return getRoomCapacity(currentRoom, formData.layout);
   }, [currentRoom, formData.layout]);
 
-  // Fetch seluruh data agenda dari database saat modal dibuka
+  // Ekstrak maksimal angka kapasitas untuk validasi
+  const maxAllowedCapacity = useMemo(() => {
+    if (!currentRoom) return 1000;
+    const rawVal = getRoomCapacity(currentRoom, formData.layout);
+    if (rawVal === "-") return 1000;
+    return parseInt(String(rawVal).replace(/\D/g, ""), 10) || 1000;
+  }, [currentRoom, formData.layout]);
+
   useEffect(() => {
     let isCancelled = false;
-
     const fetchAllBookings = async () => {
       setIsCheckingConflict(true);
       try {
@@ -229,9 +238,7 @@ function BookingFormContent({
         }
       }
     };
-
     fetchAllBookings();
-
     return () => {
       isCancelled = true;
     };
@@ -252,19 +259,84 @@ function BookingFormContent({
     if (name === "room_id") {
       const selected = rooms.find((r) => String(r.id) === String(value));
       const layouts = getRoomLayouts(selected);
+      const newLayout = layouts[0] || "Ruang Rapat";
 
       setFormData((prev) => ({
         ...prev,
         room_id: String(value),
         roomName: selected ? selected.name : prev.roomName,
-        layout: layouts[0] || "Ruang Rapat",
+        layout: newLayout,
       }));
+
+      // Re-validasi kapasitas ketika ruangan berganti
+      const rawCap = getRoomCapacity(selected, newLayout);
+      const newMaxCap =
+        rawCap === "-"
+          ? 1000
+          : parseInt(String(rawCap).replace(/\D/g, ""), 10) || 1000;
+      const currentParticipants =
+        parseInt(formData.total_participants, 10) || 1;
+
+      if (currentParticipants > newMaxCap) {
+        setCapacityError(
+          `Melebihi batas! Maksimal kapasitas ruangan ini adalah ${newMaxCap} orang.`,
+        );
+      } else {
+        setCapacityError("");
+      }
+    } else if (name === "phone") {
+      // VALIDASI NOMOR HP (HANYA ANGKA)
+      const numericValue = String(value).replace(/\D/g, "");
+      setFormData((prev) => ({ ...prev, phone: numericValue }));
+
+      if (
+        numericValue.length > 0 &&
+        (numericValue.length < 11 || numericValue.length > 13)
+      ) {
+        setPhoneError(
+          "Nomor tidak valid. Harus terdiri dari 11 - 13 digit angka.",
+        );
+      } else {
+        setPhoneError("");
+      }
+    } else if (name === "total_participants") {
+      // VALIDASI JUMLAH PESERTA
+      const participantVal = parseInt(String(value), 10) || 0;
+      setFormData((prev) => ({ ...prev, total_participants: String(value) }));
+
+      if (participantVal <= 0) {
+        setCapacityError("Jumlah peserta tidak boleh kosong atau 0.");
+      } else if (participantVal > maxAllowedCapacity) {
+        setCapacityError(
+          `Melebihi batas! Maksimal kapasitas layout ini adalah ${maxAllowedCapacity} orang.`,
+        );
+      } else {
+        setCapacityError("");
+      }
+    } else if (name === "layout") {
+      setFormData((prev) => ({ ...prev, layout: String(value) }));
+
+      // Re-validasi kapasitas ketika layout berubah
+      const rawCap = getRoomCapacity(currentRoom, String(value));
+      const newMaxCap =
+        rawCap === "-"
+          ? 1000
+          : parseInt(String(rawCap).replace(/\D/g, ""), 10) || 1000;
+      const currentParticipants =
+        parseInt(formData.total_participants, 10) || 1;
+
+      if (currentParticipants > newMaxCap) {
+        setCapacityError(
+          `Melebihi batas! Maksimal kapasitas layout ini adalah ${newMaxCap} orang.`,
+        );
+      } else {
+        setCapacityError("");
+      }
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
-  // Validasi Konflik & Aturan Kapasitas Round Table (Ballroom 200-250 vs Komunal Round Table)
   const conflictDetails = (() => {
     if (
       !formData.date ||
@@ -282,7 +354,6 @@ function BookingFormContent({
     const targetRoomNameLower = (formData.roomName || "").toLowerCase();
     const targetLayoutLower = (formData.layout || "").toLowerCase();
 
-    // Helper untuk mengubah string peserta ("250 Orang") menjadi angka murni (250)
     const parseNum = (val: any) => {
       if (typeof val === "number") return val;
       const clean = String(val || "0").replace(/[^0-9]/g, "");
@@ -295,13 +366,10 @@ function BookingFormContent({
       targetRoomId === "11" ||
       targetRoomNameLower.includes("ballroom") ||
       targetRoomNameLower.includes("sriwidjaya");
-
     const isTargetKomunal =
       targetRoomId === "12" || targetRoomNameLower.includes("komunal");
-
     const isTargetRoundTable = targetLayoutLower.includes("round table");
 
-    // Validasi mutlak maksimal kapasitas Ballroom Round Table tidak boleh > 250
     if (isTargetBallroom && isTargetRoundTable && targetParticipants > 250) {
       return {
         hasConflict: true,
@@ -321,7 +389,6 @@ function BookingFormContent({
 
       if (!existingStart || !existingEnd) continue;
 
-      // Cek irisan waktu (Time Overlap)
       const isTimeOverlap =
         targetStartTime < existingEnd && targetEndTime > existingStart;
       if (!isTimeOverlap) continue;
@@ -337,13 +404,10 @@ function BookingFormContent({
         bookedRoomId === "11" ||
         bookedRoomName.includes("ballroom") ||
         bookedRoomName.includes("sriwidjaya");
-
       const isBookedKomunal =
         bookedRoomId === "12" || bookedRoomName.includes("komunal");
-
       const isBookedRoundTable = bookedLayoutLower.includes("round table");
 
-      // 1. Konflik reguler (pesan ruangan yang sama persis di jam yang sama)
       if (
         bookedRoomId === targetRoomId ||
         bookedRoomName === targetRoomNameLower ||
@@ -357,7 +421,6 @@ function BookingFormContent({
         };
       }
 
-      // 2. ATURAN 1: Jika user pesan Komunal (Round Table), cek apakah Ballroom sudah pesan Round Table >= 200 orang
       if (
         isTargetKomunal &&
         isTargetRoundTable &&
@@ -371,7 +434,6 @@ function BookingFormContent({
         };
       }
 
-      // 3. ATURAN 2: Jika user pesan Ballroom (Round Table) dengan kapasitas 200 - 250 orang, cek apakah Komunal Round Table sudah terisi
       if (
         isTargetBallroom &&
         isTargetRoundTable &&
@@ -398,7 +460,9 @@ function BookingFormContent({
     formData.pic.trim() &&
     formData.dept.trim() &&
     formData.phone.trim() &&
+    !phoneError &&
     formData.total_participants.trim() &&
+    !capacityError &&
     formData.meeting_leader.trim(),
   );
 
@@ -410,6 +474,7 @@ function BookingFormContent({
     formData.startTime &&
     formData.endTime &&
     formData.startTime < formData.endTime &&
+    !capacityError &&
     !hasConflict &&
     !isCheckingConflict,
   );
@@ -526,7 +591,7 @@ function BookingFormContent({
         </button>
       </div>
 
-      <div className="p-8 overflow-y-auto flex-1 space-y-4">
+      <div className="p-8 overflow-y-auto flex-1 space-y-4 custom-scrollbar">
         {step === 1 && (
           <>
             <div>
@@ -582,15 +647,22 @@ function BookingFormContent({
                 Nomor WhatsApp / HP Pemohon
               </label>
               <input
-                type="text"
+                type="tel"
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
                 disabled={isSubmitting}
-                className={inputClassName}
+                className={`${inputClassName} ${
+                  phoneError ? "border-rose-500 focus:border-rose-500" : ""
+                }`}
                 placeholder="Contoh: 081234567890"
                 required
               />
+              {phoneError && (
+                <p className="text-[10px] text-rose-500 font-bold mt-1.5 flex items-center gap-1 animate-in fade-in">
+                  <AlertCircle size={12} /> {phoneError}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -599,14 +671,23 @@ function BookingFormContent({
                 <input
                   type="number"
                   min="1"
+                  max={maxAllowedCapacity}
                   name="total_participants"
                   value={formData.total_participants}
                   onChange={handleChange}
                   disabled={isSubmitting}
-                  className={inputClassName}
+                  className={`${inputClassName} ${
+                    capacityError ? "border-rose-500 focus:border-rose-500" : ""
+                  }`}
                   placeholder="Contoh: 15"
                   required
                 />
+                {capacityError && (
+                  <p className="text-[10px] text-rose-500 font-bold mt-1.5 flex items-start gap-1 animate-in fade-in leading-tight">
+                    <AlertCircle size={12} className="shrink-0 mt-0.5" />
+                    {capacityError}
+                  </p>
+                )}
               </div>
               <div>
                 <label className={labelClassName}>Pimpinan Rapat</label>
@@ -822,6 +903,18 @@ function BookingFormContent({
                 ))}
               </select>
             </div>
+
+            {capacityError && (
+              <div className="p-3 mt-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl flex items-start gap-2 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                <span>
+                  Perhatian: Jumlah peserta yang Anda masukkan di Langkah 1 (
+                  {formData.total_participants} Orang) melebihi kapasitas{" "}
+                  {formData.layout} untuk ruangan ini. Silakan sesuaikan jumlah
+                  peserta Anda.
+                </span>
+              </div>
+            )}
 
             <div>
               <label className={labelClassName}>
