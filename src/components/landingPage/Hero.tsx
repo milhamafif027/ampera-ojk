@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, Building2, Car, BookOpen } from "lucide-react";
+import { Building2, Car, BookOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Daftar path foto gedung OJK Sumsel untuk latar belakang fullscreen
@@ -81,7 +81,7 @@ export default function Hero() {
         </nav>
       </header>
 
-      {/* 3. MAIN HERO CONTENT (RATA KIRI ALA "Let's Go Hiking") */}
+      {/* 3. MAIN HERO CONTENT */}
       <div className="relative z-10 flex-1 flex flex-col justify-center px-6 md:px-12 max-w-7xl mx-auto w-full pb-24 md:pb-32">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -89,7 +89,7 @@ export default function Hero() {
           transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
           className="max-w-3xl space-y-6 sm:space-y-8"
         >
-          {/* Social Proof / Trust Badge (Ala avatar tumpuk) */}
+          {/* Social Proof / Trust Badge */}
           <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/10 w-fit px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-lg">
             <div className="flex -space-x-2">
               <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-slate-300 border-2 border-slate-900 flex items-center justify-center text-[8px] sm:text-[10px] font-bold text-slate-700 shadow-sm">
@@ -108,35 +108,33 @@ export default function Hero() {
           </div>
 
           {/* Heading Besar */}
-          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-bold text-white tracking-tight leading-[1.05]">
-            Akses Fasilitas <br /> Lebih Mudah.
-          </h1>
+          <div className="space-y-3">
+            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[6rem] font-black text-white tracking-tight leading-none">
+              AMPERA
+            </h1>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-rose-300 leading-snug">
+              Manajemen Peminjaman Ruangan & Kendaraan
+            </h2>
+          </div>
 
-          {/* Deskripsi Singkat */}
+          {/* Deskripsi */}
           <p className="text-sm sm:text-base md:text-lg text-white/70 max-w-xl leading-relaxed font-medium">
-            Sistem terpadu untuk reservasi ruang pertemuan dan penjadwalan
-            armada dinas secara real-time. Dirancang khusus untuk efisiensi
-            operasional Kantor OJK Provinsi Sumatera Selatan.
+            Platform terpadu Kantor OJK Provinsi Sumatera Selatan. Kelola
+            reservasi fasilitas pertemuan dan armada operasional secara efisien,
+            transparan, dan terstruktur.
           </p>
 
           {/* Call to Action Button */}
-          <div className="pt-4 flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+          <div className="pt-4 flex w-full sm:w-auto">
             <Link
-              href="/login"
-              className="inline-flex items-center justify-center gap-2 bg-white text-slate-900 hover:bg-slate-100 px-8 py-4 rounded-full text-sm sm:text-base font-bold transition-all shadow-xl hover:shadow-2xl group w-full sm:w-auto"
+              href="/panduan"
+              className="inline-flex items-center justify-center gap-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white px-8 py-4 rounded-full text-sm sm:text-base font-bold transition-all shadow-xl shadow-rose-950/50 hover:shadow-rose-900/60 border border-rose-800/50 group w-full sm:w-auto"
             >
-              Masuk ke Sistem
-              <ArrowRight
+              <BookOpen
                 size={18}
-                className="group-hover:translate-x-1.5 transition-transform"
+                className="group-hover:-translate-y-0.5 transition-transform duration-300"
               />
-            </Link>
-
-            <Link
-              href="#fasilitas"
-              className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 px-8 py-4 rounded-full text-sm sm:text-base font-bold transition-all w-full sm:w-auto"
-            >
-              Lihat Katalog Ruangan
+              Lihat Panduan Penggunaan
             </Link>
           </div>
         </motion.div>
