@@ -18,7 +18,7 @@ interface LandingRoomsProps {
 }
 
 /* =========================================================
-   KOMPONEN INTERNAL KARTU RUANGAN (MUI TITLEBAR STYLE)
+   KOMPONEN INTERNAL KARTU RUANGAN (DENGAN LAZY HOVER RENDER)
 ========================================================= */
 const RoomGridCard = ({
   room,
@@ -30,6 +30,9 @@ const RoomGridCard = ({
   onEnlarge: (imgs: string[], index: number, roomName: string) => void;
 }) => {
   const [activeIdx, setActiveIdx] = useState(0);
+  // State untuk melacak apakah kartu sedang di-hover atau pernah di-hover
+  const [hasHovered, setHasHovered] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const [imgError, setImgError] = useState(false);
 
@@ -48,6 +51,11 @@ const RoomGridCard = ({
   } catch {
     roomImages = [defaultImage];
   }
+
+  // Menentukan gambar mana saja yang boleh dirender.
+  // Jika belum di-hover, render HANYA gambar indeks 0.
+  // Jika sudah di-hover, render semua gambar.
+  const imagesToRender = hasHovered ? roomImages : [roomImages[0]];
 
   // Membersihkan Bug "Orang Orang"
   let displayCapacity = room.capacity ? String(room.capacity).trim() : "50";
@@ -93,10 +101,12 @@ const RoomGridCard = ({
     <div
       className={`relative overflow-hidden rounded-2xl bg-slate-900 group shadow-md hover:shadow-xl transition-shadow cursor-pointer transform-gpu ${
         isFeatured
-          ? "md:col-span-2 md:row-span-2 h-[260px] md:h-full" // Kartu Besar (Ampera/Sriwidjaja)
+          ? "md:col-span-2 md:row-span-2 h-[260px] md:h-full" // Kartu Besar
           : "col-span-1 row-span-1 h-[240px] md:h-full" // Kartu Kecil
       }`}
       onClick={() => onEnlarge(roomImages, activeIdx, room.name)}
+      onMouseEnter={() => setHasHovered(true)} // Memicu render sisa gambar saat hover
+      onTouchStart={() => setHasHovered(true)} // Memicu render di layar sentuh
     >
       {/* Slider Gambar */}
       <div
@@ -105,7 +115,7 @@ const RoomGridCard = ({
         className="absolute inset-0 flex overflow-x-auto snap-x snap-mandatory scroll-smooth transform-gpu"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
-        {roomImages.map((imgUrl, idx) => (
+        {imagesToRender.map((imgUrl, idx) => (
           <div
             key={idx}
             className="relative w-full h-full shrink-0 snap-center"
@@ -114,7 +124,7 @@ const RoomGridCard = ({
             <img
               src={imgError ? defaultImage : imgUrl}
               alt={`${room.name} - ${idx + 1}`}
-              loading="lazy"
+              loading={idx === 0 ? "lazy" : "eager"} // Gambar 1 lazy bawaan browser, sisanya eager karena baru dipanggil saat hover
               onError={() => setImgError(true)}
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
@@ -125,8 +135,8 @@ const RoomGridCard = ({
       {/* Overlay Gradient ala MUI */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity duration-300" />
 
-      {/* Tombol Swipe Internal (Muncul saat di-hover) */}
-      {roomImages.length > 1 && (
+      {/* Tombol Swipe Internal (Muncul saat di-hover dan sudah diload) */}
+      {hasHovered && roomImages.length > 1 && (
         <>
           <button
             onClick={prevImg}
