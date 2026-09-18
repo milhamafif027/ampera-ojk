@@ -1,37 +1,33 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Agenda, StatusPengajuan } from "@/types";
 import { getSmartStatus, formatAgendaDate } from "@/lib/utils";
-import {
-  CalendarDays,
-  Clock,
-  MapPin,
-  CheckCircle2,
-  Building2,
-  Users,
-  Bell,
-  RefreshCw,
-  Car,
-  Hotel,
-  HelpCircle,
-  XCircle,
-  Eye,
-  ShieldCheck,
-  Sparkles,
-  Check,
-  ArrowRight,
-  Loader2,
-  X,
-} from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion, animate } from "framer-motion";
-
-interface ExtendedAgenda extends Agenda {
-  endDate?: string;
-  notes?: string;
-}
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import {
+  ClipboardList,
+  Search,
+  Download,
+  Printer,
+  CheckCircle2,
+  Trash2,
+  Calendar,
+  Clock,
+  Building2,
+  User,
+  RefreshCw,
+  AlertCircle,
+  X,
+  Loader2,
+  Pencil,
+  Save,
+  Eye,
+  XCircle,
+} from "lucide-react";
+import { motion } from "framer-motion";
 
 interface LocalUser {
   id: number;
@@ -41,26 +37,128 @@ interface LocalUser {
   nip?: string;
 }
 
-function Counter({ value }: { value: number }) {
-  const [displayValue, setDisplayValue] = useState(0);
+type ExtendedAgenda = Agenda & {
+  endDate?: string;
+  start_time?: string;
+  end_time?: string;
+  notes?: string;
+  [key: string]: any;
+};
 
-  useEffect(() => {
-    const controls = animate(0, value, {
-      duration: 1.2,
-      ease: "easeOut",
-      onUpdate(latest) {
-        setDisplayValue(Math.floor(latest));
-      },
-    });
-
-    return controls.stop;
-  }, [value]);
-
-  return <span>{displayValue}</span>;
+interface RawAgendaResponse {
+  id: string | number;
+  title: string;
+  date?: string;
+  end_date?: string;
+  time?: string;
+  start_time?: string;
+  end_time?: string;
+  room?: string;
+  room_name?: string;
+  pic?: string;
+  dept?: string;
+  layout?: string;
+  status?: string;
+  notes?: string;
+  phone?: string;
+  total_participants?: number;
+  meeting_leader?: string;
 }
 
-export default function DashboardPage() {
+interface AgendaFormData {
+  id: string;
+  title: string;
+  date: string;
+  end_date: string;
+  start_time: string;
+  end_time: string;
+  room: string;
+  pic: string;
+  dept: string;
+  layout: string;
+  status: string;
+}
+
+function mapAgendaRecord(item: RawAgendaResponse): ExtendedAgenda {
+  let formattedDate = "";
+  if (item.date) {
+    const rawDateStr = String(item.date);
+    if (rawDateStr.includes("T")) {
+      formattedDate = rawDateStr.split("T")[0];
+    } else if (rawDateStr.includes(" ")) {
+      formattedDate = rawDateStr.split(" ")[0];
+    } else {
+      formattedDate = rawDateStr.slice(0, 10);
+    }
+  }
+
+  let formattedEndDate = formattedDate;
+  if (item.end_date) {
+    const rawEndStr = String(item.end_date);
+    if (rawEndStr.includes("T")) {
+      formattedEndDate = rawEndStr.split("T")[0];
+    } else if (rawEndStr.includes(" ")) {
+      formattedEndDate = rawEndStr.split(" ")[0];
+    } else {
+      formattedEndDate = rawEndStr.slice(0, 10);
+    }
+  }
+
+  let formattedTime = "";
+  let startTimeOnly = "08:00";
+  let endTimeOnly = "17:00";
+
+  if (item.start_time && item.end_time) {
+    const startStr = String(item.start_time);
+    const endStr = String(item.end_time);
+
+    const cleanStart = startStr.includes("T")
+      ? startStr.split("T")[1]
+      : startStr;
+    const cleanEnd = endStr.includes("T") ? endStr.split("T")[1] : endStr;
+
+    startTimeOnly = cleanStart.slice(0, 5);
+    endTimeOnly = cleanEnd.slice(0, 5);
+    formattedTime = `${startTimeOnly} - ${endTimeOnly}`;
+  } else if (item.time) {
+    formattedTime = item.time;
+    if (item.time.includes("-")) {
+      const [startPart, endPart] = item.time.split("-").map((t) => t.trim());
+      startTimeOnly = startPart.slice(0, 5) || "08:00";
+      endTimeOnly = endPart.slice(0, 5) || "17:00";
+    }
+  } else {
+    formattedTime = "08:00 - 17:00";
+  }
+
+  const agendaItem = {
+    id: String(item.id),
+    title: item.title,
+    date: formattedDate,
+    endDate: formattedEndDate,
+    time: formattedTime,
+    start_time: startTimeOnly,
+    end_time: endTimeOnly,
+    room: item.room_name || item.room || "Ruang Rapat OJK",
+    pic: item.pic || "Pegawai OJK",
+    dept: item.dept || "OJK Sumsel",
+    layout: item.layout || "-",
+    status: (item.status as StatusPengajuan) || "Pending",
+    notes: item.notes || "",
+    phone: item.phone || "-",
+    total_participants: item.total_participants || 0,
+    meeting_leader: item.meeting_leader || "-",
+  };
+
+  return {
+    ...agendaItem,
+    smartStatus: getSmartStatus(agendaItem) as StatusPengajuan,
+  } as ExtendedAgenda;
+}
+
+export default function AgendaPage() {
   const router = useRouter();
+
   const [user] = useState<LocalUser | null>(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -72,425 +170,532 @@ export default function DashboardPage() {
   });
 
   const [agendas, setAgendas] = useState<ExtendedAgenda[]>([]);
-  const [rooms, setRooms] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("Semua Status");
+  const [roomFilter, setRoomFilter] = useState<string>("Semua Ruangan");
+  const [monthFilter, setMonthFilter] = useState<string>("Semua Bulan");
+  const [yearFilter, setYearFilter] = useState<string>("Semua Tahun");
 
-  // State untuk Pengajuan Pending Kendaraan di Dashboard Utama
-  const [vehicleBookings, setVehicleBookings] = useState<any[]>([]);
-  const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
-  const [vehicleApprovalModal, setVehicleApprovalModal] = useState<{
-    isOpen: boolean;
-    bookingId: string | null;
-    vehicleName: string;
-    phone?: string;
-    actionType: "approve" | "reject" | null;
-  }>({
-    isOpen: false,
-    bookingId: null,
-    vehicleName: "",
-    phone: "",
-    actionType: null,
-  });
+  const [isExporting, setIsExporting] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-  const [vehicleApprovalForm, setVehicleApprovalForm] = useState({
-    selectedVehicle: "",
-    totalPassengers: "1",
-    notes: "Disetujui, kendaraan dan driver telah disiapkan.",
-  });
-  const [isExecutingVehicleAction, setIsExecutingVehicleAction] =
-    useState(false);
-
-  // State Pop-up Pengumuman Update
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
-
-  const [confirmModal, setConfirmModal] = useState<{
+  const [cancelModal, setCancelModal] = useState<{
     isOpen: boolean;
     agendaId: string | null;
     title: string | null;
-    actionType: "approve" | "reject" | null;
-    rejectReason: string;
   }>({
     isOpen: false,
     agendaId: null,
     title: null,
-    actionType: null,
-    rejectReason: "",
+  });
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    agendaId: string | null;
+    title: string | null;
+  }>({
+    isOpen: false,
+    agendaId: null,
+    title: null,
   });
 
-  const [isExecutingAction, setIsExecutingAction] = useState(false);
+  const [editModal, setEditModal] = useState<{
+    isOpen: boolean;
+    data: AgendaFormData | null;
+  }>({
+    isOpen: false,
+    data: null,
+  });
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
 
   const [detailModal, setDetailModal] = useState<{
     isOpen: boolean;
-    data: any | null;
+    data: ExtendedAgenda | null;
   }>({
     isOpen: false,
     data: null,
   });
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const hasSeenUpdate = sessionStorage.getItem("ampera_update_v2_seen");
-      if (!hasSeenUpdate) {
-        setShowUpdateModal(true);
-      }
-    }, 100);
+  const isAdmin = user?.role === "admin";
+  const isInternal = user?.role === "internal";
 
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleCloseUpdateModal = () => {
-    sessionStorage.setItem("ampera_update_v2_seen", "true");
-    setShowUpdateModal(false);
-  };
-
-  const loadDashboardData = useCallback(async (isInitial = false) => {
+  const fetchAgendas = useCallback(async () => {
     try {
-      if (isInitial) setIsLoading(true);
-      const [resAgendas, resRooms, resVehicles] = await Promise.all([
-        fetch("/api/agendas"),
-        fetch("/api/ruangan"),
-        fetch("/api/kendaraan"),
-      ]);
+      const res = await fetch("/api/agendas");
+      const result = await res.json();
 
-      const resultAgendas = await resAgendas.json();
-      const resultRooms = await resRooms.json();
-      const resultVehicles = await resVehicles.json();
-
-      if (resAgendas.ok && resultAgendas.data) {
-        const mappedAgendas: ExtendedAgenda[] = resultAgendas.data.map(
-          (item: any) => {
-            const formattedDate = item.date
-              ? String(item.date).slice(0, 10)
-              : "";
-            const formattedEndDate = item.end_date
-              ? String(item.end_date).slice(0, 10)
-              : formattedDate;
-
-            let formattedTime = "";
-            if (item.start_time && item.end_time) {
-              const startStr = String(item.start_time);
-              const endStr = String(item.end_time);
-
-              const cleanStart = startStr.includes("T")
-                ? startStr.split("T")[1]
-                : startStr;
-              const cleanEnd = endStr.includes("T")
-                ? endStr.split("T")[1]
-                : endStr;
-
-              formattedTime = `${cleanStart.slice(0, 5)} - ${cleanEnd.slice(0, 5)}`;
-            } else {
-              formattedTime = item.time || "";
-            }
-
-            const agendaItem = {
-              id: String(item.id),
-              title: item.title,
-              date: formattedDate,
-              endDate: formattedEndDate,
-              time: formattedTime,
-              room: item.room_name || item.room || "Ruang Rapat OJK",
-              pic: item.pic || "Pegawai OJK",
-              dept: item.dept || "OJK Sumsel",
-              phone: item.phone || "",
-              layout: item.layout || "-",
-              status: item.status || "Pending",
-              total_participants: item.total_participants || 1,
-              meeting_leader: item.meeting_leader || "-",
-              notes: item.notes || "",
-            };
-
-            return {
-              ...agendaItem,
-              smartStatus: getSmartStatus(agendaItem) as StatusPengajuan,
-            };
-          },
-        );
-
-        setAgendas(mappedAgendas);
-      }
-
-      if (resRooms.ok && Array.isArray(resultRooms.data)) {
-        setRooms(resultRooms.data);
-      }
-
-      if (resVehicles.ok) {
-        if (resultVehicles.bookings) {
-          setVehicleBookings(resultVehicles.bookings);
-        }
-        if (resultVehicles.vehicles) {
-          setAvailableVehicles(resultVehicles.vehicles);
-        }
+      if (res.ok && Array.isArray(result.data)) {
+        setAgendas(result.data.map(mapAgendaRecord));
       }
     } catch (error) {
-      console.error("Gagal mengambil data dashboard:", error);
+      console.error("Gagal mengambil data agenda:", error);
     } finally {
-      if (isInitial) setIsLoading(false);
+      setIsLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    let isCancelled = false;
-
-    const init = async () => {
-      if (!isCancelled) await loadDashboardData(true);
-    };
-
-    init();
-
-    const interval = setInterval(() => {
-      if (!isCancelled) {
-        loadDashboardData(false);
-      }
-    }, 5000);
-
-    return () => {
-      isCancelled = true;
-      clearInterval(interval);
-    };
-  }, [loadDashboardData]);
-
   const handleManualRefresh = () => {
-    loadDashboardData(true);
+    setIsLoading(true);
+    fetchAgendas();
   };
 
-  const isAdmin = user?.role === "admin";
-  const isExternal = user?.role === "eksternal";
-
-  const liveAgendas = agendas.filter(
-    (a) => a.smartStatus === "Sedang Berlangsung",
-  );
-
-  const upcomingAgendas = agendas
-    .filter((a) => a.smartStatus === "Disetujui")
-    .sort((a, b) => {
-      const dtA =
-        a.date.split("/").reverse().join("-") +
-        "T" +
-        (a.time.split(" - ")[0] || "00:00");
-      const dtB =
-        b.date.split("/").reverse().join("-") +
-        "T" +
-        (b.time.split(" - ")[0] || "00:00");
-      return dtA.localeCompare(dtB);
-    });
-
-  const pendingAgendas = agendas.filter(
-    (a) => a.smartStatus === "Pending" || a.status === "Pending",
-  );
-
-  const totalAgendas = agendas.length;
-  const totalDisetujui = agendas.filter(
-    (a) =>
-      a.smartStatus === "Disetujui" ||
-      a.smartStatus === "Sedang Berlangsung" ||
-      a.status === "Disetujui",
-  ).length;
-  const totalPending = pendingAgendas.length;
-
-  const todayStr = new Date().toISOString().split("T")[0];
-  const bookedRoomsToday = new Set(
-    agendas
-      .filter((item) => {
-        const start = item.date;
-        const end = item.endDate || item.date;
-        return (
-          todayStr >= start && todayStr <= end && item.status !== "Ditolak"
-        );
-      })
-      .map((item) => item.room),
-  );
-  const totalMasterRooms = rooms.length > 0 ? rooms.length : 9;
-  const availableRoomsCount = Math.max(
-    0,
-    totalMasterRooms - bookedRoomsToday.size,
-  );
-
-  const sendWhatsAppNotification = (
-    agendaData: any,
-    status: "Disetujui" | "Ditolak",
-    reason?: string,
-  ) => {
-    if (!agendaData.phone) {
-      console.warn("Nomor WhatsApp pemohon tidak tersedia di database.");
+  useEffect(() => {
+    if (!user && typeof window !== "undefined") {
+      router.push("/login");
+      return;
+    }
+    if (user?.role === "eksternal") {
+      router.push("/dashboardUtama");
       return;
     }
 
-    let cleanPhone = agendaData.phone.replace(/\D/g, "");
-    if (cleanPhone.startsWith("0")) {
-      cleanPhone = "62" + cleanPhone.slice(1);
+    let isCancelled = false;
+
+    const loadInitialData = async () => {
+      try {
+        const res = await fetch("/api/agendas");
+        const result = await res.json();
+
+        if (isCancelled) return;
+
+        if (res.ok && Array.isArray(result.data)) {
+          setAgendas(result.data.map(mapAgendaRecord));
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          console.error("Gagal mengambil data agenda:", error);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadInitialData();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [router, user]);
+
+  const roomOptions = useMemo(() => {
+    return Array.from(new Set(agendas.map((a) => a.room))).filter(Boolean);
+  }, [agendas]);
+
+  const yearOptions = useMemo(() => {
+    const yearsSet = new Set<string>();
+    agendas.forEach((a) => {
+      if (a.date) {
+        const year = a.date.slice(0, 4);
+        yearsSet.add(year);
+      }
+    });
+    return Array.from(yearsSet).sort().reverse();
+  }, [agendas]);
+
+  const monthOptions = useMemo(() => {
+    const monthsSet = new Set<string>();
+    agendas.forEach((a) => {
+      if (a.date) {
+        const year = a.date.slice(0, 4);
+        if (yearFilter === "Semua Tahun" || year === yearFilter) {
+          const month = a.date.slice(5, 7);
+          monthsSet.add(month);
+        }
+      }
+    });
+    return Array.from(monthsSet).sort();
+  }, [agendas, yearFilter]);
+
+  const formatMonthName = (monthNum: string) => {
+    try {
+      const parsedMonth = parseInt(monthNum, 10);
+      if (isNaN(parsedMonth) || parsedMonth < 1 || parsedMonth > 12)
+        return monthNum;
+      const date = new Date(2026, parsedMonth - 1, 1);
+      return date.toLocaleDateString("id-ID", { month: "long" });
+    } catch {
+      return monthNum;
     }
-
-    const statusText = status === "Disetujui" ? "DISETUJUI ✅" : "DITOLAK ❌";
-    const dateRangeText =
-      agendaData.date === agendaData.endDate || !agendaData.endDate
-        ? `tanggal ${agendaData.date}`
-        : `tanggal ${agendaData.date} s.d. ${agendaData.endDate}`;
-
-    let message = `Halo ${agendaData.pic || "Pemohon"},
-
-Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegiatan *${agendaData.title || "Agenda Rapat"}* pada ${dateRangeText} (${agendaData.time || "08:00 - 17:00"} WIB) telah *${statusText}*.`;
-
-    if (status === "Ditolak" && reason) {
-      message += `\n\n📝 *Alasan Penolakan:* ${reason}`;
-    }
-
-    message += `\n\nTerima kasih.\n_Bagian Layanan Manajemen Strategis Kantor OJK Sumatera Selatan_`;
-
-    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-    window.open(waUrl, "_blank");
   };
 
-  const openConfirmModal = (
-    agendaId: string,
-    title: string,
-    actionType: "approve" | "reject",
-  ) => {
-    setConfirmModal({
-      isOpen: true,
-      agendaId,
-      title,
-      actionType,
-      rejectReason: "",
+  const filteredAgendas = useMemo(() => {
+    return agendas
+      .filter((a) => {
+        const matchSearch =
+          a.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          a.pic.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (a.dept && a.dept.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          a.room.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchStatus =
+          statusFilter === "Semua Status" || a.smartStatus === statusFilter;
+        const matchRoom =
+          roomFilter === "Semua Ruangan" || a.room === roomFilter;
+
+        const itemYear = a.date ? a.date.slice(0, 4) : "";
+        const itemMonth = a.date ? a.date.slice(5, 7) : "";
+
+        const matchYear =
+          yearFilter === "Semua Tahun" || itemYear === yearFilter;
+        const matchMonth =
+          monthFilter === "Semua Bulan" || itemMonth === monthFilter;
+
+        return (
+          matchSearch && matchStatus && matchRoom && matchYear && matchMonth
+        );
+      })
+      .sort((a, b) => {
+        const dateA = a.date || "";
+        const dateB = b.date || "";
+        if (dateA !== dateB) {
+          return dateB.localeCompare(dateA);
+        }
+        const timeA =
+          (a as unknown as { start_time?: string }).start_time || "";
+        const timeB =
+          (b as unknown as { start_time?: string }).start_time || "";
+        return timeB.localeCompare(timeA);
+      });
+  }, [agendas, searchTerm, statusFilter, roomFilter, monthFilter, yearFilter]);
+
+  const handleExportExcel = () => {
+    setIsExporting(true);
+    try {
+      const currentDate = new Date().toISOString().split("T")[0];
+
+      const exportData: any[][] = [];
+      exportData.push(["KANTOR OJK PROVINSI SUMATERA SELATAN"]);
+      exportData.push(["LAPORAN REKAPITULASI AGENDA & KEGIATAN RUANGAN"]);
+      exportData.push([
+        `Tanggal Cetak: ${currentDate} | Filter Status: ${statusFilter} | Filter Ruangan: ${roomFilter} | Filter Tahun: ${yearFilter} | Filter Bulan: ${monthFilter}`,
+      ]);
+      exportData.push([]);
+
+      exportData.push([
+        "No",
+        "Tanggal Pelaksanaan",
+        "Waktu",
+        "Nama Kegiatan / Acara",
+        "Penanggung Jawab (PIC)",
+        "Satuan Kerja (Satker)",
+        "Ruangan",
+        "Tata Letak",
+        "Status Pengajuan",
+        "Catatan",
+      ]);
+
+      filteredAgendas.forEach((a, index) => {
+        const dateFormatted = formatAgendaDate(a.date, a.endDate);
+        exportData.push([
+          index + 1,
+          dateFormatted,
+          a.time,
+          a.title || "-",
+          a.pic || "-",
+          a.dept || "-",
+          a.room || "-",
+          a.layout || "-",
+          a.smartStatus,
+          a.notes || "-",
+        ]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(exportData);
+
+      ws["!cols"] = [
+        { wch: 5 },
+        { wch: 25 },
+        { wch: 15 },
+        { wch: 45 },
+        { wch: 25 },
+        { wch: 25 },
+        { wch: 30 },
+        { wch: 18 },
+        { wch: 20 },
+        { wch: 40 },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Rekap Agenda");
+      XLSX.writeFile(wb, `Laporan_Agenda_OJK_Sumsel_${currentDate}.xlsx`);
+    } catch (error) {
+      console.error("Gagal mengekspor Excel:", error);
+      alert("Gagal melakukan ekspor data Excel.");
+    } finally {
+      setTimeout(() => setIsExporting(false), 500);
+    }
+  };
+
+  const loadLogoBase64 = (src: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL("image/png"));
+          } else {
+            resolve(null);
+          }
+        } catch {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = src;
     });
   };
 
-  const handleExecuteAction = async () => {
-    if (!confirmModal.agendaId || !confirmModal.actionType) return;
-
+  const handleDownloadPDF = async () => {
+    setIsExporting(true);
     try {
-      setIsExecutingAction(true);
+      const doc = new jsPDF("landscape", "mm", "a4");
+      const currentDate = new Date().toISOString().split("T")[0];
 
-      const selectedAgenda: any = agendas.find(
-        (a) => a.id === confirmModal.agendaId,
-      );
-      if (!selectedAgenda) return;
+      const imgData = await loadLogoBase64("/otoritas-jasa-keuangan-logo.png");
 
-      const newStatus =
-        confirmModal.actionType === "approve" ? "Disetujui" : "Ditolak";
-
-      let notesPayload = selectedAgenda.notes;
-      if (confirmModal.actionType === "reject") {
-        const originalNote = selectedAgenda.notes
-          ? ` (Catatan awal: ${selectedAgenda.notes})`
-          : "";
-        notesPayload = `[ALASAN DITOLAK]: ${confirmModal.rejectReason}${originalNote}`;
+      if (imgData) {
+        doc.addImage(imgData, "PNG", 240, 10, 32, 16);
       }
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("OTORITAS JASA KEUANGAN REPUBLIK INDONESIA", 14, 15);
+      doc.setFontSize(13);
+      doc.text("KANTOR OJK PROVINSI SUMATERA SELATAN", 14, 22);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(
+        "Laporan Rekapitulasi Daftar Agenda & Kegiatan Ruang Rapat",
+        14,
+        28,
+      );
+      doc.text(
+        `Tanggal Cetak: ${currentDate} | Status: ${statusFilter} | Ruangan: ${roomFilter} | Tahun: ${yearFilter} | Bulan: ${monthFilter}`,
+        14,
+        33,
+      );
+      doc.setLineWidth(0.5);
+      doc.line(14, 37, 283, 37);
+
+      const tableColumn = [
+        "No",
+        "Tanggal & Waktu",
+        "Nama Kegiatan / Acara",
+        "PIC / Satker",
+        "Ruangan",
+        "Layout",
+        "Status",
+        "Catatan",
+      ];
+      const tableRows = filteredAgendas.map((item, index) => [
+        index + 1,
+        `${formatAgendaDate(item.date, item.endDate)}\n${item.time}`,
+        item.title,
+        `${item.pic}\n(${item.dept || "Umum"})`,
+        item.room,
+        item.layout || "-",
+        item.smartStatus,
+        item.notes || "-",
+      ]);
+
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 42,
+        theme: "grid",
+        headStyles: {
+          fillColor: [159, 21, 33],
+          textColor: [255, 255, 255],
+          halign: "center",
+          fontSize: 9,
+        },
+        bodyStyles: { fontSize: 8, textColor: [30, 30, 30] },
+        columnStyles: {
+          0: { halign: "center", cellWidth: 10 },
+          1: { cellWidth: 38 },
+          6: { halign: "center", cellWidth: 26 },
+        },
+        didDrawPage: () => {
+          doc.setFontSize(8);
+          doc.text(
+            `Halaman ${doc.getNumberOfPages()}`,
+            14,
+            doc.internal.pageSize.height - 10,
+          );
+        },
+      });
+
+      doc.save(`Laporan_Agenda_OJK_Sumsel_${currentDate}.pdf`);
+    } catch (error) {
+      console.error("Gagal mendownload PDF:", error);
+      alert("Terjadi kesalahan saat memproses berkas PDF.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    setActionLoadingId(id);
+    try {
+      const selectedAgenda = agendas.find((a) => a.id === id);
 
       const res = await fetch("/api/agendas", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: confirmModal.agendaId,
-          status: newStatus,
-          notes: notesPayload,
+          id,
+          status: "Disetujui",
+          notes: selectedAgenda?.notes || "",
         }),
       });
-
+      const result = await res.json().catch(() => ({}));
       if (res.ok) {
-        sendWhatsAppNotification(
-          selectedAgenda,
-          newStatus,
-          confirmModal.rejectReason,
-        );
-
-        await loadDashboardData(false);
-        setConfirmModal({
-          isOpen: false,
-          agendaId: null,
-          title: null,
-          actionType: null,
-          rejectReason: "",
-        });
+        fetchAgendas();
       } else {
-        const errData = await res.json();
         alert(
-          `Gagal memproses status reservasi: ${errData.message || "Unknown error"}`,
+          `Gagal menyetujui agenda: ${result.message || "Kesalahan server"}`,
         );
       }
     } catch (error) {
-      console.error("Error processing agenda status:", error);
+      console.error("Gagal menyetujui agenda:", error);
+      alert("Gagal menghubungi server untuk menyetujui agenda.");
     } finally {
-      setIsExecutingAction(false);
+      setActionLoadingId(null);
     }
   };
 
-  const handleExecuteVehicleApproval = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!vehicleApprovalModal.bookingId || !vehicleApprovalModal.actionType)
-      return;
+  const openDeleteModal = (id: string, title: string) => {
+    setDeleteModal({ isOpen: true, agendaId: id, title });
+  };
 
-    if (
-      vehicleApprovalModal.actionType === "approve" &&
-      !vehicleApprovalForm.selectedVehicle
-    ) {
-      alert("Pilih armada kendaraan terlebih dahulu.");
-      return;
+  const confirmDelete = async () => {
+    if (!deleteModal.agendaId) return;
+    setActionLoadingId(deleteModal.agendaId);
+    try {
+      const res = await fetch(`/api/agendas?id=${deleteModal.agendaId}`, {
+        method: "DELETE",
+      });
+      const result = await res.json().catch(() => ({}));
+      if (res.ok) {
+        fetchAgendas();
+        setDeleteModal({ isOpen: false, agendaId: null, title: null });
+      } else {
+        alert(
+          `Gagal menghapus agenda: ${result.message || "Kesalahan server"}`,
+        );
+      }
+    } catch (error) {
+      console.error("Gagal menghapus agenda:", error);
+      alert("Gagal menghubungi server untuk menghapus agenda.");
+    } finally {
+      setActionLoadingId(null);
     }
+  };
+
+  const openCancelModal = (id: string, title: string) => {
+    setCancelModal({ isOpen: true, agendaId: id, title });
+  };
+
+  const confirmCancelAgenda = async () => {
+    if (!cancelModal.agendaId) return;
 
     try {
-      setIsExecutingVehicleAction(true);
-      const newStatus =
-        vehicleApprovalModal.actionType === "approve" ? "Disetujui" : "Ditolak";
-
-      const res = await fetch("/api/kendaraan", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "approve_booking",
-          id: vehicleApprovalModal.bookingId,
-          nama_kendaraan: vehicleApprovalForm.selectedVehicle || "Ditolak",
-          total_passengers: vehicleApprovalForm.totalPassengers,
-          approval_notes: vehicleApprovalForm.notes,
-          status: newStatus,
-        }),
+      setIsCancelling(true);
+      const res = await fetch(`/api/agendas?id=${cancelModal.agendaId}`, {
+        method: "DELETE",
       });
 
+      const result = await res.json();
       if (res.ok) {
-        const targetBooking = vehicleBookings.find(
-          (b) => String(b.id) === String(vehicleApprovalModal.bookingId),
-        );
-
-        if (vehicleApprovalModal.phone && targetBooking) {
-          let cleanPhone = vehicleApprovalModal.phone.replace(/\D/g, "");
-          if (cleanPhone.startsWith("0"))
-            cleanPhone = "62" + cleanPhone.slice(1);
-
-          const statusText =
-            newStatus === "Disetujui" ? "DISETUJUI ✅" : "DITOLAK ❌";
-          let message = `Halo ${targetBooking.peminjam || targetBooking.borrower || "Bapak/Ibu"},
-
-Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${targetBooking.tujuan || targetBooking.destination}* telah *${statusText}*.`;
-
-          if (newStatus === "Disetujui") {
-            message += `\n\n🚗 *Armada / Driver:* ${vehicleApprovalForm.selectedVehicle}\n📝 *Catatan:* ${vehicleApprovalForm.notes}`;
-          } else {
-            message += `\n\n📝 *Alasan Penolakan:* ${vehicleApprovalForm.notes}`;
-          }
-
-          message += `\n\nTerima kasih.\n_Bagian Layanan Manajemen Strategis Kantor OJK Sumatera Selatan_`;
-
-          window.open(
-            `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`,
-            "_blank",
-          );
-        }
-
-        await loadDashboardData(false);
-        setVehicleApprovalModal({
-          isOpen: false,
-          bookingId: null,
-          vehicleName: "",
-          phone: "",
-          actionType: null,
-        });
+        setCancelModal({ isOpen: false, agendaId: null, title: null });
+        await fetchAgendas();
       } else {
-        alert("Gagal memproses status peminjaman kendaraan.");
+        alert(
+          `Gagal membatalkan kegiatan: ${result.message || "Terjadi kesalahan"}`,
+        );
       }
-    } catch (err) {
-      console.error("Error processing vehicle status:", err);
+    } catch (error) {
+      console.error("Error cancelling agenda:", error);
+      alert("Terjadi kesalahan saat menghubungi server.");
     } finally {
-      setIsExecutingVehicleAction(false);
+      setIsCancelling(false);
+    }
+  };
+
+  const openEditModal = (item: ExtendedAgenda) => {
+    const itemWithTime = item as unknown as {
+      start_time?: string;
+      end_time?: string;
+    };
+    setEditModal({
+      isOpen: true,
+      data: {
+        id: item.id,
+        title: item.title,
+        date: item.date,
+        end_date: item.endDate || item.date,
+        start_time: itemWithTime.start_time || "08:00",
+        end_time: itemWithTime.end_time || "17:00",
+        room: item.room,
+        pic: item.pic,
+        dept: item.dept,
+        layout: item.layout || "-",
+        status: item.status,
+      },
+    });
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editModal.data) return;
+
+    setIsSubmittingEdit(true);
+    try {
+      const payload = {
+        id: editModal.data.id,
+        title: editModal.data.title,
+        date: editModal.data.date,
+        end_date: editModal.data.end_date || editModal.data.date,
+        start_time: editModal.data.start_time,
+        end_time: editModal.data.end_time,
+        room: editModal.data.room,
+        pic: editModal.data.pic,
+        dept: editModal.data.dept,
+        layout: editModal.data.layout,
+        status: editModal.data.status,
+      };
+
+      const res = await fetch("/api/agendas", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        setEditModal({ isOpen: false, data: null });
+        fetchAgendas();
+      } else {
+        alert(
+          `Gagal memperbarui agenda: ${result.message || result.error || "Kesalahan server"}`,
+        );
+      }
+    } catch (error) {
+      console.error("Gagal memperbarui agenda:", error);
+      alert("Gagal menghubungi server saat menyimpan data agenda.");
+    } finally {
+      setIsSubmittingEdit(false);
     }
   };
 
@@ -499,562 +704,308 @@ Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${targetBooking.t
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="space-y-6 sm:space-y-8 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full pb-12"
+      className="space-y-6"
     >
-      <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 5px;
-          height: 5px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(159, 21, 33, 0.25);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(159, 21, 33, 0.6);
-        }
-      `}</style>
-
-      {/* MODAL PENGUMUMAN UPDATE */}
-      {showUpdateModal && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6 border border-slate-100 dark:border-slate-800"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-rose-50 text-[#9f1521] flex items-center justify-center shrink-0">
-                <Sparkles size={24} />
-              </div>
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
-                  PEMBARUAN SISTEM V2.5
-                </span>
-                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                  Selamat Datang di AMPERA
-                </h3>
-              </div>
-            </div>
-
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-              Kami telah merilis sejumlah pembaruan fitur untuk mengoptimalkan
-              manajemen fasilitas dan pengalaman operasional di lingkungan OJK
-              Provinsi Sumatera Selatan:
-            </p>
-
-            <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-4 sm:p-5 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 max-h-[45vh] overflow-y-auto custom-scrollbar">
-              <div className="flex items-start gap-3">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                  <Check size={12} />
-                </div>
-                <div className="leading-relaxed">
-                  <strong className="text-slate-900 dark:text-white">
-                    Validasi Cerdas Ruang Komunal:
-                  </strong>{" "}
-                  Reservasi Ruang Komunal kini terintegrasi dengan status
-                  Ballroom. Komunal otomatis tidak dapat dipesan apabila
-                  Ballroom sedang digunakan dalam kapasitas maksimal (500
-                  peserta) atau menggunakan konfigurasi <em>Round Table</em>{" "}
-                  (≥200 peserta).
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleCloseUpdateModal}
-                className="w-full py-3.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-xl transition-all shadow-lg shadow-rose-900/20 cursor-pointer flex items-center justify-center gap-2"
-              >
-                Mengerti, Lanjutkan ke Dashboard <ArrowRight size={16} />
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* TOP HEADER BAR */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm border-l-4 border-l-[#9f1521]">
+      {/* 1. HEADER BAR */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div>
-          <div className="flex items-center gap-2 text-[#9f1521] font-extrabold text-[10px] tracking-widest uppercase mb-1">
-            <ShieldCheck size={14} /> Panel Operasional OJK Sumsel
-          </div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            Selamat Datang,{" "}
-            {user?.name || (isExternal ? "Tamu Eksternal" : "Pegawai OJK")}
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <ClipboardList className="text-[#9f1521]" size={22} /> Rekapitulasi
+            Daftar Agenda
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-            {isExternal
-              ? "Akses portal eksternal OJK Sumsel untuk melihat katalog fasilitas ruangan dan layanan instansi."
-              : "Pantau ketersediaan ruang rapat, jadwal kegiatan live, dan status pengajuan fasilitas secara real-time."}
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+            Kelola dan pantau rekapitulasi seluruh pengajuan serta kegiatan
+            terdaftar di OJK Sumsel.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleManualRefresh}
-            className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+            className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors cursor-pointer"
             title="Refresh Data"
           >
-            <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
+            <RefreshCw size={15} className={isLoading ? "animate-spin" : ""} />
           </button>
-          <div className="px-4 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/50 text-right">
-            <span className="block text-[9px] font-extrabold text-[#9f1521] uppercase tracking-wider">
-              HARI INI
-            </span>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-              {new Date().toLocaleDateString("id-ID", {
-                weekday: "long",
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}
-            </span>
-          </div>
+
+          {isAdmin && (
+            <>
+              <button
+                onClick={handleExportExcel}
+                disabled={isExporting}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors shadow-sm cursor-pointer disabled:opacity-75"
+              >
+                {isExporting ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Download size={15} />
+                )}
+                {isExporting ? "Mengekspor..." : "Ekspor Excel"}
+              </button>
+              <button
+                onClick={handleDownloadPDF}
+                disabled={isExporting}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors shadow-sm cursor-pointer disabled:opacity-75"
+              >
+                {isExporting ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Printer size={15} />
+                )}
+                {isExporting ? "Memproses PDF..." : "Cetak PDF"}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* DASHBOARD EKSTERNAL */}
-      {isExternal ? (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-          className="space-y-6"
-        >
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 rounded-2xl shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-              Menu & Layanan Eksternal Tersedia
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
-              Silakan pilih modul di bawah ini untuk melihat informasi fasilitas
-              atau mengajukan layanan yang Anda butuhkan.
-            </p>
+      {/* 2. FILTER & SEARCH BAR */}
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+        <div className="relative sm:col-span-1">
+          <Search
+            size={16}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+          />
+          <input
+            type="text"
+            placeholder="Cari acara, PIC, satker, ruangan..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100 shadow-sm"
+          />
+        </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Link
-                href="/ruangan"
-                className="p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl hover:border-[#9f1521] transition-all group flex flex-col justify-between space-y-4 hover:shadow-md"
-              >
-                <div className="p-3 bg-rose-50 dark:bg-rose-950/40 text-[#9f1521] dark:text-rose-400 w-fit rounded-xl">
-                  <Building2 size={20} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-[#9f1521] transition-colors">
-                    Katalog Ruangan
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Lihat daftar dan ketersediaan ruang rapat OJK Sumsel.
-                  </p>
-                </div>
-              </Link>
-            </div>
-          </div>
-        </motion.div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-          className="space-y-6 sm:space-y-8"
-        >
-          {/* OVERVIEW METRICS CARDS */}
-          <div
-            className={`grid grid-cols-2 ${isAdmin ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-4`}
+        <div>
+          <select
+            value={yearFilter}
+            onChange={(e) => {
+              setYearFilter(e.target.value);
+              setMonthFilter("Semua Bulan");
+            }}
+            className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer shadow-sm"
           >
-            <div className="bg-gradient-to-br from-amber-50/70 to-white dark:from-slate-900 dark:to-slate-900 p-5 rounded-2xl border border-amber-200/60 shadow-sm flex flex-col justify-between">
-              <div className="flex justify-between items-center">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900/70 dark:text-amber-400">
-                  Total Agenda
-                </span>
-                <div className="p-2 rounded-xl bg-amber-100 text-amber-700">
-                  <CalendarDays size={16} />
-                </div>
-              </div>
-              <div className="mt-4">
-                <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-                  <Counter value={totalAgendas} />
-                </h3>
-                <p className="text-[11px] text-slate-500 mt-1 font-medium">
-                  Agenda kedinasan tercatat
-                </p>
-              </div>
-            </div>
+            <option value="Semua Tahun">Semua Tahun</option>
+            {yearOptions.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        </div>
 
-            <div className="bg-gradient-to-br from-emerald-50/70 to-white dark:from-slate-900 dark:to-slate-900 p-5 rounded-2xl border border-emerald-200/60 shadow-sm flex flex-col justify-between">
-              <div className="flex justify-between items-center">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-900/70 dark:text-emerald-400">
-                  Disetujui
-                </span>
-                <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
-                  <CheckCircle2 size={16} />
-                </div>
-              </div>
-              <div className="mt-4">
-                <h3 className="text-2xl sm:text-3xl font-black text-emerald-700 dark:text-emerald-400">
-                  <Counter value={totalDisetujui} />
-                </h3>
-                <p className="text-[11px] text-slate-500 mt-1 font-medium">
-                  Jadwal aktif & siap pakai
-                </p>
-              </div>
-            </div>
+        <div>
+          <select
+            value={monthFilter}
+            onChange={(e) => setMonthFilter(e.target.value)}
+            className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer shadow-sm"
+          >
+            <option value="Semua Bulan">Semua Bulan</option>
+            {monthOptions.map((m) => (
+              <option key={m} value={m}>
+                {formatMonthName(m)}
+              </option>
+            ))}
+          </select>
+        </div>
 
-            {isAdmin && (
-              <div className="bg-gradient-to-br from-rose-50/70 to-white dark:from-slate-900 dark:to-slate-900 p-5 rounded-2xl border border-rose-200/60 shadow-sm flex flex-col justify-between">
-                <div className="flex justify-between items-center">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-rose-900/70 dark:text-rose-400">
-                    Pending Review
-                  </span>
-                  <div className="p-2 rounded-xl bg-rose-100 text-[#9f1521]">
-                    <Clock size={16} />
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <h3 className="text-2xl sm:text-3xl font-black text-[#9f1521] dark:text-rose-400">
-                    <Counter value={totalPending} />
-                  </h3>
-                  <p className="text-[11px] text-slate-500 mt-1 font-medium">
-                    Menunggu verifikasi admin
-                  </p>
-                </div>
-              </div>
-            )}
+        <div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer shadow-sm"
+          >
+            <option value="Semua Status">Semua Status</option>
+            <option value="Disetujui">Disetujui</option>
+            <option value="Sedang Berlangsung">Sedang Berlangsung</option>
+            <option value="Pending">Pending</option>
+            <option value="Selesai">Selesai</option>
+          </select>
+        </div>
 
-            <div className="bg-gradient-to-br from-blue-50/70 to-white dark:from-slate-900 dark:to-slate-900 p-5 rounded-2xl border border-blue-200/60 shadow-sm flex flex-col justify-between">
-              <div className="flex justify-between items-center">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-900/70 dark:text-blue-400">
-                  Ruangan Tersedia
-                </span>
-                <div className="p-2 rounded-xl bg-blue-100 text-blue-700">
-                  <Building2 size={16} />
-                </div>
-              </div>
-              <div className="mt-4">
-                <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-                  <Counter value={availableRoomsCount} />
-                </h3>
-                <p className="text-[11px] text-slate-500 mt-1 font-medium">
-                  Unit siap dipesan hari ini
-                </p>
-              </div>
-            </div>
-          </div>
+        <div>
+          <select
+            value={roomFilter}
+            onChange={(e) => setRoomFilter(e.target.value)}
+            className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer shadow-sm"
+          >
+            <option value="Semua Ruangan">Semua Ruangan</option>
+            {roomOptions.map((roomName) => (
+              <option key={roomName} value={roomName}>
+                {roomName}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
-          {/* GRID LIVE & AGENDA TERDEKAT */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col h-[320px] sm:h-[340px]">
-              <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />{" "}
-                    LIVE STATUS
-                  </span>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white mt-1">
-                    Sedang Berlangsung
-                  </h2>
-                </div>
-                <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 text-xs font-bold rounded-full">
-                  {liveAgendas.length} Acara
-                </span>
-              </div>
-
-              <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar pr-1">
-                {liveAgendas.length > 0 ? (
-                  liveAgendas.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() =>
-                        setDetailModal({ isOpen: true, data: item })
-                      }
-                      className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 hover:border-emerald-400 rounded-xl space-y-2 cursor-pointer transition-all shadow-2xs group"
-                    >
-                      <h3 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-emerald-700 transition-colors">
-                        {item.title}
-                      </h3>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-300 font-medium">
-                        <span className="flex items-center gap-1">
-                          <Clock
-                            size={14}
-                            className="text-emerald-600 shrink-0"
-                          />
-                          {item.time}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MapPin
-                            size={14}
-                            className="text-emerald-600 shrink-0"
-                          />
-                          {item.room}
-                        </span>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="h-full flex items-center justify-center text-xs text-slate-400 font-medium italic text-center px-4">
-                    Saat ini tidak ada agenda yang sedang berlangsung.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col h-[320px] sm:h-[340px]">
-              <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521] dark:text-rose-400">
-                    PERSIAPAN ACARA
-                  </span>
-                  <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white mt-1">
-                    Agenda Terdekat
-                  </h2>
-                </div>
-                <span className="px-3 py-1 bg-rose-50 dark:bg-rose-950/40 text-[#9f1521] dark:text-rose-400 border border-rose-200 text-xs font-bold rounded-full">
-                  {upcomingAgendas.length} Acara
-                </span>
-              </div>
-
-              <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar pr-1">
-                {upcomingAgendas.length > 0 ? (
-                  upcomingAgendas.slice(0, 5).map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() =>
-                        setDetailModal({ isOpen: true, data: item })
-                      }
-                      className="p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/50 hover:border-[#9f1521]/60 rounded-xl space-y-2 cursor-pointer transition-all shadow-2xs group"
-                    >
-                      <div className="flex justify-between items-start gap-2">
-                        <h3 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-[#9f1521] transition-colors">
-                          {item.title}
-                        </h3>
-                        <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 shrink-0">
+      {/* 3. TABEL DATA AGENDA */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase font-black tracking-wider">
+                <th className="p-4">Tanggal & Waktu</th>
+                <th className="p-4">Nama Kegiatan</th>
+                <th className="p-4">PIC / Satker</th>
+                <th className="p-4">Ruangan</th>
+                <th className="p-4 text-center">Status</th>
+                <th className="p-4 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
+              {filteredAgendas.length > 0 ? (
+                filteredAgendas.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors"
+                  >
+                    <td className="p-4 whitespace-nowrap">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <Calendar size={13} className="text-[#9f1521]" />{" "}
                           {formatAgendaDate(item.date, item.endDate)}
                         </span>
+                        <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                          <Clock size={13} className="text-slate-400" />{" "}
+                          {item.time}
+                        </span>
                       </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="h-full flex items-center justify-center text-xs text-slate-400 font-medium italic text-center px-4">
-                    Belum ada agenda terkonfirmasi untuk ditampilkan.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+                    </td>
 
-          {/* PANEL PENGAJUAN PENDING (ADMIN - RUANGAN) */}
-          {isAdmin && (
-            <div className="bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-5 sm:p-8 space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-amber-200/60 dark:border-amber-900/30 pb-4">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-                    <Bell size={14} /> MENUNGGU VERIFIKASI RUANGAN
-                  </span>
-                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-1">
-                    Pengajuan Pending ({totalPending})
-                  </h2>
-                </div>
-              </div>
-
-              {pendingAgendas.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {pendingAgendas.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800/50 rounded-xl p-5 shadow-sm space-y-3 flex flex-col justify-between"
-                    >
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
-                            PENDING
-                          </span>
-                          <span className="text-xs font-semibold text-slate-400">
-                            {formatAgendaDate(item.date, item.endDate)}
-                          </span>
-                        </div>
-                        <h3 className="font-bold text-slate-900 dark:text-white text-sm leading-snug">
+                    <td className="p-4">
+                      <div className="space-y-0.5">
+                        <p className="font-bold text-slate-900 dark:text-white text-xs">
                           {item.title}
-                        </h3>
-                        <p className="text-xs text-slate-500 font-medium">
-                          {item.room} • {item.time}
                         </p>
+                        {item.layout && item.layout !== "-" && (
+                          <span className="inline-block text-[10px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                            Layout: {item.layout}
+                          </span>
+                        )}
                       </div>
+                    </td>
 
-                      <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <td className="p-4 whitespace-nowrap">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                          <User size={13} className="text-slate-400" />{" "}
+                          {item.pic}
+                        </span>
+                        <span className="text-[11px] text-slate-400">
+                          {item.dept || "Umum"}
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="p-4 whitespace-nowrap">
+                      <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                        <Building2 size={13} className="text-slate-400" />{" "}
+                        {item.room}
+                      </span>
+                    </td>
+
+                    <td className="p-4 text-center whitespace-nowrap">
+                      <span
+                        className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-full border ${
+                          item.smartStatus === "Disetujui"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400"
+                            : item.smartStatus === "Sedang Berlangsung"
+                              ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400"
+                              : item.smartStatus === "Selesai"
+                                ? "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400"
+                                : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400"
+                        }`}
+                      >
+                        {item.smartStatus}
+                      </span>
+                    </td>
+
+                    <td className="p-4 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1.5">
                         <button
                           onClick={() =>
                             setDetailModal({ isOpen: true, data: item })
                           }
-                          className="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                          className="p-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 rounded-lg transition-colors cursor-pointer"
+                          title="Lihat Detail"
                         >
-                          <Eye size={14} /> Lihat Detail Lengkap
+                          <Eye size={15} />
                         </button>
 
-                        <div className="flex gap-2">
+                        {isAdmin && item.smartStatus === "Pending" && (
                           <button
-                            onClick={() =>
-                              openConfirmModal(item.id, item.title, "reject")
-                            }
-                            className="flex-1 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+                            onClick={() => handleApprove(item.id)}
+                            disabled={actionLoadingId === item.id}
+                            className="p-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            title="Setujui Agenda"
                           >
-                            <XCircle size={14} /> Tolak
+                            {actionLoadingId === item.id ? (
+                              <Loader2 size={15} className="animate-spin" />
+                            ) : (
+                              <CheckCircle2 size={15} />
+                            )}
                           </button>
+                        )}
+
+                        {isAdmin && (
                           <button
-                            onClick={() =>
-                              openConfirmModal(item.id, item.title, "approve")
-                            }
-                            className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                            onClick={() => openEditModal(item)}
+                            className="p-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 rounded-lg transition-colors cursor-pointer"
+                            title="Edit Agenda"
                           >
-                            <CheckCircle2 size={14} /> Setujui
+                            <Pencil size={15} />
                           </button>
-                        </div>
+                        )}
+
+                        {!isAdmin && item.smartStatus !== "Ditolak" && (
+                          <button
+                            onClick={() => openCancelModal(item.id, item.title)}
+                            className="p-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg transition-colors cursor-pointer"
+                            title="Batalkan Kegiatan"
+                          >
+                            <XCircle size={15} />
+                          </button>
+                        )}
+
+                        {isAdmin && (
+                          <button
+                            onClick={() => openDeleteModal(item.id, item.title)}
+                            disabled={actionLoadingId === item.id}
+                            className="p-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            title="Hapus Agenda"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    </td>
+                  </tr>
+                ))
               ) : (
-                <div className="p-6 text-center text-xs text-slate-500 font-medium italic bg-white/50 dark:bg-slate-900/50 rounded-xl border border-dashed border-amber-200">
-                  Tidak ada pengajuan ruangan yang membutuhkan tindakan saat
-                  ini.
-                </div>
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="p-8 text-center text-xs text-slate-400 font-medium italic"
+                  >
+                    Tidak ditemukan data agenda yang sesuai dengan kriteria
+                    filter.
+                  </td>
+                </tr>
               )}
-            </div>
-          )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-          {/* PANEL PENGAJUAN PENDING KENDARAAN (ADMIN) */}
-          {isAdmin && (
-            <div className="bg-blue-50/50 dark:bg-blue-950/10 border border-blue-200 dark:border-blue-900/30 rounded-2xl p-5 sm:p-8 space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-blue-200/60 dark:border-blue-900/30 pb-4">
-                <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
-                    <Car size={14} /> REQUEST KENDARAAN DINAS PENDING
-                  </span>
-                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-1">
-                    Peminjaman Kendaraan Menunggu Plotting (
-                    {
-                      vehicleBookings.filter((b) => b.status === "Pending")
-                        .length
-                    }
-                    )
-                  </h2>
-                </div>
-              </div>
-
-              {vehicleBookings.filter((b) => b.status === "Pending").length >
-              0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {vehicleBookings
-                    .filter((b) => b.status === "Pending")
-                    .map((item) => (
-                      <div
-                        key={item.id}
-                        className="bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800/50 rounded-xl p-5 shadow-sm space-y-3 flex flex-col justify-between"
-                      >
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
-                              PENDING KENDARAAN
-                            </span>
-                            <span className="text-xs font-semibold text-slate-400">
-                              {item.tanggal_mulai || item.start_date}
-                            </span>
-                          </div>
-                          <h3 className="font-bold text-slate-900 dark:text-white text-sm leading-snug flex items-center gap-1.5">
-                            <MapPin size={14} className="text-[#9f1521]" />{" "}
-                            Tujuan: {item.tujuan || item.destination}
-                          </h3>
-                          <p className="text-xs text-slate-500 font-medium">
-                            Peminjam:{" "}
-                            <strong>{item.peminjam || item.borrower}</strong> (
-                            {item.satker || item.dept})
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            Jumlah Penumpang:{" "}
-                            {item.total_passengers || item.passengers || 1}{" "}
-                            Orang • No HP: {item.phone || "-"}
-                          </p>
-                        </div>
-
-                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex gap-2">
-                          <button
-                            onClick={() => {
-                              setVehicleApprovalModal({
-                                isOpen: true,
-                                bookingId: String(item.id),
-                                vehicleName:
-                                  item.nama_kendaraan || item.vehicleName || "",
-                                phone: item.phone || "",
-                                actionType: "reject",
-                              });
-                              setVehicleApprovalForm({
-                                selectedVehicle: "",
-                                totalPassengers: String(
-                                  item.total_passengers ||
-                                    item.passengers ||
-                                    "1",
-                                ),
-                                notes:
-                                  "Mohon maaf, kendaraan tidak tersedia pada tanggal tersebut.",
-                              });
-                            }}
-                            className="flex-1 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 shadow-sm cursor-pointer"
-                          >
-                            <XCircle size={14} /> Tolak
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setVehicleApprovalModal({
-                                isOpen: true,
-                                bookingId: String(item.id),
-                                vehicleName:
-                                  item.nama_kendaraan || item.vehicleName || "",
-                                phone: item.phone || "",
-                                actionType: "approve",
-                              });
-                              setVehicleApprovalForm({
-                                selectedVehicle: "",
-                                totalPassengers: String(
-                                  item.total_passengers ||
-                                    item.passengers ||
-                                    "1",
-                                ),
-                                notes:
-                                  "Disetujui, kendaraan dan driver telah disiapkan.",
-                              });
-                            }}
-                            className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-                          >
-                            <CheckCircle2 size={14} /> Plotting & Setujui
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <div className="p-6 text-center text-xs text-slate-500 font-medium italic bg-white/50 dark:bg-slate-900/50 rounded-xl border border-dashed border-blue-200">
-                  Tidak ada pengajuan kendaraan yang membutuhkan plotting saat
-                  ini.
-                </div>
-              )}
-            </div>
-          )}
-        </motion.div>
-      )}
-
-      {/* MODAL DETAIL INFORMASI LENGKAP PENGAJUAN / AGENDA */}
+      {/* 4. MODAL DETAIL AGENDA */}
       {detailModal.isOpen && detailModal.data && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="relative bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4 overflow-hidden my-auto"
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-lg w-full shadow-2xl space-y-4 my-auto"
           >
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
                   INFORMASI DETAIL KEGIATAN
@@ -1067,122 +1018,140 @@ Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${targetBooking.t
                 onClick={() => setDetailModal({ isOpen: false, data: null })}
                 className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 text-xs">
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">
+            <div className="space-y-4 max-h-[65vh] overflow-y-auto custom-scrollbar pr-1 text-xs">
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-slate-500 font-medium whitespace-nowrap">
                     Nama Kegiatan:
                   </span>
-                  <span className="text-slate-900 dark:text-white font-bold text-right">
-                    {detailModal.data?.title || "-"}
+                  <span className="text-slate-900 dark:text-white font-bold text-right leading-snug">
+                    {detailModal.data.title || "-"}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">
-                    Tanggal Pelaksanaan:
-                  </span>
-                  <span className="text-slate-900 dark:text-white font-bold">
-                    {detailModal.data?.date
-                      ? detailModal.data.date.slice(0, 10)
-                      : "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">
-                    Waktu Acara:
-                  </span>
-                  <span className="text-slate-900 dark:text-white font-bold">
-                    {detailModal.data?.start_time
-                      ? `${detailModal.data.start_time.slice(0, 5)} - ${detailModal.data.end_time?.slice(0, 5)}`
-                      : detailModal.data?.time || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">
-                    Ruangan Dipilih:
-                  </span>
-                  <span className="text-slate-900 dark:text-white font-bold">
-                    {detailModal.data?.room_name ||
-                      detailModal.data?.room ||
-                      "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">
-                    Tata Letak (Layout):
-                  </span>
-                  <span className="text-slate-900 dark:text-white font-bold">
-                    {detailModal.data?.layout || "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">
-                    Jumlah Peserta:
-                  </span>
-                  <span className="text-emerald-600 font-bold">
-                    {detailModal.data?.total_participants
-                      ? `${detailModal.data.total_participants} Orang`
-                      : "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-slate-500 font-medium whitespace-nowrap">
                     Pimpinan Rapat:
                   </span>
-                  <span className="text-slate-900 dark:text-white font-bold">
-                    {detailModal.data?.meeting_leader || "-"}
+                  <span className="text-slate-900 dark:text-white font-bold text-right">
+                    {detailModal.data.meeting_leader &&
+                    detailModal.data.meeting_leader !== "-"
+                      ? detailModal.data.meeting_leader
+                      : "Tidak disebutkan"}
                   </span>
                 </div>
-
-                <div className="flex justify-between items-start pt-2 border-t border-slate-200 dark:border-slate-700">
-                  <span className="text-slate-500 font-medium">
-                    Catatan / Request:
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-slate-500 font-medium whitespace-nowrap">
+                    Tanggal Pelaksanaan:
                   </span>
-                  <span className="text-slate-800 dark:text-slate-200 font-medium text-right max-w-[240px] italic">
-                    {detailModal.data?.notes ||
-                      detailModal.data?.note ||
-                      "Tidak ada catatan tambahan."}
+                  <span className="text-slate-900 dark:text-white font-bold text-right">
+                    {formatAgendaDate(
+                      detailModal.data.date,
+                      detailModal.data.endDate,
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-slate-500 font-medium whitespace-nowrap">
+                    Waktu Acara:
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold text-right">
+                    {detailModal.data.time || "-"} WIB
                   </span>
                 </div>
               </div>
 
-              <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-2.5 border border-slate-200/60 dark:border-slate-800">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-medium">
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-slate-500 font-medium whitespace-nowrap">
+                    Ruangan Dipilih:
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold text-right">
+                    {detailModal.data.room || "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-slate-500 font-medium whitespace-nowrap">
+                    Tata Letak (Layout):
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-bold text-right">
+                    {detailModal.data.layout && detailModal.data.layout !== "-"
+                      ? detailModal.data.layout
+                      : "Standar"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-slate-500 font-medium whitespace-nowrap">
+                    Jumlah Peserta:
+                  </span>
+                  <span className="text-[#9f1521] dark:text-rose-400 font-black text-right">
+                    {detailModal.data.total_participants
+                      ? `${detailModal.data.total_participants} Orang`
+                      : "-"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-3 border border-slate-200/60 dark:border-slate-700/50">
+                <div className="flex justify-between items-center gap-4">
+                  <span className="text-slate-500 font-medium whitespace-nowrap">
                     Penanggung Jawab (PIC):
                   </span>
-                  <strong className="text-slate-900 dark:text-white">
+                  <strong className="text-slate-900 dark:text-white text-right truncate">
                     {detailModal.data.pic}
                   </strong>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-medium">
-                    No. WhatsApp Pemohon:
-                  </span>
-                  <strong className="text-slate-900 dark:text-white font-mono">
-                    {detailModal.data.phone || "-"}
-                  </strong>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-medium">
+                <div className="flex justify-between items-center gap-4">
+                  <span className="text-slate-500 font-medium whitespace-nowrap">
                     Satuan Kerja (Satker):
                   </span>
-                  <strong className="text-slate-900 dark:text-white">
+                  <strong className="text-slate-900 dark:text-white text-right">
                     {detailModal.data.dept || "OJK Sumsel"}
                   </strong>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 font-medium">
+                <div className="flex justify-between items-center gap-4">
+                  <span className="text-slate-500 font-medium whitespace-nowrap">
+                    No. WhatsApp Pemohon:
+                  </span>
+                  <strong className="text-slate-900 dark:text-white font-mono text-right">
+                    {detailModal.data.phone || "-"}
+                  </strong>
+                </div>
+                <div className="flex justify-between items-center gap-4">
+                  <span className="text-slate-500 font-medium whitespace-nowrap">
                     Status Pengajuan:
                   </span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
-                    {detailModal.data.status ||
-                      detailModal.data.smartStatus ||
-                      "Disetujui"}
+                  <span
+                    className={`px-2.5 py-1 rounded-md font-bold text-[10px] uppercase tracking-wider ${
+                      detailModal.data.smartStatus === "Disetujui" ||
+                      detailModal.data.smartStatus === "Sedang Berlangsung"
+                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-400"
+                        : detailModal.data.smartStatus === "Selesai"
+                          ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-400"
+                          : detailModal.data.smartStatus === "Ditolak"
+                            ? "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-400"
+                            : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-400"
+                    }`}
+                  >
+                    {detailModal.data.smartStatus || detailModal.data.status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-amber-50/50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-900/30">
+                <div className="flex flex-col space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-500">
+                    Catatan / Request Tambahan:
+                  </span>
+                  <span className="text-slate-700 dark:text-slate-300 font-medium leading-relaxed italic">
+                    {detailModal.data.notes &&
+                    detailModal.data.notes.trim() !== "" &&
+                    detailModal.data.notes !== "-"
+                      ? detailModal.data.notes
+                      : "Tidak ada catatan atau request tambahan dari pemohon."}
                   </span>
                 </div>
               </div>
@@ -1191,126 +1160,337 @@ Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${targetBooking.t
         </div>
       )}
 
-      {/* MODAL AKSI KENDARAAN (SETUJU / TOLAK) DI DASHBOARD */}
-      {vehicleApprovalModal.isOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      {/* 5. MODAL KONFIRMASI PEMBATALAN */}
+      {cancelModal.isOpen && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-md w-full shadow-2xl space-y-4"
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl text-center space-y-4"
           >
-            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                {vehicleApprovalModal.actionType === "approve"
-                  ? "Plotting & Setujui Kendaraan"
-                  : "Konfirmasi Penolakan Kendaraan"}
+            <div className="w-14 h-14 bg-rose-100 dark:bg-rose-900/40 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+              <AlertCircle size={28} />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="font-black text-slate-900 dark:text-white text-base">
+                Konfirmasi Pembatalan
               </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Apakah Anda yakin ingin membatalkan kegiatan{" "}
+                <strong>&quot;{cancelModal.title}&quot;</strong>? Tindakan ini
+                akan menghapus jadwal terkait dari sistem.
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
               <button
+                type="button"
+                disabled={isCancelling}
                 onClick={() =>
-                  setVehicleApprovalModal({
-                    isOpen: false,
-                    bookingId: null,
-                    vehicleName: "",
-                    phone: "",
-                    actionType: null,
-                  })
+                  setCancelModal({ isOpen: false, agendaId: null, title: null })
                 }
-                className="p-1 hover:bg-slate-100 rounded-full cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Kembali
+              </button>
+              <button
+                type="button"
+                disabled={isCancelling}
+                onClick={confirmCancelAgenda}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75"
+              >
+                {isCancelling && <Loader2 size={14} className="animate-spin" />}
+                {isCancelling ? "Memproses..." : "Ya, Batalkan"}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* 6. MODAL EDIT AGENDA */}
+      {editModal.isOpen && editModal.data && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-lg w-full shadow-2xl space-y-4 my-auto"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
+                  PENGATURAN ADMIN
+                </span>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-0.5">
+                  Edit Data Agenda
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditModal({ isOpen: false, data: null })}
+                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
             <form
-              onSubmit={handleExecuteVehicleApproval}
-              className="space-y-4 text-xs"
+              onSubmit={handleSaveEdit}
+              className="space-y-4 max-h-[65vh] overflow-y-auto custom-scrollbar pr-1 text-xs"
             >
-              {vehicleApprovalModal.actionType === "approve" && (
-                <div>
-                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                    Pilih Armada Kendaraan (Tersedia)
-                  </label>
-                  <select
-                    value={vehicleApprovalForm.selectedVehicle}
-                    onChange={(e) =>
-                      setVehicleApprovalForm({
-                        ...vehicleApprovalForm,
-                        selectedVehicle: e.target.value,
-                      })
-                    }
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold cursor-pointer text-slate-800 dark:text-slate-100"
-                    required
-                  >
-                    <option value="">-- Pilih Kendaraan --</option>
-                    {availableVehicles
-                      .filter((v: any) => v.status === "Tersedia")
-                      .map((v: any) => (
-                        <option key={v.id} value={v.name || v.nama_kendaraan}>
-                          {v.name || v.nama_kendaraan} (
-                          {v.plate_number || v.no_plat}) -{" "}
-                          {v.type || v.kapasitas}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              )}
-
               <div>
-                <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                  {vehicleApprovalModal.actionType === "approve"
-                    ? "Catatan / Instruksi Supir"
-                    : "Alasan Penolakan"}
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Nama Kegiatan / Acara
                 </label>
-                <textarea
-                  rows={3}
-                  value={vehicleApprovalForm.notes}
-                  onChange={(e) =>
-                    setVehicleApprovalForm({
-                      ...vehicleApprovalForm,
-                      notes: e.target.value,
-                    })
-                  }
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none resize-none font-medium"
-                  placeholder={
-                    vehicleApprovalModal.actionType === "approve"
-                      ? "Contoh: Supir Bpk. Budi, standby jam 08:00."
-                      : "Contoh: Seluruh armada sedang digunakan untuk agenda pimpinan."
-                  }
+                <input
+                  type="text"
                   required
+                  value={editModal.data.title}
+                  onChange={(e) =>
+                    setEditModal((prev) =>
+                      prev.data
+                        ? {
+                            ...prev,
+                            data: { ...prev.data, title: e.target.value },
+                          }
+                        : prev,
+                    )
+                  }
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Tanggal Mulai
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editModal.data.date}
+                    onChange={(e) =>
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: { ...prev.data, date: e.target.value },
+                            }
+                          : prev,
+                      )
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Tanggal Selesai
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editModal.data.end_date}
+                    min={editModal.data.date}
+                    onChange={(e) =>
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: { ...prev.data, end_date: e.target.value },
+                            }
+                          : prev,
+                      )
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Jam Mulai
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={editModal.data.start_time}
+                    onChange={(e) =>
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: {
+                                ...prev.data,
+                                start_time: e.target.value,
+                              },
+                            }
+                          : prev,
+                      )
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Jam Selesai
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={editModal.data.end_time}
+                    onChange={(e) =>
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: { ...prev.data, end_time: e.target.value },
+                            }
+                          : prev,
+                      )
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Ruangan Rapat
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editModal.data.room}
+                  onChange={(e) =>
+                    setEditModal((prev) =>
+                      prev.data
+                        ? {
+                            ...prev,
+                            data: { ...prev.data, room: e.target.value },
+                          }
+                        : prev,
+                    )
+                  }
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Penanggung Jawab (PIC)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editModal.data.pic}
+                    onChange={(e) =>
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: { ...prev.data, pic: e.target.value },
+                            }
+                          : prev,
+                      )
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Satuan Kerja (Satker)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editModal.data.dept}
+                    onChange={(e) =>
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: { ...prev.data, dept: e.target.value },
+                            }
+                          : prev,
+                      )
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Tata Letak (Layout)
+                  </label>
+                  <input
+                    type="text"
+                    value={editModal.data.layout}
+                    onChange={(e) =>
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: { ...prev.data, layout: e.target.value },
+                            }
+                          : prev,
+                      )
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Status Pengajuan
+                  </label>
+                  <select
+                    value={editModal.data.status}
+                    onChange={(e) =>
+                      setEditModal((prev) =>
+                        prev.data
+                          ? {
+                              ...prev,
+                              data: { ...prev.data, status: e.target.value },
+                            }
+                          : prev,
+                      )
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium focus:outline-none focus:border-[#9f1521] cursor-pointer"
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="Disetujui">Disetujui</option>
+                    <option value="Ditolak">Ditolak</option>
+                    <option value="Selesai">Selesai</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    setVehicleApprovalModal({
-                      isOpen: false,
-                      bookingId: null,
-                      vehicleName: "",
-                      phone: "",
-                      actionType: null,
-                    })
-                  }
-                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold cursor-pointer"
+                  disabled={isSubmittingEdit}
+                  onClick={() => setEditModal({ isOpen: false, data: null })}
+                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold cursor-pointer disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  disabled={isExecutingVehicleAction}
-                  className={`px-6 py-2.5 text-white rounded-xl font-bold shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2 ${
-                    vehicleApprovalModal.actionType === "approve"
-                      ? "bg-emerald-600 hover:bg-emerald-700"
-                      : "bg-rose-600 hover:bg-rose-700"
-                  }`}
+                  disabled={isSubmittingEdit}
+                  className="px-5 py-2.5 bg-[#9f1521] text-white rounded-xl font-bold hover:bg-[#7a1019] transition-colors shadow-md cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-75"
                 >
-                  {isExecutingVehicleAction && (
-                    <Loader2 size={14} className="animate-spin" />
+                  {isSubmittingEdit ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save size={15} /> Simpan Perubahan
+                    </>
                   )}
-                  {vehicleApprovalModal.actionType === "approve"
-                    ? "Plotting & Setujui"
-                    : "Konfirmasi Tolak"}
                 </button>
               </div>
             </form>
@@ -1318,69 +1498,49 @@ Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${targetBooking.t
         </div>
       )}
 
-      {/* MODAL KONFIRMASI (ADMIN) */}
-      {confirmModal.isOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      {/* 7. MODAL KONFIRMASI HAPUS AGENDA */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 max-w-sm w-full shadow-2xl space-y-4 text-center border border-slate-100 dark:border-slate-800"
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl text-center space-y-4"
           >
-            <div
-              className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto ${
-                confirmModal.actionType === "approve"
-                  ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600"
-                  : "bg-rose-100 dark:bg-rose-900/40 text-rose-600"
-              }`}
-            >
-              {confirmModal.actionType === "approve" ? (
-                <CheckCircle2 size={24} />
-              ) : (
-                <XCircle size={24} />
-              )}
+            <div className="w-14 h-14 bg-rose-100 dark:bg-rose-900/40 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+              <AlertCircle size={28} />
             </div>
 
             <div className="space-y-1">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                {confirmModal.actionType === "approve"
-                  ? "Konfirmasi Persetujuan"
-                  : "Konfirmasi Penolakan"}
+              <h3 className="font-black text-slate-900 dark:text-white text-base">
+                Konfirmasi Hapus
               </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Apakah Anda yakin ingin menghapus agenda{" "}
+                <strong>&quot;{deleteModal.title}&quot;</strong> dari sistem?
+              </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+            <div className="flex gap-2 pt-2">
               <button
+                type="button"
+                disabled={actionLoadingId !== null}
                 onClick={() =>
-                  setConfirmModal({
-                    isOpen: false,
-                    agendaId: null,
-                    title: null,
-                    actionType: null,
-                    rejectReason: "",
-                  })
+                  setDeleteModal({ isOpen: false, agendaId: null, title: null })
                 }
-                disabled={isExecutingAction}
                 className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
               >
                 Batal
               </button>
               <button
-                onClick={handleExecuteAction}
-                disabled={isExecutingAction}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-bold text-white transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 ${
-                  confirmModal.actionType === "approve"
-                    ? "bg-emerald-600 hover:bg-emerald-700"
-                    : "bg-rose-600 hover:bg-rose-700"
-                }`}
+                type="button"
+                disabled={actionLoadingId !== null}
+                onClick={confirmDelete}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75"
               >
-                {isExecutingAction && (
-                  <RefreshCw size={14} className="animate-spin" />
+                {actionLoadingId && (
+                  <Loader2 size={14} className="animate-spin" />
                 )}
-                {isExecutingAction
-                  ? "Memproses..."
-                  : confirmModal.actionType === "approve"
-                    ? "Ya, Setujui"
-                    : "Ya, Tolak"}
+                {actionLoadingId ? "Menghapus..." : "Ya, Hapus"}
               </button>
             </div>
           </motion.div>

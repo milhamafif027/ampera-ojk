@@ -924,7 +924,9 @@ export default function AgendaPage() {
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400"
                             : item.smartStatus === "Sedang Berlangsung"
                               ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400"
-                              : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400"
+                              : item.smartStatus === "Selesai"
+                                ? "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400" // <-- WARNA BARU: Ungu/Indigo untuk Selesai
+                                : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400"
                         }`}
                       >
                         {item.smartStatus}
@@ -1142,12 +1144,13 @@ export default function AgendaPage() {
                   <span
                     className={`px-2.5 py-1 rounded-md font-bold text-[10px] uppercase tracking-wider ${
                       detailModal.data.smartStatus === "Disetujui" ||
-                      detailModal.data.smartStatus === "Sedang Berlangsung" ||
-                      detailModal.data.smartStatus === "Selesai"
+                      detailModal.data.smartStatus === "Sedang Berlangsung"
                         ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-400"
-                        : detailModal.data.smartStatus === "Ditolak"
-                          ? "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-400"
-                          : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-400"
+                        : detailModal.data.smartStatus === "Selesai"
+                          ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-400"
+                          : detailModal.data.smartStatus === "Ditolak"
+                            ? "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-400"
+                            : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-400"
                     }`}
                   >
                     {detailModal.data.smartStatus || detailModal.data.status}
