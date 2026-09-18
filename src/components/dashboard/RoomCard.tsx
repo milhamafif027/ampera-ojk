@@ -285,8 +285,8 @@ function RoomCard({
         }}
       >
         <div>
-          {/* Banner Galeri Foto (Dengan Akselerasi GPU) */}
-          <div className="relative h-28 sm:h-32 w-full bg-slate-950 overflow-hidden group">
+{/* Banner Galeri Foto (Dengan Akselerasi GPU & Gaya Overlay ala MUI Titlebar) */}
+          <div className="relative h-40 sm:h-48 w-full bg-slate-950 overflow-hidden group">
             <div
               ref={scrollContainerRef}
               onScroll={handleScroll}
@@ -309,8 +309,33 @@ function RoomCard({
                     onError={() => setImageError(true)}
                     className="w-full h-full object-cover transform-gpu transition-transform duration-300 group-hover:scale-105"
                   />
+                  
+                  {/* OVERLAY GRADIENT ALA MUI (Hitam Transparan di Bawah) */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                 </div>
               ))}
+            </div>
+
+            {/* TITLE BAR OVERLAY (Mirip ImageListItemBar MUI) */}
+            <div className="absolute bottom-0 left-0 right-0 p-3 flex justify-between items-end pointer-events-none z-20">
+              <div className="text-white">
+                <h3 className="font-bold text-sm sm:text-base leading-tight drop-shadow-md">
+                  {room.name}
+                </h3>
+                <p className="text-[10px] text-white/80 font-medium mt-0.5 flex items-center gap-1 drop-shadow-md">
+                  <Users size={10} /> Kapasitas: {displayCapacity}
+                </p>
+              </div>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxImg(roomImages[activeImageIndex]);
+                }}
+                className="text-white/70 hover:text-white p-1 pointer-events-auto transition-colors"
+                title={`Info about ${room.name}`}
+              >
+                <Info size={18} />
+              </button>
             </div>
 
             {roomImages.length > 1 && (
