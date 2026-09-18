@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LogOut,
   Moon,
@@ -82,7 +83,7 @@ export default function DashboardLayout({
     return () => clearTimeout(timer);
   }, [authUser, authLoading]);
 
-  // Efek untuk memunculkan Modal Update jika belum pernah dilihat (session_storage)
+  // Efek untuk memunculkan Modal Update
   useEffect(() => {
     const timer = setTimeout(() => {
       const hasSeenUpdate = sessionStorage.getItem("ampera_update_v2_seen");
@@ -119,7 +120,6 @@ export default function DashboardLayout({
 
         if (!res.ok || !data.valid) {
           sessionStorage.removeItem("local_user");
-
           const reason = data.message?.includes("aktivitas")
             ? "timeout"
             : "session_replaced";
@@ -152,13 +152,12 @@ export default function DashboardLayout({
             );
           }
         } catch (e) {
-          // Abaikan error parse
+          // Abaikan error
         }
       }
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
-
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
@@ -193,7 +192,7 @@ export default function DashboardLayout({
         setHasUnread(unreadExist);
       }
     } catch (error) {
-      console.error("Gagal memuat notifikasi dari database:", error);
+      console.error("Gagal memuat notifikasi:", error);
     }
   }, []);
 
@@ -245,7 +244,6 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] text-slate-900 dark:text-slate-100 flex font-sans transition-colors duration-300 relative">
-      {/* Global CSS untuk Custom Scrollbar Modal Update & Elemen Lain */}
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 5px;
@@ -264,12 +262,17 @@ export default function DashboardLayout({
       `}</style>
 
       {/* BACKDROP MOBILE MENU */}
-      {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* SIDEBAR */}
       <aside
@@ -513,164 +516,182 @@ export default function DashboardLayout({
       </div>
 
       {/* MODAL PENGUMUMAN UPDATE (GLOBAL LAYOUT) */}
-      {showUpdateModal && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+      <AnimatePresence>
+        {showUpdateModal && (
           <motion.div
-            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6 border border-slate-100 dark:border-slate-800"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-rose-50 text-[#9f1521] flex items-center justify-center shrink-0">
-                <Sparkles size={24} />
-              </div>
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
-                  PEMBARUAN SISTEM V2.5
-                </span>
-                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                  Selamat Datang di AMPERA
-                </h3>
-              </div>
-            </div>
-
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-              Kami telah merilis sejumlah pembaruan fitur untuk mengoptimalkan
-              manajemen fasilitas dan pengalaman operasional di lingkungan OJK
-              Provinsi Sumatera Selatan:
-            </p>
-
-            <div className="space-y-4 bg-slate-50 dark:bg-slate-800/50 p-4 sm:p-5 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 max-h-[45vh] overflow-y-auto custom-scrollbar">
-              {/* Poin 1 */}
-              <div className="flex items-start gap-3">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                  <Check size={12} />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6 border border-slate-100 dark:border-slate-800"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-rose-50 text-[#9f1521] flex items-center justify-center shrink-0">
+                  <Sparkles size={24} />
                 </div>
-                <div className="leading-relaxed">
-                  <strong className="text-slate-900 dark:text-white">
-                    Integrasi & Validasi Otomatis Ruang Komunal:
-                  </strong>{" "}
-                  Sistem kini secara otomatis membatasi pemesanan Ruang Komunal
-                  apabila Ballroom sedang digunakan dalam kapasitas maksimal
-                  (500 peserta) atau menggunakan konfigurasi tata letak Round
-                  Table (≥200 peserta) untuk menjaga kenyamanan dan kelancaran
-                  kegiatan bersama.
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
+                    PEMBARUAN SISTEM V2.5
+                  </span>
+                  <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                    Selamat Datang di AMPERA
+                  </h3>
                 </div>
               </div>
 
-              {/* Poin 2 */}
-              <div className="flex items-start gap-3">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                  <Check size={12} />
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                Kami telah merilis sejumlah pembaruan fitur untuk mengoptimalkan
+                manajemen fasilitas dan pengalaman operasional di lingkungan OJK
+                Provinsi Sumatera Selatan:
+              </p>
+
+              <div className="space-y-4 bg-slate-50 dark:bg-slate-800/50 p-4 sm:p-5 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 max-h-[45vh] overflow-y-auto custom-scrollbar">
+                <div className="flex items-start gap-3">
+                  <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                    <Check size={12} />
+                  </div>
+                  <div className="leading-relaxed">
+                    <strong className="text-slate-900 dark:text-white">
+                      Integrasi & Validasi Otomatis Ruang Komunal:
+                    </strong>{" "}
+                    Sistem kini secara otomatis membatasi pemesanan Ruang
+                    Komunal apabila Ballroom sedang digunakan dalam kapasitas
+                    maksimal (500 peserta) atau menggunakan konfigurasi tata
+                    letak Round Table (≥200 peserta) untuk menjaga kenyamanan
+                    dan kelancaran kegiatan bersama.
+                  </div>
                 </div>
-                <div className="leading-relaxed">
-                  <strong className="text-slate-900 dark:text-white">
-                    Pencarian & Filter Kapasitas Ruangan:
-                  </strong>{" "}
-                  Penambahan fitur filter pencarian yang memungkinkan pengguna
-                  menyaring daftar ruangan berdasarkan jumlah digit atau
-                  spesifikasi kapasitas angka ruangan secara presisi.
+
+                <div className="flex items-start gap-3">
+                  <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                    <Check size={12} />
+                  </div>
+                  <div className="leading-relaxed">
+                    <strong className="text-slate-900 dark:text-white">
+                      Pencarian & Filter Kapasitas Ruangan:
+                    </strong>{" "}
+                    Penambahan fitur filter pencarian yang memungkinkan pengguna
+                    menyaring daftar ruangan berdasarkan jumlah digit atau
+                    spesifikasi kapasitas angka ruangan secara presisi.
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                    <Check size={12} />
+                  </div>
+                  <div className="leading-relaxed">
+                    <strong className="text-slate-900 dark:text-white">
+                      Aksi Pembatalan Mandiri (Internal):
+                    </strong>{" "}
+                    Penyediaan tombol batal khusus pada menu daftar agenda untuk
+                    pengguna ber-role internal, memungkinkan pegawai membatalkan
+                    pengajuan kegiatan mereka sendiri secara langsung dari
+                    sistem.
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                    <Check size={12} />
+                  </div>
+                  <div className="leading-relaxed">
+                    <strong className="text-slate-900 dark:text-white">
+                      Akses Cepat Detail Kegiatan:
+                    </strong>{" "}
+                    Penambahan tombol interaktif (ikon mata) pada seluruh daftar
+                    agenda, termasuk pada kartu Agenda Terdekat dan Live Status,
+                    sehingga pengguna dapat langsung melihat rincian lengkap
+                    kegiatan secara instan tanpa harus berpindah halaman.
+                  </div>
                 </div>
               </div>
 
-              {/* Poin 3 */}
-              <div className="flex items-start gap-3">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                  <Check size={12} />
-                </div>
-                <div className="leading-relaxed">
-                  <strong className="text-slate-900 dark:text-white">
-                    Aksi Pembatalan Mandiri (Internal):
-                  </strong>{" "}
-                  Penyediaan tombol batal khusus pada menu daftar agenda untuk
-                  pengguna ber-role internal, memungkinkan pegawai membatalkan
-                  pengajuan kegiatan mereka sendiri secara langsung dari sistem.
-                </div>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleCloseUpdateModal}
+                  className="w-full py-3.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-xl transition-all shadow-lg shadow-rose-900/20 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  Mengerti, Lanjutkan ke Dashboard <ArrowRight size={16} />
+                </button>
               </div>
-
-              {/* Poin 4 */}
-              <div className="flex items-start gap-3">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                  <Check size={12} />
-                </div>
-                <div className="leading-relaxed">
-                  <strong className="text-slate-900 dark:text-white">
-                    Akses Cepat Detail Kegiatan:
-                  </strong>{" "}
-                  Penambahan tombol interaktif (ikon mata) pada seluruh daftar
-                  agenda, termasuk pada kartu Agenda Terdekat dan Live Status,
-                  sehingga pengguna dapat langsung melihat rincian lengkap
-                  kegiatan secara instan tanpa harus berpindah halaman.
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleCloseUpdateModal}
-                className="w-full py-3.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-xl transition-all shadow-lg shadow-rose-900/20 cursor-pointer flex items-center justify-center gap-2"
-              >
-                Mengerti, Lanjutkan ke Dashboard <ArrowRight size={16} />
-              </button>
-            </div>
+            </motion.div>
           </motion.div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* MODAL LOGOUT MANUAL */}
-      {isLogoutModalOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            onClick={() => !isLoggingOut && setIsLogoutModalOpen(false)}
-          />
+      <AnimatePresence>
+        {isLogoutModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+          >
+            <div
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+              onClick={() => !isLoggingOut && setIsLogoutModalOpen(false)}
+            />
 
-          <div className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl text-center space-y-4 z-10">
-            <div className="w-14 h-14 bg-rose-100 dark:bg-rose-900/40 text-rose-600 rounded-full flex items-center justify-center mx-auto">
-              <LogOut size={28} />
-            </div>
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl text-center space-y-4 z-10 border border-slate-100 dark:border-slate-800"
+            >
+              <div className="w-14 h-14 bg-rose-100 dark:bg-rose-900/40 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                <LogOut size={28} />
+              </div>
 
-            <div className="space-y-1">
-              <h3 className="font-black text-slate-900 dark:text-white text-base">
-                Konfirmasi Keluar
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Apakah Anda yakin ingin keluar dari Portal AMPERA OJK Sumsel?
-              </p>
-            </div>
+              <div className="space-y-1">
+                <h3 className="font-black text-slate-900 dark:text-white text-base">
+                  Konfirmasi Keluar
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Apakah Anda yakin ingin keluar dari Portal AMPERA OJK Sumsel?
+                </p>
+              </div>
 
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                disabled={isLoggingOut}
-                onClick={() => setIsLogoutModalOpen(false)}
-                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                Batal
-              </button>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  disabled={isLoggingOut}
+                  onClick={() => setIsLogoutModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Batal
+                </button>
 
-              <button
-                type="button"
-                disabled={isLoggingOut}
-                onClick={handleConfirmLogout}
-                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-[#9f1521] hover:bg-[#7a1019] text-white transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75"
-              >
-                {isLoggingOut ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    <span>Keluar...</span>
-                  </>
-                ) : (
-                  <span>Ya, Keluar</span>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                <button
+                  type="button"
+                  disabled={isLoggingOut}
+                  onClick={handleConfirmLogout}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-[#9f1521] hover:bg-[#7a1019] text-white transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75"
+                >
+                  {isLoggingOut ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Keluar...</span>
+                    </>
+                  ) : (
+                    <span>Ya, Keluar</span>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* MODAL PERINGATAN KARENA TIDAK AKTIF MENGGUNAKAN KOMPONEN TERPISAH */}
       <SessionExpiredModal isOpen={isSessionExpired} onLogout={logout} />
     </div>
   );
