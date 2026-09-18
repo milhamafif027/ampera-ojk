@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, BookOpen } from "lucide-react";
 
 const allBookletImages = [
   {
@@ -132,6 +132,7 @@ export default function SlidingCardsSection() {
     if (!container) return;
 
     let animationFrameId: number;
+    // Kecepatan diatur agar nyaman dipandang
     const scrollSpeed = 0.5;
 
     const autoScroll = () => {
@@ -166,24 +167,33 @@ export default function SlidingCardsSection() {
   const duplicatedCards = [...allBookletImages, ...allBookletImages];
 
   return (
-    <div className="w-full py-6 space-y-4 relative">
-      <div className="px-4 max-w-7xl mx-auto flex items-center justify-between">
-        <h2 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white">
+    <section className="w-full py-16 sm:py-24 space-y-8 relative bg-white dark:bg-slate-950 overflow-hidden">
+      {/* Header Section dengan Tipografi Premium */}
+      <div className="px-6 max-w-7xl mx-auto flex flex-col items-center sm:items-start text-center sm:text-left space-y-2">
+        <div className="flex items-center gap-2">
+          <BookOpen size={16} className="text-[#9f1521]" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
+            E-Booklet & Panduan
+          </span>
+        </div>
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
           Booklet Wisata & Profil OJK Sumsel
         </h2>
       </div>
 
-      {/* Container utama slider dengan tombol panah melayang di sisi kiri dan kanan */}
+      {/* Container utama slider dengan tombol panah melayang */}
       <div
-        className="relative w-full overflow-hidden group"
+        className="relative w-full group"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
+        onTouchStart={() => setIsPaused(true)}
+        onTouchEnd={() => setIsPaused(false)}
       >
         {/* Tombol Panah Navigasi Kiri Slider */}
         <button
           type="button"
           onClick={() => scrollManual("left")}
-          className="absolute left-3 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-full bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700 text-slate-800 dark:text-white shadow-lg transition-all cursor-pointer border border-slate-200 dark:border-slate-700"
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700 text-slate-800 dark:text-white shadow-xl transition-all cursor-pointer border border-slate-200 dark:border-slate-700 opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0"
           title="Geser Kiri"
         >
           <ChevronLeft size={20} />
@@ -193,65 +203,92 @@ export default function SlidingCardsSection() {
         <button
           type="button"
           onClick={() => scrollManual("right")}
-          className="absolute right-3 top-1/2 -translate-y-1/2 z-20 p-2.5 rounded-full bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700 text-slate-800 dark:text-white shadow-lg transition-all cursor-pointer border border-slate-200 dark:border-slate-700"
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-700 text-slate-800 dark:text-white shadow-xl transition-all cursor-pointer border border-slate-200 dark:border-slate-700 opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0"
           title="Geser Kanan"
         >
           <ChevronRight size={20} />
         </button>
 
-        {/* Gradient Overlay Kiri */}
-        <div className="absolute left-0 top-0 bottom-0 w-12 sm:w-20 bg-gradient-to-r from-slate-50 dark:from-[#0B1120] to-transparent z-10 pointer-events-none" />
+        {/* Gradient Overlay Kiri (Vignette) */}
+        <div className="absolute left-0 top-0 bottom-0 w-16 sm:w-32 bg-gradient-to-r from-white dark:from-slate-950 to-transparent z-10 pointer-events-none" />
 
-        {/* Gradient Overlay Kanan */}
-        <div className="absolute right-0 top-0 bottom-0 w-12 sm:w-20 bg-gradient-to-l from-slate-50 dark:from-[#0B1120] to-transparent z-10 pointer-events-none" />
+        {/* Gradient Overlay Kanan (Vignette) */}
+        <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-32 bg-gradient-to-l from-white dark:from-slate-950 to-transparent z-10 pointer-events-none" />
 
         <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-hidden py-3 px-12 select-none cursor-pointer scroll-smooth"
+          className="flex gap-4 sm:gap-6 overflow-x-hidden py-4 px-16 sm:px-32 select-none cursor-pointer scroll-smooth transform-gpu will-change-scroll"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           {duplicatedCards.map((item, index) => {
-            // Gunakan modulo index agar pas dengan array asli untuk modal popup
             const originalIndex = index % allBookletImages.length;
             return (
               <div
                 key={`${item.id}-${index}`}
                 onClick={() => setActiveModalIndex(originalIndex)}
-                className="min-w-[180px] sm:min-w-[220px] h-[260px] sm:h-[300px] bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative shrink-0 group/card transform hover:-translate-y-1"
+                className="min-w-[180px] sm:min-w-[240px] h-[260px] sm:h-[340px] bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-300 relative shrink-0 group/card transform hover:-translate-y-2"
               >
                 <Image
                   src={item.image}
                   alt={item.title}
                   fill
-                  className="object-cover group-hover/card:scale-105 transition-transform duration-500"
+                  className="object-cover transition-transform duration-700 group-hover/card:scale-110"
                 />
+
+                {/* Efek Hover Judul Halaman di dalam Card */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/20 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 pointer-events-none flex items-end p-5">
+                  <span className="text-white font-bold text-sm leading-snug translate-y-4 group-hover/card:translate-y-0 transition-transform duration-300 drop-shadow-md">
+                    {item.title}
+                  </span>
+                </div>
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* MODAL POP-UP / ZOOM GAMBAR UTUH DENGAN TOMBOL PREV & NEXT */}
+      {/* MODAL POP-UP / ZOOM GAMBAR UTUH */}
       {activeModalIndex !== null && (
         <div
           onClick={() => setActiveModalIndex(null)}
-          className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+          className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
         >
           <div
-            className="relative max-w-4xl w-full max-h-[90vh] flex items-center justify-center"
+            className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Tombol Tutup Modal */}
             <button
               onClick={() => setActiveModalIndex(null)}
-              className="absolute -top-12 right-0 p-2 rounded-full bg-white/20 hover:bg-white/40 text-white transition-colors cursor-pointer z-30"
+              className="absolute -top-12 right-0 sm:-right-12 sm:-top-8 p-2 rounded-full bg-white/10 hover:bg-white/30 text-white transition-colors cursor-pointer z-30 shadow-lg"
               type="button"
               title="Tutup"
             >
               <X size={24} />
             </button>
 
-            {/* Tombol Navigasi Kiri di dalam Modal */}
+            {/* Area Gambar Preview Aktif */}
+            <div className="relative w-full h-[75vh] sm:h-[80vh] rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl bg-transparent">
+              <Image
+                src={allBookletImages[activeModalIndex].image}
+                alt={allBookletImages[activeModalIndex].title}
+                fill
+                className="object-contain"
+                priority
+              />
+
+              {/* Caption Title Bar dalam Modal */}
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent text-center text-white pointer-events-none">
+                <h3 className="font-bold text-sm sm:text-base tracking-wide">
+                  {allBookletImages[activeModalIndex].title}
+                </h3>
+                <p className="text-[10px] sm:text-xs text-white/70 font-medium mt-1">
+                  Halaman {activeModalIndex + 1} dari {allBookletImages.length}
+                </p>
+              </div>
+            </div>
+
+            {/* Tombol Navigasi Kiri */}
             <button
               type="button"
               onClick={() => {
@@ -263,13 +300,13 @@ export default function SlidingCardsSection() {
                       : 0,
                 );
               }}
-              className="absolute left-2 sm:-left-12 top-1/2 -translate-y-1/2 z-30 p-3 rounded-full bg-white/20 hover:bg-white/40 text-white transition-colors cursor-pointer shadow-lg"
+              className="absolute left-2 sm:-left-16 top-1/2 -translate-y-1/2 z-30 p-3 sm:p-4 rounded-full bg-black/40 hover:bg-black/60 border border-white/10 text-white transition-colors cursor-pointer shadow-lg backdrop-blur-sm"
               title="Halaman Sebelumnya"
             >
               <ChevronLeft size={24} />
             </button>
 
-            {/* Tombol Navigasi Kanan di dalam Modal */}
+            {/* Tombol Navigasi Kanan */}
             <button
               type="button"
               onClick={() => {
@@ -281,24 +318,14 @@ export default function SlidingCardsSection() {
                       : 0,
                 );
               }}
-              className="absolute right-2 sm:-right-12 top-1/2 -translate-y-1/2 z-30 p-3 rounded-full bg-white/20 hover:bg-white/40 text-white transition-colors cursor-pointer shadow-lg"
+              className="absolute right-2 sm:-right-16 top-1/2 -translate-y-1/2 z-30 p-3 sm:p-4 rounded-full bg-black/40 hover:bg-black/60 border border-white/10 text-white transition-colors cursor-pointer shadow-lg backdrop-blur-sm"
               title="Halaman Berikutnya"
             >
               <ChevronRight size={24} />
             </button>
-
-            {/* Area Gambar Preview Aktif */}
-            <div className="relative w-full h-[80vh] rounded-2xl overflow-hidden shadow-2xl bg-black">
-              <Image
-                src={allBookletImages[activeModalIndex].image}
-                alt={allBookletImages[activeModalIndex].title}
-                fill
-                className="object-contain"
-              />
-            </div>
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }
