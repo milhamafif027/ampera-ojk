@@ -14,6 +14,9 @@ import {
   Loader2,
   Menu,
   X,
+  Sparkles,
+  Check,
+  ArrowRight,
 } from "lucide-react";
 import { getFilteredNavItems } from "@/lib/auth";
 import NotificationDropdown, {
@@ -56,6 +59,10 @@ export default function DashboardLayout({
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [hasUnread, setHasUnread] = useState(false);
 
+  // State Pop-up Pengumuman Update
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+
+  // Cek Session Lokal vs Auth
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!authLoading) {
@@ -75,7 +82,24 @@ export default function DashboardLayout({
     return () => clearTimeout(timer);
   }, [authUser, authLoading]);
 
-  // Validasi sesi yang aman dan tidak gampang mental saat navigasi cepat
+  // Efek untuk memunculkan Modal Update jika belum pernah dilihat (session_storage)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const hasSeenUpdate = sessionStorage.getItem("ampera_update_v2_seen");
+      if (!hasSeenUpdate) {
+        setShowUpdateModal(true);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleCloseUpdateModal = () => {
+    sessionStorage.setItem("ampera_update_v2_seen", "true");
+    setShowUpdateModal(false);
+  };
+
+  // Validasi sesi yang aman
   useEffect(() => {
     if (authLoading) return;
 
@@ -83,8 +107,6 @@ export default function DashboardLayout({
       try {
         const res = await fetch("/api/auth/check-session");
 
-        // Jika endpoint mengembalikan 401, abaikan atau cek keberadaan session lokal dulu
-        // agar tidak langsung menendang keluar pengguna yang sedang aktif
         if (res.status === 401) {
           const storedUser = sessionStorage.getItem("local_user");
           if (!storedUser) {
@@ -109,7 +131,7 @@ export default function DashboardLayout({
     };
 
     const timeoutId = setTimeout(verifySession, 2000);
-    const interval = setInterval(verifySession, 45000); // Interval diperpanjang ke 45 detik agar ringan
+    const interval = setInterval(verifySession, 45000);
 
     return () => {
       clearTimeout(timeoutId);
@@ -223,6 +245,24 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] text-slate-900 dark:text-slate-100 flex font-sans transition-colors duration-300 relative">
+      {/* Global CSS untuk Custom Scrollbar Modal Update & Elemen Lain */}
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(159, 21, 33, 0.25);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(159, 21, 33, 0.6);
+        }
+      `}</style>
+
       {/* BACKDROP MOBILE MENU */}
       {isMobileMenuOpen && (
         <div
@@ -325,7 +365,7 @@ export default function DashboardLayout({
             </div>
           </div>
 
-          {/* Menu Navigasi Utama - Kembali menggunakan <Link> agar perpindahan instan & mulus */}
+          {/* Menu Navigasi Utama */}
           <nav className="px-3 space-y-1.5 overflow-y-auto flex-1 custom-scrollbar overflow-x-hidden">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -471,6 +511,112 @@ export default function DashboardLayout({
           {children}
         </main>
       </div>
+
+      {/* MODAL PENGUMUMAN UPDATE (GLOBAL LAYOUT) */}
+      {showUpdateModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6 border border-slate-100 dark:border-slate-800"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 text-[#9f1521] flex items-center justify-center shrink-0">
+                <Sparkles size={24} />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
+                  PEMBARUAN SISTEM V2.5
+                </span>
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                  Selamat Datang di AMPERA
+                </h3>
+              </div>
+            </div>
+
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+              Kami telah merilis sejumlah pembaruan fitur untuk mengoptimalkan
+              manajemen fasilitas dan pengalaman operasional di lingkungan OJK
+              Provinsi Sumatera Selatan:
+            </p>
+
+            <div className="space-y-4 bg-slate-50 dark:bg-slate-800/50 p-4 sm:p-5 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 max-h-[45vh] overflow-y-auto custom-scrollbar">
+              {/* Poin 1 */}
+              <div className="flex items-start gap-3">
+                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                  <Check size={12} />
+                </div>
+                <div className="leading-relaxed">
+                  <strong className="text-slate-900 dark:text-white">
+                    Integrasi & Validasi Otomatis Ruang Komunal:
+                  </strong>{" "}
+                  Sistem kini secara otomatis membatasi pemesanan Ruang Komunal
+                  apabila Ballroom sedang digunakan dalam kapasitas maksimal
+                  (500 peserta) atau menggunakan konfigurasi tata letak Round
+                  Table (≥200 peserta) untuk menjaga kenyamanan dan kelancaran
+                  kegiatan bersama.
+                </div>
+              </div>
+
+              {/* Poin 2 */}
+              <div className="flex items-start gap-3">
+                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                  <Check size={12} />
+                </div>
+                <div className="leading-relaxed">
+                  <strong className="text-slate-900 dark:text-white">
+                    Pencarian & Filter Kapasitas Ruangan:
+                  </strong>{" "}
+                  Penambahan fitur filter pencarian yang memungkinkan pengguna
+                  menyaring daftar ruangan berdasarkan jumlah digit atau
+                  spesifikasi kapasitas angka ruangan secara presisi.
+                </div>
+              </div>
+
+              {/* Poin 3 */}
+              <div className="flex items-start gap-3">
+                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                  <Check size={12} />
+                </div>
+                <div className="leading-relaxed">
+                  <strong className="text-slate-900 dark:text-white">
+                    Aksi Pembatalan Mandiri (Internal):
+                  </strong>{" "}
+                  Penyediaan tombol batal khusus pada menu daftar agenda untuk
+                  pengguna ber-role internal, memungkinkan pegawai membatalkan
+                  pengajuan kegiatan mereka sendiri secara langsung dari sistem.
+                </div>
+              </div>
+
+              {/* Poin 4 */}
+              <div className="flex items-start gap-3">
+                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                  <Check size={12} />
+                </div>
+                <div className="leading-relaxed">
+                  <strong className="text-slate-900 dark:text-white">
+                    Akses Cepat Detail Kegiatan:
+                  </strong>{" "}
+                  Penambahan tombol interaktif (ikon mata) pada seluruh daftar
+                  agenda, termasuk pada kartu Agenda Terdekat dan Live Status,
+                  sehingga pengguna dapat langsung melihat rincian lengkap
+                  kegiatan secara instan tanpa harus berpindah halaman.
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleCloseUpdateModal}
+                className="w-full py-3.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-xl transition-all shadow-lg shadow-rose-900/20 cursor-pointer flex items-center justify-center gap-2"
+              >
+                Mengerti, Lanjutkan ke Dashboard <ArrowRight size={16} />
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* MODAL LOGOUT MANUAL */}
       {isLogoutModalOpen && (

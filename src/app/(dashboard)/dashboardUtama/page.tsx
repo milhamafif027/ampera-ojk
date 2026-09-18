@@ -18,9 +18,6 @@ import {
   XCircle,
   Eye,
   ShieldCheck,
-  Sparkles,
-  Check,
-  ArrowRight,
   Loader2,
   X,
 } from "lucide-react";
@@ -100,9 +97,6 @@ export default function DashboardPage() {
   const [isExecutingVehicleAction, setIsExecutingVehicleAction] =
     useState(false);
 
-  // State Pop-up Pengumuman Update
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
-
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     agendaId: string | null;
@@ -126,22 +120,6 @@ export default function DashboardPage() {
     isOpen: false,
     data: null,
   });
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const hasSeenUpdate = sessionStorage.getItem("ampera_update_v2_seen");
-      if (!hasSeenUpdate) {
-        setShowUpdateModal(true);
-      }
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleCloseUpdateModal = () => {
-    sessionStorage.setItem("ampera_update_v2_seen", "true");
-    setShowUpdateModal(false);
-  };
 
   const loadDashboardData = useCallback(async (isInitial = false) => {
     try {
@@ -327,9 +305,7 @@ export default function DashboardPage() {
         ? `tanggal ${agendaData.date}`
         : `tanggal ${agendaData.date} s.d. ${agendaData.endDate}`;
 
-    let message = `Halo ${agendaData.pic || "Pemohon"},
-
-Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegiatan *${agendaData.title || "Agenda Rapat"}* pada ${dateRangeText} (${agendaData.time || "08:00 - 17:00"} WIB) telah *${statusText}*.`;
+    let message = `Halo ${agendaData.pic || "Pemohon"},\n\nPengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegiatan *${agendaData.title || "Agenda Rapat"}* pada ${dateRangeText} (${agendaData.time || "08:00 - 17:00"} WIB) telah *${statusText}*.`;
 
     if (status === "Ditolak" && reason) {
       message += `\n\n📝 *Alasan Penolakan:* ${reason}`;
@@ -458,9 +434,7 @@ Pengajuan reservasi ruangan *${agendaData.room || "Ruang Rapat OJK"}* untuk kegi
 
           const statusText =
             newStatus === "Disetujui" ? "DISETUJUI ✅" : "DITOLAK ❌";
-          let message = `Halo ${targetBooking.peminjam || targetBooking.borrower || "Bapak/Ibu"},
-
-Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${targetBooking.tujuan || targetBooking.destination}* telah *${statusText}*.`;
+          let message = `Halo ${targetBooking.peminjam || targetBooking.borrower || "Bapak/Ibu"},\n\nPengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${targetBooking.tujuan || targetBooking.destination}* telah *${statusText}*.`;
 
           if (newStatus === "Disetujui") {
             message += `\n\n🚗 *Armada / Driver:* ${vehicleApprovalForm.selectedVehicle}\n📝 *Catatan:* ${vehicleApprovalForm.notes}`;
@@ -517,113 +491,6 @@ Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${targetBooking.t
           background: rgba(159, 21, 33, 0.6);
         }
       `}</style>
-
-      {/* MODAL PENGUMUMAN UPDATE */}
-      {showUpdateModal && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6 border border-slate-100 dark:border-slate-800"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-rose-50 text-[#9f1521] flex items-center justify-center shrink-0">
-                <Sparkles size={24} />
-              </div>
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
-                  PEMBARUAN SISTEM V2.5
-                </span>
-                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                  Selamat Datang di AMPERA
-                </h3>
-              </div>
-            </div>
-
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-              Kami telah merilis sejumlah pembaruan fitur untuk mengoptimalkan
-              manajemen fasilitas dan pengalaman operasional di lingkungan OJK
-              Provinsi Sumatera Selatan:
-            </p>
-
-            {/* Kotak Konten dengan Susunan Berbaris ke Bawah (Row) */}
-            <div className="space-y-4 bg-slate-50 dark:bg-slate-800/50 p-4 sm:p-5 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 max-h-[45vh] overflow-y-auto custom-scrollbar">
-              {/* Poin 1 */}
-              <div className="flex items-start gap-3">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                  <Check size={12} />
-                </div>
-                <div className="leading-relaxed">
-                  <strong className="text-slate-900 dark:text-white">
-                    Integrasi & Validasi Otomatis Ruang Komunal:
-                  </strong>{" "}
-                  Sistem kini secara otomatis membatasi pemesanan Ruang Komunal
-                  apabila Ballroom sedang digunakan dalam kapasitas maksimal
-                  (500 peserta) atau menggunakan konfigurasi tata letak Round
-                  Table (≥200 peserta) untuk menjaga kenyamanan dan kelancaran
-                  kegiatan bersama.
-                </div>
-              </div>
-
-              {/* Poin 2 */}
-              <div className="flex items-start gap-3">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                  <Check size={12} />
-                </div>
-                <div className="leading-relaxed">
-                  <strong className="text-slate-900 dark:text-white">
-                    Pencarian & Filter Kapasitas Ruangan:
-                  </strong>{" "}
-                  Penambahan fitur filter pencarian yang memungkinkan pengguna
-                  menyaring daftar ruangan berdasarkan jumlah digit atau
-                  spesifikasi kapasitas angka ruangan secara presisi.
-                </div>
-              </div>
-
-              {/* Poin 3 */}
-              <div className="flex items-start gap-3">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                  <Check size={12} />
-                </div>
-                <div className="leading-relaxed">
-                  <strong className="text-slate-900 dark:text-white">
-                    Aksi Pembatalan Mandiri (Internal):
-                  </strong>{" "}
-                  Penyediaan tombol batal khusus pada menu daftar agenda untuk
-                  pengguna ber-role internal, memungkinkan pegawai membatalkan
-                  pengajuan kegiatan mereka sendiri secara langsung dari sistem.
-                </div>
-              </div>
-
-              {/* Poin 4 */}
-              <div className="flex items-start gap-3">
-                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                  <Check size={12} />
-                </div>
-                <div className="leading-relaxed">
-                  <strong className="text-slate-900 dark:text-white">
-                    Akses Cepat Detail Kegiatan:
-                  </strong>{" "}
-                  Penambahan tombol interaktif (ikon mata) pada seluruh daftar
-                  agenda, termasuk pada kartu Agenda Terdekat dan Live Status,
-                  sehingga pengguna dapat langsung melihat rincian lengkap
-                  kegiatan secara instan tanpa harus berpindah halaman.
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleCloseUpdateModal}
-                className="w-full py-3.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-xl transition-all shadow-lg shadow-rose-900/20 cursor-pointer flex items-center justify-center gap-2"
-              >
-                Mengerti, Lanjutkan ke Dashboard <ArrowRight size={16} />
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
 
       {/* TOP HEADER BAR */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm border-l-4 border-l-[#9f1521]">
@@ -1115,7 +982,7 @@ Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${targetBooking.t
                 onClick={() => setDetailModal({ isOpen: false, data: null })}
                 className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
               >
-                ✕
+                <X size={20} />
               </button>
             </div>
 
