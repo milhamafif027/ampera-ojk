@@ -2,258 +2,160 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { ArrowRight, BookOpen } from "lucide-react";
-import { motion, Variants, AnimatePresence } from "framer-motion";
+import { ArrowRight, Building2, Car, BookOpen } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
-// Daftar path foto gedung OJK Sumsel
+// Daftar path foto gedung OJK Sumsel untuk latar belakang fullscreen
 const buildingImages = [
-  {
-    src: "/gedungOjk/tampakDepan1.jpg",
-    title: "Tampak Depan Utama",
-  },
-  {
-    src: "/gedungOjk/tampakDepan2.jpeg",
-    title: "Sisi Eksterior Gedung",
-  },
-  {
-    src: "/gedungOjk/tampakDepan3.jpeg",
-    title: "Detail Arsitektur Green Building",
-  },
-  {
-    src: "/gedungOjk/tampakDepan4.jpeg",
-    title: "Area Lingkungan Kantor",
-  },
+  "/gedungOjk/tampakDepan1.jpg",
+  "/gedungOjk/tampakDepan2.jpeg",
+  "/gedungOjk/tampakDepan3.jpeg",
+  "/gedungOjk/tampakDepan4.jpeg",
 ];
-
-// Animasi Teks (Dari Kiri)
-const textVariants: Variants = {
-  hidden: { opacity: 0, x: -30 },
-  visible: {
-    opacity: 1,
-    x: 0,
-    transition: { duration: 0.6, ease: "easeOut" },
-  },
-};
-
-// Animasi Gambar (Dari Kanan)
-const imageVariants: Variants = {
-  hidden: { opacity: 0, x: 30 },
-  visible: {
-    opacity: 1,
-    x: 0,
-    transition: { duration: 0.7, ease: "easeOut", delay: 0.2 },
-  },
-};
 
 export default function Hero() {
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Timer Slideshow Gambar
+  // Timer Slideshow Gambar Latar Belakang (Transisi sangat lambat & halus)
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentIndex((prevIndex) => (prevIndex + 1) % buildingImages.length);
-    }, 4000);
+    }, 6000);
     return () => clearInterval(timer);
   }, []);
 
   return (
-    <section
-      id="profil"
-      className="relative bg-white border-b border-slate-200/80 py-16 sm:py-24 lg:py-32 overflow-hidden"
-    >
-      {/* ================= AURORA / MESH GRADIENT BACKGROUND ================= */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-        {/* Blob Merah Utama (Kanan Atas / Tengah) */}
-        <div className="absolute -top-[20%] -right-[10%] w-[600px] h-[600px] rounded-full bg-gradient-to-br from-rose-500/20 via-red-400/15 to-transparent blur-[120px] transform rotate-12"></div>
+    <section className="relative min-h-screen w-full flex flex-col overflow-hidden bg-slate-950">
+      {/* 1. BACKGROUND IMAGE FULLSCREEN SLIDESHOW */}
+      <div className="absolute inset-0 z-0">
+        <AnimatePresence mode="wait">
+          <motion.img
+            key={currentIndex}
+            src={buildingImages[currentIndex]}
+            alt="Latar Belakang Gedung OJK Sumsel"
+            initial={{ opacity: 0, scale: 1.05 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.5, ease: "easeInOut" }}
+            className="w-full h-full object-cover opacity-80"
+          />
+        </AnimatePresence>
 
-        {/* Blob Pendukung Merah Pudar (Kiri Bawah) */}
-        <div className="absolute -bottom-[20%] -left-[10%] w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-rose-600/15 via-red-300/10 to-transparent blur-[100px]"></div>
+        {/* Gradien Hitam dari Kiri ke Kanan untuk memastikan teks putih terbaca jelas */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/50 to-transparent" />
 
-        {/* Lapisan Noise Tipis (Opsional untuk menyempurnakan tekstur mesh) */}
-        <div className="absolute inset-0 opacity-[0.015] bg-[radial-gradient(#000_1px,transparent_1px)] bg-[size:16px_16px]"></div>
+        {/* Gradien Hitam dari Bawah agar menyatu natural dengan section berikutnya */}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-transparent to-transparent opacity-100" />
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-12 items-center z-10">
-        {/* ================= BAGIAN KIRI: TEKS (CLEAN CORPORATE) ================= */}
+      {/* 2. NAVBAR (TRANSPARAN DI ATAS GAMBAR) */}
+      <header className="relative z-10 w-full px-6 py-6 md:px-12 flex items-center justify-between">
+        <div className="text-white font-black text-xl sm:text-2xl tracking-tight flex items-center gap-2">
+          AMPERA<span className="text-[#9f1521] text-3xl leading-none">.</span>
+        </div>
+        <nav className="hidden md:flex items-center gap-8 text-xs sm:text-sm font-bold text-white/90">
+          <Link
+            href="#fasilitas"
+            className="hover:text-white transition-colors flex items-center gap-1.5"
+          >
+            <Building2 size={16} /> Fasilitas Ruangan
+          </Link>
+          <Link
+            href="#kendaraan"
+            className="hover:text-white transition-colors flex items-center gap-1.5"
+          >
+            <Car size={16} /> Armada Kendaraan
+          </Link>
+          <Link
+            href="/panduan"
+            className="hover:text-white transition-colors flex items-center gap-1.5"
+          >
+            <BookOpen size={16} /> Panduan Sistem
+          </Link>
+          <Link
+            href="/login"
+            className="px-6 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-full text-white transition-all shadow-sm"
+          >
+            Masuk Portal
+          </Link>
+        </nav>
+      </header>
+
+      {/* 3. MAIN HERO CONTENT (RATA KIRI ALA "Let's Go Hiking") */}
+      <div className="relative z-10 flex-1 flex flex-col justify-center px-6 md:px-12 max-w-7xl mx-auto w-full pb-24 md:pb-32">
         <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-          variants={textVariants}
-          className="space-y-6 text-center lg:text-left flex flex-col items-center lg:items-start"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
+          className="max-w-3xl space-y-6 sm:space-y-8"
         >
-          <div className="space-y-3">
-            <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight leading-none">
-              AMPERA
-            </h1>
-            <h2 className="text-xl md:text-2xl font-bold text-[#9f1521] leading-snug">
-              Manajemen Peminjaman Ruangan & Kendaraan
-            </h2>
+          {/* Social Proof / Trust Badge (Ala avatar tumpuk) */}
+          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/10 w-fit px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-lg">
+            <div className="flex -space-x-2">
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-slate-300 border-2 border-slate-900 flex items-center justify-center text-[8px] sm:text-[10px] font-bold text-slate-700 shadow-sm">
+                OJK
+              </div>
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-300 border-2 border-slate-900 flex items-center justify-center text-[8px] sm:text-[10px] font-bold text-slate-700 shadow-sm">
+                KR7
+              </div>
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#9f1521] border-2 border-slate-900 flex items-center justify-center text-[8px] sm:text-[10px] font-bold text-white shadow-sm">
+                SML
+              </div>
+            </div>
+            <span className="text-[10px] sm:text-xs font-medium text-white/90">
+              Digunakan oleh <strong>150+</strong> Pegawai OJK Sumsel
+            </span>
           </div>
 
-          <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-medium max-w-lg">
-            Platform terpadu Kantor OJK Provinsi Sumatera Selatan. Kelola
-            reservasi fasilitas pertemuan dan armada operasional secara efisien,
-            transparan, dan terstruktur.
+          {/* Heading Besar */}
+          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-bold text-white tracking-tight leading-[1.05]">
+            Akses Fasilitas <br /> Lebih Mudah.
+          </h1>
+
+          {/* Deskripsi Singkat */}
+          <p className="text-sm sm:text-base md:text-lg text-white/70 max-w-xl leading-relaxed font-medium">
+            Sistem terpadu untuk reservasi ruang pertemuan dan penjadwalan
+            armada dinas secara real-time. Dirancang khusus untuk efisiensi
+            operasional Kantor OJK Provinsi Sumatera Selatan.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-4 w-full sm:w-auto">
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full sm:w-auto"
+          {/* Call to Action Button */}
+          <div className="pt-4 flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center gap-2 bg-white text-slate-900 hover:bg-slate-100 px-8 py-4 rounded-full text-sm sm:text-base font-bold transition-all shadow-xl hover:shadow-2xl group w-full sm:w-auto"
             >
-              <Link
-                href="/login"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#9f1521] hover:bg-[#82111b] text-white text-xs sm:text-sm font-bold px-7 py-3.5 rounded-xl transition-all shadow-lg shadow-rose-900/20 group"
-              >
-                Masuk Portal Pegawai
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </motion.div>
+              Masuk ke Sistem
+              <ArrowRight
+                size={18}
+                className="group-hover:translate-x-1.5 transition-transform"
+              />
+            </Link>
 
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full sm:w-auto"
+            <Link
+              href="#fasilitas"
+              className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 px-8 py-4 rounded-full text-sm sm:text-base font-bold transition-all w-full sm:w-auto"
             >
-              <Link
-                href="/panduan"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white/80 backdrop-blur-sm hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs sm:text-sm font-bold px-7 py-3.5 rounded-xl transition-all shadow-sm"
-              >
-                <BookOpen className="w-4 h-4 text-slate-500 shrink-0" /> Panduan
-                & SOP
-              </Link>
-            </motion.div>
+              Lihat Katalog Ruangan
+            </Link>
           </div>
-        </motion.div>
-
-        {/* ================= BAGIAN KANAN: GAMBAR DENGAN FLOATING WIDGETS ================= */}
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-          variants={imageVariants}
-          className="relative w-full max-w-lg mx-auto lg:max-w-none mt-8 lg:mt-0"
-        >
-          {/* Main Image Container */}
-          <div className="relative aspect-[4/3] rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden border border-slate-200/50 shadow-2xl bg-slate-900">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentIndex}
-                initial={{ opacity: 0, scale: 1.05 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.8, ease: "easeInOut" }}
-                className="absolute inset-0 w-full h-full"
-              >
-                <Image
-                  src={buildingImages[currentIndex].src}
-                  alt={buildingImages[currentIndex].title}
-                  fill
-                  priority
-                  className="object-cover"
-                />
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Widget Koordinat (Kanan Atas) */}
-            <div className="absolute top-4 sm:top-5 right-4 sm:right-5 z-20 bg-slate-900/80 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-lg shadow-lg hidden sm:block">
-              <span className="text-[9px] font-mono font-medium text-white/90 tracking-widest">
-                LAT: -2.9761, LONG: 104.7578
-              </span>
-            </div>
-
-            {/* Gradient Overlay & Teks Gedung (Bawah) */}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent flex flex-col justify-end p-5 sm:p-8 z-10 pointer-events-none">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
-                <span className="text-[9px] sm:text-[10px] font-bold text-white/80 tracking-widest uppercase">
-                  ARSITEKTUR GREEN BUILDING OJK
-                </span>
-              </div>
-              <h3 className="text-sm sm:text-base lg:text-lg font-bold text-white leading-snug">
-                Jl. Jenderal Sudirman No. 1025, Kota Palembang
-              </h3>
-              <p className="text-[10px] sm:text-[11px] text-white/70 mt-1 font-medium">
-                Gedung 8 Lantai Ramah Lingkungan • Pusat Koordinasi Sektor
-                Keuangan
-              </p>
-            </div>
-          </div>
-
-          {/* ================= FLOATING WIDGET 1: RUANGAN (Kiri Atas) ================= */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6, duration: 0.6 }}
-            className="absolute -top-4 -left-4 sm:-top-6 sm:-left-8 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-100 p-4 z-30 w-56 sm:w-64"
-          >
-            <div className="flex justify-between items-center mb-3">
-              <div className="flex items-center gap-1.5">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-                </span>
-                <span className="text-[9px] font-black text-slate-500 tracking-wider">
-                  LIVE OCCUPANCY
-                </span>
-              </div>
-              <span className="text-[10px] font-bold text-slate-400">
-                Lt. 3
-              </span>
-            </div>
-            <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
-              Ruang Rapat Ampera
-            </h4>
-            <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1 leading-relaxed line-clamp-2">
-              Rapat Koordinasi Tim Pengawasan Perbankan Daerah
-            </p>
-            <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-100">
-              <span className="text-[10px] font-bold text-slate-500">
-                14:00 - 16:30 WIB
-              </span>
-              <span className="text-[10px] font-extrabold text-[#006400]">
-                Berlangsung
-              </span>
-            </div>
-          </motion.div>
-
-          {/* ================= FLOATING WIDGET 2: KENDARAAN (Kanan Bawah) ================= */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8, duration: 0.6 }}
-            className="absolute -bottom-4 -right-4 sm:-bottom-6 sm:-right-8 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-100 p-4 z-30 w-52 sm:w-60"
-          >
-            <div className="flex justify-between items-center mb-3">
-              <div className="flex items-center gap-1.5">
-                <span className="relative flex h-2 w-2">
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-                </span>
-                <span className="text-[9px] font-black text-slate-500 tracking-wider">
-                  FLEET DISPATCH
-                </span>
-              </div>
-              <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                Inova
-              </span>
-            </div>
-            <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
-              Kendaraan Dinas
-            </h4>
-            <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1">
-              Lobby Ground Floor
-            </p>
-            <div className="flex justify-between items-end mt-3 pt-3 border-t border-slate-100">
-              <span className="text-[9px] sm:text-[10px] font-extrabold text-rose-600">
-                Kendaraan Sedang Digunakan
-              </span>
-            </div>
-          </motion.div>
         </motion.div>
       </div>
+
+      {/* 4. SCROLL DOWN INDICATOR */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.5, duration: 1 }}
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-20 pointer-events-none"
+      >
+        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+          Scroll ke bawah
+        </span>
+        <div className="w-0.5 h-10 bg-slate-400/30 overflow-hidden relative rounded-full">
+          <div className="w-full h-1/2 bg-slate-400 absolute top-0 animate-bounce" />
+        </div>
+      </motion.div>
     </section>
   );
 }
