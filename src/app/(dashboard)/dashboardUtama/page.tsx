@@ -546,7 +546,9 @@ Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${targetBooking.t
               Provinsi Sumatera Selatan:
             </p>
 
-            <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-4 sm:p-5 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 max-h-[45vh] overflow-y-auto custom-scrollbar">
+            {/* Kotak Konten dengan Susunan Berbaris ke Bawah (Row) */}
+            <div className="space-y-4 bg-slate-50 dark:bg-slate-800/50 p-4 sm:p-5 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 max-h-[45vh] overflow-y-auto custom-scrollbar">
+              {/* Poin 1 */}
               <div className="flex items-start gap-3">
                 <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
                   <Check size={12} />
@@ -561,6 +563,13 @@ Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${targetBooking.t
                   Table (≥200 peserta) untuk menjaga kenyamanan dan kelancaran
                   kegiatan bersama.
                 </div>
+              </div>
+
+              {/* Poin 2 */}
+              <div className="flex items-start gap-3">
+                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                  <Check size={12} />
+                </div>
                 <div className="leading-relaxed">
                   <strong className="text-slate-900 dark:text-white">
                     Pencarian & Filter Kapasitas Ruangan:
@@ -569,6 +578,13 @@ Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${targetBooking.t
                   menyaring daftar ruangan berdasarkan jumlah digit atau
                   spesifikasi kapasitas angka ruangan secara presisi.
                 </div>
+              </div>
+
+              {/* Poin 3 */}
+              <div className="flex items-start gap-3">
+                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                  <Check size={12} />
+                </div>
                 <div className="leading-relaxed">
                   <strong className="text-slate-900 dark:text-white">
                     Aksi Pembatalan Mandiri (Internal):
@@ -576,6 +592,13 @@ Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${targetBooking.t
                   Penyediaan tombol batal khusus pada menu daftar agenda untuk
                   pengguna ber-role internal, memungkinkan pegawai membatalkan
                   pengajuan kegiatan mereka sendiri secara langsung dari sistem.
+                </div>
+              </div>
+
+              {/* Poin 4 */}
+              <div className="flex items-start gap-3">
+                <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                  <Check size={12} />
                 </div>
                 <div className="leading-relaxed">
                   <strong className="text-slate-900 dark:text-white">
