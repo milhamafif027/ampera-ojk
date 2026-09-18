@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Loader2,
   X,
+  BookOpen,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -541,29 +542,101 @@ export default function DashboardPage() {
           transition={{ duration: 0.4, delay: 0.1 }}
           className="space-y-6"
         >
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 rounded-2xl shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-              Menu & Layanan Eksternal Tersedia
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
-              Silakan pilih modul di bawah ini untuk melihat informasi fasilitas
-              atau mengajukan layanan yang Anda butuhkan.
-            </p>
+          {/* Banner Sambutan Informatif */}
+          <div className="bg-gradient-to-r from-[#9f1521] to-rose-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden">
+            <div className="space-y-2 relative z-10 max-w-xl">
+              <span className="text-[10px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full">
+                Portal Tamu & Instansi Luar
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight">
+                Layanan Terpadu OJK Provinsi Sumatera Selatan
+              </h2>
+              <p className="text-xs sm:text-sm text-white/80 font-medium leading-relaxed">
+                Silakan gunakan menu di bawah untuk melihat ketersediaan fasilitas ruangan, panduan kedinasan, atau menghubungi tim pengelola.
+              </p>
+            </div>
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 rounded-3xl shadow-sm space-y-6">
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                Menu & Layanan Eksternal Tersedia
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Pilih modul layanan di bawah untuk mengakses informasi instansi.
+              </p>
+            </div>
+
+            {/* Grid 4 Kartu Menu */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              {/* Menu 1: Katalog Ruangan */}
               <Link
                 href="/ruangan"
-                className="p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl hover:border-[#9f1521] transition-all group flex flex-col justify-between space-y-4 hover:shadow-md"
+                className="p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl hover:border-[#9f1521] transition-all group flex flex-col justify-between space-y-4 hover:shadow-lg"
               >
                 <div className="p-3 bg-rose-50 dark:bg-rose-950/40 text-[#9f1521] dark:text-rose-400 w-fit rounded-xl">
                   <Building2 size={20} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-[#9f1521] transition-colors">
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-[#9f1521] transition-colors">
                     Katalog Ruangan
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
                     Lihat daftar dan ketersediaan ruang rapat OJK Sumsel.
+                  </p>
+                </div>
+              </Link>
+
+              {/* Menu 2: Panduan & SOP */}
+              <Link
+                href="/panduan"
+                className="p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl hover:border-[#9f1521] transition-all group flex flex-col justify-between space-y-4 hover:shadow-lg"
+              >
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 w-fit rounded-xl">
+                  <BookOpen size={20} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-[#9f1521] transition-colors">
+                    Panduan & SOP
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                    Tata cara pengajuan dan prosedur kunjungan resmi.
+                  </p>
+                </div>
+              </Link>
+
+              {/* Menu 3: Hotel Rekanan */}
+              <Link
+                href="/#hotel"
+                className="p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl hover:border-[#9f1521] transition-all group flex flex-col justify-between space-y-4 hover:shadow-lg"
+              >
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 w-fit rounded-xl">
+                  <Hotel size={20} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-[#9f1521] transition-colors">
+                    Hotel Rekanan
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                    Daftar akomodasi mitra resmi untuk keperluan dinas.
+                  </p>
+                </div>
+              </Link>
+
+              {/* Menu 4: Pusat Bantuan */}
+              <Link
+                href="/bantuan"
+                className="p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl hover:border-[#9f1521] transition-all group flex flex-col justify-between space-y-4 hover:shadow-lg"
+              >
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 w-fit rounded-xl">
+                  <HelpCircle size={20} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-[#9f1521] transition-colors">
+                    Pusat Bantuan
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                    Hubungi tim administrasi atau IT Support OJK Sumsel.
                   </p>
                 </div>
               </Link>
