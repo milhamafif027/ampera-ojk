@@ -5,11 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  User,
-  Lock,
   Eye,
   EyeOff,
-  ArrowRight,
   ArrowLeft,
   HelpCircle,
   BookOpen,
@@ -50,7 +47,6 @@ export default function LoginPage() {
 
       const data = await res.json();
 
-      // Tangkap penolakan status 403 karena akun sedang aktif di perangkat lain
       if (res.status === 403) {
         setIsLoading(false);
         setDuplicateMessage(
@@ -77,85 +73,103 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen w-full flex items-center justify-center bg-slate-100 p-4 sm:p-6 font-sans selection:bg-[#9f1521] selection:text-white overflow-y-auto">
-      {/* Container Utama Berbentuk Kartu Fleksibel Menyesuaikan Layar */}
+    <main className="min-h-screen w-full flex items-center justify-center bg-slate-50 p-4 sm:p-6 font-sans selection:bg-[#9f1521] selection:text-white overflow-y-auto">
+      {/* Container Utama: Putih dengan padding di dalam untuk memberikan bingkai putih pada gambar */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
-        className="w-full max-w-5xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 border border-slate-200/60 my-auto"
+        className="w-full max-w-5xl bg-white rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col lg:flex-row p-2 sm:p-3 my-auto min-h-[600px] border border-slate-100"
       >
-        {/* SISI KIRI: Form Login (Lebar 6 Kolom) */}
-        <div className="lg:col-span-6 p-6 sm:p-10 lg:p-12 flex flex-col justify-between relative">
-          {/* Tombol Kembali */}
-          <div>
+        {/* SISI KIRI: Visual Gambar (Mirip referensi, digeser ke kiri) */}
+        <div className="hidden lg:flex lg:w-1/2 relative rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden bg-slate-900">
+          <Image
+            src="/bg-satu.jpg"
+            alt="Gedung OJK"
+            fill
+            priority
+            className="object-cover object-center opacity-90 mix-blend-overlay"
+          />
+          {/* Overlay Gelap */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-slate-900/30 flex flex-col justify-between p-8 text-white">
+            <div className="flex justify-between items-start">
+              <span className="text-xs font-bold tracking-widest text-white/80">
+                OJK SUMSEL
+              </span>
+              <div className="flex gap-4 text-[10px] font-bold tracking-widest text-white/60">
+                <Link href="/" className="hover:text-white transition-colors">
+                  BERANDA
+                </Link>
+                <Link
+                  href="/panduan"
+                  className="hover:text-white transition-colors"
+                >
+                  PANDUAN
+                </Link>
+              </div>
+            </div>
+
+            {/* Widget Ala User Profile di Kiri Bawah */}
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-[#9f1521] rounded-full flex items-center justify-center text-xs font-black shadow-lg">
+                OJK
+              </div>
+              <div>
+                <h3 className="font-bold text-lg leading-tight tracking-wide">
+                  AMPERA
+                </h3>
+                <p className="text-xs text-white/70 font-medium">
+                  Manajemen Peminjaman Ruangan & Kendaraan
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* SISI KANAN: Form Login yang Bersih */}
+        <div className="w-full lg:w-1/2 flex flex-col justify-center px-6 py-10 sm:px-12 lg:px-16 relative">
+          {/* Tombol Kembali (Mobile Only - Di Desktop dipindah ke gambar) */}
+          <div className="absolute top-6 right-6 lg:hidden">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-[#9f1521] transition-colors bg-slate-100 hover:bg-rose-50 px-3.5 py-2 rounded-xl group"
+              className="text-[10px] font-bold text-slate-500 hover:text-[#9f1521] flex items-center gap-1 transition-colors"
             >
-              <ArrowLeft
-                size={16}
-                className="group-hover:-translate-x-1 transition-transform"
-              />
-              Kembali ke Beranda Utama
+              <ArrowLeft size={14} /> Beranda
             </Link>
           </div>
 
-          {/* Konten Form */}
-          <div className="my-auto py-6 max-w-md w-full mx-auto">
-            <div className="relative h-14 w-28 mb-4">
-              <Image
-                src="/logo-lms.png"
-                alt="Logo OJK"
-                fill
-                priority
-                className="object-contain object-left"
-              />
+          <div className="max-w-sm w-full mx-auto space-y-8">
+            <div className="text-center lg:text-left space-y-2">
+              <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+                Selamat Datang
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium">
+                Masuk menggunakan kredensial pegawai AMPERA
+              </p>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-1 tracking-tight">
-              Selamat Datang Kembali
-            </h2>
-            <p className="text-slate-500 mb-6 text-xs font-medium">
-              Silakan masuk menggunakan kredensial akun pegawai AMPERA
-            </p>
-
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                  Email Pengguna
-                </label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-[#9f1521] transition-colors">
-                    <User size={16} />
-                  </div>
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div className="space-y-4">
+                {/* Input Email yang Bersih */}
+                <div>
                   <input
                     type="email"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 bg-slate-50/80 border-2 border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#9f1521] focus:bg-white transition-all font-medium shadow-sm"
-                    placeholder="adminlmst@kopg.go.id"
+                    className="w-full px-5 py-3.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#9f1521] focus:ring-1 focus:ring-[#9f1521] transition-all font-medium"
+                    placeholder="Email Pengguna"
                     required
                   />
                 </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                    Kata Sandi
-                  </label>
-                </div>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-[#9f1521] transition-colors">
-                    <Lock size={16} />
-                  </div>
+                {/* Input Password yang Bersih */}
+                <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-11 pr-11 py-3 bg-slate-50/80 border-2 border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#9f1521] focus:bg-white transition-all font-medium shadow-sm"
-                    placeholder="••••••••"
+                    className="w-full pl-5 pr-12 py-3.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#9f1521] focus:ring-1 focus:ring-[#9f1521] transition-all font-medium"
+                    placeholder="Kata Sandi"
                     required
                   />
                   <button
@@ -163,95 +177,63 @@ export default function LoginPage() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-[#9f1521] transition-colors cursor-pointer"
                   >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
 
+              {/* Lupa Kata Sandi / Pusat Bantuan */}
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowHelpModal(true)}
+                  className="text-[10px] sm:text-xs font-bold text-slate-500 hover:text-[#9f1521] transition-colors"
+                >
+                  Lupa kata sandi?
+                </button>
+              </div>
+
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600 font-bold flex items-center gap-2.5 shadow-sm">
+                <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600 font-bold flex items-center gap-2.5">
                   <ShieldAlert size={16} className="shrink-0 text-red-600" />
                   <span>{error}</span>
                 </div>
               )}
 
+              {/* Tombol Login Merah Klasik */}
               <motion.button
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-[#9f1521] hover:bg-[#7a1019] text-white py-3.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed shadow-lg shadow-rose-900/20 cursor-pointer mt-2"
+                className="w-full bg-[#9f1521] hover:bg-[#7a1019] text-white py-3.5 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed shadow-lg shadow-rose-900/20 cursor-pointer"
               >
                 {isLoading ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <>
-                    Masuk ke Dasbor Utama
-                    <ArrowRight size={16} />
-                  </>
+                  "Login Pegawai"
                 )}
               </motion.button>
             </form>
-          </div>
 
-          {/* Footer Kecil */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-400 max-w-md mx-auto w-full">
-            <div className="flex gap-4">
+            {/* Footer Form */}
+            <div className="pt-6 flex items-center justify-center gap-4 text-[10px] font-bold text-slate-400">
               <button
                 type="button"
                 onClick={() => setShowHelpModal(true)}
-                className="hover:text-[#9f1521] transition-colors flex items-center gap-1 cursor-pointer"
+                className="hover:text-slate-600 transition-colors flex items-center gap-1"
               >
-                <HelpCircle size={13} /> Pusat Bantuan
+                <HelpCircle size={12} /> Pusat Bantuan
               </button>
+              <span>•</span>
               <Link
                 href="/panduan"
-                className="hover:text-[#9f1521] transition-colors flex items-center gap-1"
+                className="hover:text-slate-600 transition-colors flex items-center gap-1"
               >
-                <BookOpen size={13} /> SOP / Panduan
+                <BookOpen size={12} /> SOP & Panduan
               </Link>
             </div>
-            <span>V 1.0</span>
           </div>
-        </div>
-
-        {/* SISI KANAN: Visual Gambar */}
-        <div className="hidden lg:col-span-6 lg:flex relative p-4 items-center justify-center">
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="relative w-full h-full min-h-[520px] lg:min-h-[580px] overflow-hidden shadow-xl"
-            style={{
-              borderRadius: "2rem",
-              clipPath:
-                "path('M 0 50 C 0 20, 20 0, 50 0 L 100% 0 L 100% 100% L 0 100% Z')",
-            }}
-          >
-            <Image
-              src="/bg-satu.jpg"
-              alt="Gedung OJK"
-              fill
-              priority
-              className="object-cover object-center transform hover:scale-105 transition-transform duration-1000"
-            />
-            {/* Gradien Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent flex flex-col justify-end p-8 text-white">
-              <span className="text-[10px] font-extrabold text-rose-300 uppercase tracking-widest mb-1">
-                Kantor OJK Provinsi Sumatera Selatan
-              </span>
-              <h3 className="text-2xl sm:text-3xl font-black mb-2 tracking-tight">
-                AMPERA
-              </h3>
-              <p className="text-sm text-rose-200 font-bold leading-relaxed max-w-md">
-                Aplikasi Manajemen Peminjaman Ruangan & Kendaraan
-              </p>
-              <p className="text-xs text-slate-400 mt-2">
-                Jl. Jend. Sudirman No. 1025, Sei Pangeran, Ilir Timur I,
-                Palembang 30114
-              </p>
-            </div>
-          </motion.div>
         </div>
       </motion.div>
 
@@ -311,7 +293,7 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* MODAL PERINGATAN KARENA AKUN SEDANG DIGUNAKAN DI PERANGKAT LAIN */}
+      {/* MODAL PERINGATAN SESI GANDA */}
       {isDuplicateModalOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
@@ -343,7 +325,6 @@ export default function LoginPage() {
               >
                 Mengerti & Coba Lagi
               </button>
-
               <p className="text-[10px] text-slate-400 leading-normal">
                 Jika Anda yakin tidak sedang membuka di perangkat lain, tunggu
                 1-2 menit atau tutup paksa tab sebelumnya.
