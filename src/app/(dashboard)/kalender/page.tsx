@@ -499,10 +499,13 @@ export default function KalenderPage() {
                   <div className="space-y-1 overflow-y-auto max-h-[80px] custom-scrollbar">
                     {dayAgendas.map((a) => {
                       let shapeColorClass =
-                        "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200";
+                        "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200"; // Disetujui
                       if (a.smartStatus === "Sedang Berlangsung") {
                         shapeColorClass =
                           "bg-blue-100 text-blue-900 dark:bg-blue-900/60 dark:text-blue-200";
+                      } else if (a.smartStatus === "Selesai") {
+                        shapeColorClass =
+                          "bg-indigo-100 text-indigo-900 dark:bg-indigo-900/60 dark:text-indigo-200"; // Ungu/Indigo untuk Selesai
                       } else if (
                         a.smartStatus === "Pending" ||
                         a.status === "Pending"
@@ -584,6 +587,9 @@ export default function KalenderPage() {
                     if (agenda.smartStatus === "Sedang Berlangsung") {
                       badgeColorClass =
                         "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400";
+                    } else if (agenda.smartStatus === "Selesai") {
+                      badgeColorClass =
+                        "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400"; // Ungu/Indigo untuk Selesai di Modal Detail
                     } else if (
                       agenda.smartStatus === "Pending" ||
                       agenda.status === "Pending"
