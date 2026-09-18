@@ -553,13 +553,38 @@ Pengajuan peminjaman Kendaraan Dinas OJK Sumsel dengan tujuan *${targetBooking.t
                 </div>
                 <div className="leading-relaxed">
                   <strong className="text-slate-900 dark:text-white">
-                    Validasi Cerdas Ruang Komunal:
+                    Integrasi & Validasi Otomatis Ruang Komunal:
                   </strong>{" "}
-                  Reservasi Ruang Komunal kini terintegrasi dengan status
-                  Ballroom. Komunal otomatis tidak dapat dipesan apabila
-                  Ballroom sedang digunakan dalam kapasitas maksimal (500
-                  peserta) atau menggunakan konfigurasi <em>Round Table</em>{" "}
-                  (≥200 peserta).
+                  Sistem kini secara otomatis membatasi pemesanan Ruang Komunal
+                  apabila Ballroom sedang digunakan dalam kapasitas maksimal
+                  (500 peserta) atau menggunakan konfigurasi tata letak Round
+                  Table (≥200 peserta) untuk menjaga kenyamanan dan kelancaran
+                  kegiatan bersama.
+                </div>
+                <div className="leading-relaxed">
+                  <strong className="text-slate-900 dark:text-white">
+                    Pencarian & Filter Kapasitas Ruangan:
+                  </strong>{" "}
+                  Penambahan fitur filter pencarian yang memungkinkan pengguna
+                  menyaring daftar ruangan berdasarkan jumlah digit atau
+                  spesifikasi kapasitas angka ruangan secara presisi.
+                </div>
+                <div className="leading-relaxed">
+                  <strong className="text-slate-900 dark:text-white">
+                    Aksi Pembatalan Mandiri (Internal):
+                  </strong>{" "}
+                  Penyediaan tombol batal khusus pada menu daftar agenda untuk
+                  pengguna ber-role internal, memungkinkan pegawai membatalkan
+                  pengajuan kegiatan mereka sendiri secara langsung dari sistem.
+                </div>
+                <div className="leading-relaxed">
+                  <strong className="text-slate-900 dark:text-white">
+                    Akses Cepat Detail Kegiatan:
+                  </strong>{" "}
+                  Penambahan tombol interaktif (ikon mata) pada seluruh daftar
+                  agenda, termasuk pada kartu Agenda Terdekat dan Live Status,
+                  sehingga pengguna dapat langsung melihat rincian lengkap
+                  kegiatan secara instan tanpa harus berpindah halaman.
                 </div>
               </div>
             </div>
