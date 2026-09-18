@@ -542,21 +542,7 @@ export default function DashboardPage() {
           transition={{ duration: 0.4, delay: 0.1 }}
           className="space-y-6"
         >
-          {/* Banner Sambutan Informatif */}
-          <div className="bg-gradient-to-r from-[#9f1521] to-rose-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden">
-            <div className="space-y-2 relative z-10 max-w-xl">
-              <span className="text-[10px] font-black uppercase tracking-widest bg-white/20 px-3 py-1 rounded-full">
-                Portal Tamu & Instansi Luar
-              </span>
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight">
-                Layanan Terpadu OJK Provinsi Sumatera Selatan
-              </h2>
-              <p className="text-xs sm:text-sm text-white/80 font-medium leading-relaxed">
-                Silakan gunakan menu di bawah untuk melihat ketersediaan fasilitas ruangan, panduan kedinasan, atau menghubungi tim pengelola.
-              </p>
-            </div>
-          </div>
-
+          
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 rounded-3xl shadow-sm space-y-6">
             <div>
               <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
