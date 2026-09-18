@@ -11,6 +11,7 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  Download,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import CardPartner from "@/components/dashboard/cardPartner";
@@ -308,11 +309,20 @@ export default function PartnerPage() {
             )}
           </div>
 
-          <div className="flex items-center gap-2 flex-1 justify-end flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-2.5 flex-1 justify-end flex-wrap sm:flex-nowrap">
+            {/* Tombol Download Excel List Kerjasama Hotel */}
+            <a
+              href="/List Kerjasama Hotel Sumsel 2026.xlsx"
+              download="List Kerjasama Hotel Sumsel 2026.xlsx"
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer whitespace-nowrap"
+            >
+              <Download size={16} /> Download List Harga (Excel)
+            </a>
+
             {isAdmin && (
               <button
                 onClick={openAddModal}
-                className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer whitespace-nowrap"
+                className="px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer whitespace-nowrap"
               >
                 <Plus size={16} /> Tambah Kemitraan
               </button>
