@@ -857,7 +857,7 @@ export default function AgendaPage() {
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase font-black tracking-wider">
-                <th className="p-4">Tanggal & Waktu</th>
+                <th className="p-4">Tanggal & Waktu Pelaksanaan</th>
                 <th className="p-4">Nama Kegiatan</th>
                 <th className="p-4">PIC / Satker</th>
                 <th className="p-4">Ruangan</th>
@@ -874,13 +874,14 @@ export default function AgendaPage() {
                   >
                     <td className="p-4 whitespace-nowrap">
                       <div className="flex flex-col gap-0.5">
+                        {/* Format Tanggal Indonesia: Hari, Tanggal Bulan Tahun */}
                         <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                           <Calendar size={13} className="text-[#9f1521]" />{" "}
                           {formatAgendaDate(item.date, item.endDate)}
                         </span>
                         <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
                           <Clock size={13} className="text-slate-400" />{" "}
-                          {item.time}
+                          {item.time} WIB
                         </span>
                       </div>
                     </td>
@@ -925,7 +926,7 @@ export default function AgendaPage() {
                             : item.smartStatus === "Sedang Berlangsung"
                               ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400"
                               : item.smartStatus === "Selesai"
-                                ? "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400" // <-- WARNA BARU: Ungu/Indigo untuk Selesai
+                                ? "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400"
                                 : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400"
                         }`}
                       >
@@ -970,7 +971,6 @@ export default function AgendaPage() {
                           </button>
                         )}
 
-                        {/* TOMBOL BATALKAN KEGIATAN DI ROW AKSI (HANYA UNTUK INTERNAL) */}
                         {!isAdmin && item.smartStatus !== "Ditolak" && (
                           <button
                             onClick={() => openCancelModal(item.id, item.title)}

@@ -51,7 +51,6 @@ export function getSmartStatus(agenda: {
 
     let endTime: Date;
 
-    // Perbaikan: Cukup cek apakah endDate ada dan berbeda dengan date, tanpa wajib type === "Multi-hari"
     const hasValidEndDate =
       agenda.endDate &&
       typeof agenda.endDate === "string" &&
@@ -138,17 +137,41 @@ export function formatDateIndo(dateStr: string): string {
   return `${parseInt(d, 10)} ${months[parseInt(m, 10) - 1]}`;
 }
 
-// Helper baru untuk menampilkan rentang tanggal di Modal Detail, List Agenda, & Pesan WA
+// PERBAIKAN: Format Tanggal Indonesia Sesuai Kaidah (Hari, Tanggal Bulan Tahun)
 export function formatAgendaDate(
   dateStr?: string,
   endDateStr?: string,
 ): string {
   if (!dateStr) return "-";
-  const start = String(dateStr).split("T")[0].trim();
-  const end = endDateStr ? String(endDateStr).split("T")[0].trim() : start;
 
-  if (!end || start === end) {
-    return start;
+  try {
+    const cleanStart = String(dateStr).split("T")[0].trim();
+    const cleanEnd = endDateStr
+      ? String(endDateStr).split("T")[0].trim()
+      : cleanStart;
+
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    };
+
+    const startDateObj = new Date(cleanStart);
+    if (isNaN(startDateObj.getTime())) return cleanStart;
+
+    const formattedStart = startDateObj.toLocaleDateString("id-ID", options);
+
+    if (!cleanEnd || cleanStart === cleanEnd) {
+      return formattedStart;
+    }
+
+    const endDateObj = new Date(cleanEnd);
+    if (isNaN(endDateObj.getTime())) return `${cleanStart} s.d. ${cleanEnd}`;
+
+    const formattedEnd = endDateObj.toLocaleDateString("id-ID", options);
+    return `${formattedStart} s.d. ${formattedEnd}`;
+  } catch {
+    return dateStr;
   }
-  return `${start} s.d. ${end}`;
 }

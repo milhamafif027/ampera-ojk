@@ -1,5 +1,6 @@
 "use client";
 
+import { getSmartStatus, formatAgendaDate } from "@/lib/utils";
 import React, { useState, useRef, memo } from "react";
 import { motion, Variants, AnimatePresence } from "framer-motion";
 import {
@@ -285,7 +286,7 @@ function RoomCard({
         }}
       >
         <div>
-{/* Banner Galeri Foto (Dengan Akselerasi GPU & Gaya Overlay ala MUI Titlebar) */}
+          {/* Banner Galeri Foto (Dengan Akselerasi GPU & Gaya Overlay ala MUI Titlebar) */}
           <div className="relative h-40 sm:h-48 w-full bg-slate-950 overflow-hidden group">
             <div
               ref={scrollContainerRef}
@@ -309,7 +310,7 @@ function RoomCard({
                     onError={() => setImageError(true)}
                     className="w-full h-full object-cover transform-gpu transition-transform duration-300 group-hover:scale-105"
                   />
-                  
+
                   {/* OVERLAY GRADIENT ALA MUI (Hitam Transparan di Bawah) */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                 </div>
@@ -326,7 +327,7 @@ function RoomCard({
                   <Users size={10} /> Kapasitas: {displayCapacity}
                 </p>
               </div>
-              <button 
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setLightboxImg(roomImages[activeImageIndex]);
@@ -579,7 +580,12 @@ function RoomCard({
                       <div className="flex justify-between items-center text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
                         <span>HARI INI</span>
                         <span className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 shadow-xs">
-                          {formattedToday}
+                          {/* Menggunakan format tanggal Indonesia */}
+                          {new Date().toLocaleDateString("id-ID", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          })}
                         </span>
                       </div>
                       <div className="space-y-1.5">
@@ -598,7 +604,16 @@ function RoomCard({
                       <div className="flex justify-between items-center text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
                         <span>BESOK</span>
                         <span className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 shadow-xs">
-                          {formattedTomorrow}
+                          {/* Menggunakan format tanggal Indonesia untuk besok */}
+                          {(() => {
+                            const tomorrow = new Date();
+                            tomorrow.setDate(tomorrow.getDate() + 1);
+                            return tomorrow.toLocaleDateString("id-ID", {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                            });
+                          })()}
                         </span>
                       </div>
                       <div className="space-y-1.5">
@@ -633,7 +648,9 @@ function RoomCard({
                               {item.title}
                             </p>
                             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
-                              🕒 {item.time} ({item.date})
+                              {/* PERBAIKAN: Format Tanggal Indonesia (formatAgendaDate) */}
+                              🕒 {item.time} (
+                              {formatAgendaDate(item.date, item.endDate)})
                             </p>
                           </div>
                           <span className="px-2.5 py-1.5 bg-white dark:bg-slate-800 text-[#9f1521] dark:text-rose-400 text-[11px] font-black rounded-xl border border-rose-200/80 dark:border-rose-900/50 shrink-0 shadow-2xs">
