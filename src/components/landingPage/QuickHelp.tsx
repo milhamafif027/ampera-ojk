@@ -80,6 +80,22 @@ export default function QuickHelp() {
       variants={containerVariants}
       className="max-w-7xl mx-auto px-6 py-20 w-full space-y-12"
     >
+      <style jsx>{`
+        .custom-scroll::-webkit-scrollbar {
+          width: 5px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+          background: rgba(159, 21, 33, 0.2);
+          border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+          background: rgba(159, 21, 33, 0.5);
+        }
+      `}</style>
+
       <motion.div
         variants={itemVariants}
         className="text-center max-w-2xl mx-auto space-y-3"
@@ -98,60 +114,67 @@ export default function QuickHelp() {
         <motion.div
           variants={itemVariants}
           whileHover={{ y: -4 }}
-          className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 transition-shadow duration-300 hover:shadow-md"
+          className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 transition-shadow duration-300 hover:shadow-md flex flex-col justify-between"
         >
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <div className="p-2.5 bg-rose-50 text-[#9f1521] rounded-xl">
-              <Headphones className="w-5 h-5" />
+          <div>
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+              <div className="p-2.5 bg-rose-50 text-[#9f1521] rounded-xl">
+                <Headphones className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-slate-800 text-base">
+                Bantuan Teknis IT & Ruangan
+              </h3>
             </div>
-            <h3 className="font-bold text-slate-800 text-base">
-              Bantuan Teknis IT & Ruangan
-            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 transition-all hover:bg-slate-100/80 hover:scale-[1.01]">
+                <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                  <Building className="w-4 h-4 text-[#9f1521]" /> Komputer &
+                  Hardware
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Troubleshooting perangkat kerja kantor.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 transition-all hover:bg-slate-100/80 hover:scale-[1.01]">
+                <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                  <PhoneCall className="w-4 h-4 text-[#9f1521]" /> Jaringan &
+                  Wi-Fi
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Gangguan koneksi LAN, Wi-Fi & VPN.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 transition-all hover:bg-slate-100/80 hover:scale-[1.01]">
+                <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                  <ExternalLink className="w-4 h-4 text-[#9f1521]" />{" "}
+                  Dokumentasi
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Dukungan media & liputan acara.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 transition-all hover:bg-slate-100/80 hover:scale-[1.01]">
+                <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                  <Headphones className="w-4 h-4 text-[#9f1521]" /> Helpdesk
+                  Internal
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Ext: 1025 / Layanan umum OJK.
+                </p>
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 transition-all hover:bg-slate-100/80 hover:scale-[1.01]">
-              <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
-                <Building className="w-4 h-4 text-[#9f1521]" /> Komputer &
-                Hardware
-              </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Troubleshooting perangkat kerja kantor.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 transition-all hover:bg-slate-100/80 hover:scale-[1.01]">
-              <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
-                <PhoneCall className="w-4 h-4 text-[#9f1521]" /> Jaringan &
-                Wi-Fi
-              </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Gangguan koneksi LAN, Wi-Fi & VPN.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 transition-all hover:bg-slate-100/80 hover:scale-[1.01]">
-              <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
-                <ExternalLink className="w-4 h-4 text-[#9f1521]" /> Dokumentasi
-              </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Dukungan media & liputan acara.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-1 transition-all hover:bg-slate-100/80 hover:scale-[1.01]">
-              <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
-                <Headphones className="w-4 h-4 text-[#9f1521]" /> Helpdesk
-                Internal
-              </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Ext: 1025 / Layanan umum OJK.
-              </p>
-            </div>
-          </div>
+          <p className="text-[11px] text-slate-400 italic border-t border-slate-100 pt-4">
+            * Layanan operasional internal hari kerja pukul 08.00 - 17.00 WIB.
+          </p>
         </motion.div>
 
-        {/* Kartu Referensi Vendor Konsumsi (Dinamis Database) */}
+        {/* Kartu Referensi Vendor Konsumsi (Dinamis Database dengan Tinggi Dipatenkan & Scroll) */}
         <motion.div
           variants={itemVariants}
           whileHover={{ y: -4 }}
@@ -169,7 +192,7 @@ export default function QuickHelp() {
               </div>
 
               {/* Tab Selector Snack / Katering */}
-              <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
+              <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold shrink-0">
                 <button
                   type="button"
                   onClick={() => setActiveTab("snack")}
@@ -195,31 +218,31 @@ export default function QuickHelp() {
               </div>
             </div>
 
-            {/* List Daftar Vendor */}
-            <div className="space-y-3 min-h-[160px] transition-opacity duration-300">
+            {/* List Daftar Vendor dengan Tinggi Dipatenkan & Scroll Otomatis */}
+            <div className="max-h-[220px] min-h-[220px] overflow-y-auto custom-scroll pr-2 space-y-3">
               {isLoading ? (
-                <div className="py-10 text-center text-xs text-slate-400 italic animate-pulse">
+                <div className="py-16 text-center text-xs text-slate-400 italic animate-pulse">
                   Memuat data vendor dari database...
                 </div>
               ) : vendors.length > 0 ? (
                 vendors.map((vendor) => (
                   <div
                     key={vendor.id}
-                    className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between transition-all duration-200 hover:bg-slate-100/80 hover:translate-x-1"
+                    className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between transition-all duration-200 hover:bg-slate-100/80"
                   >
-                    <span className="font-bold text-xs text-slate-800">
+                    <span className="font-bold text-xs text-slate-800 truncate pr-2">
                       {vendor.name}
                     </span>
                     <a
                       href={`tel:${vendor.phone.replace(/\s+/g, "")}`}
-                      className="text-xs font-bold text-[#9f1521] hover:underline flex items-center gap-1.5 bg-rose-50 px-3 py-1 rounded-xl border border-rose-100 transition-transform active:scale-95"
+                      className="text-xs font-bold text-[#9f1521] hover:underline flex items-center gap-1.5 bg-rose-50 px-3 py-1 rounded-xl border border-rose-100 transition-transform active:scale-95 shrink-0"
                     >
                       📞 {vendor.phone}
                     </a>
                   </div>
                 ))
               ) : (
-                <div className="py-10 text-center text-xs text-slate-400 italic">
+                <div className="py-16 text-center text-xs text-slate-400 italic">
                   Belum ada data vendor {activeTab} terdaftar di database.
                 </div>
               )}
