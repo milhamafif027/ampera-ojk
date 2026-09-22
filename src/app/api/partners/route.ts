@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
     const stars = formData.get("stars") as string;
     const area = formData.get("area") as string;
     const phone = formData.get("phone") as string;
+    const contact_name = formData.get("contact_name") as string; // <-- Tangkap contact_name
     const address = formData.get("address") as string;
     const description = formData.get("description") as string;
     const file = formData.get("image") as File | null;
@@ -55,8 +56,8 @@ export async function POST(request: NextRequest) {
     const starNum = Number(stars) || 4;
 
     const result: any = await db.$queryRaw`
-      INSERT INTO partners (name, stars, area, phone, address, description, img) 
-      VALUES (${name}, ${starNum}, ${area}, ${phone}, ${address || ""}, ${description || ""}, ${imagePath || ""})
+      INSERT INTO partners (name, stars, area, phone, contact_name, address, description, img) 
+      VALUES (${name}, ${starNum}, ${area}, ${phone}, ${contact_name || ""}, ${address || ""}, ${description || ""}, ${imagePath || ""})
       RETURNING id
     `;
 
@@ -89,6 +90,7 @@ export async function PUT(request: NextRequest) {
     const stars = formData.get("stars") as string;
     const area = formData.get("area") as string;
     const phone = formData.get("phone") as string;
+    const contact_name = formData.get("contact_name") as string; // <-- Tangkap contact_name
     const address = formData.get("address") as string;
     const description = formData.get("description") as string;
     const file = formData.get("image") as File | null;
@@ -106,13 +108,13 @@ export async function PUT(request: NextRequest) {
 
       await db.$executeRaw`
         UPDATE partners 
-        SET name = ${name}, stars = ${starNum}, area = ${area}, phone = ${phone}, address = ${address || ""}, description = ${description || ""}, img = ${imagePath}
+        SET name = ${name}, stars = ${starNum}, area = ${area}, phone = ${phone}, contact_name = ${contact_name || ""}, address = ${address || ""}, description = ${description || ""}, img = ${imagePath}
         WHERE id = ${partnerId}
       `;
     } else {
       await db.$executeRaw`
         UPDATE partners 
-        SET name = ${name}, stars = ${starNum}, area = ${area}, phone = ${phone}, address = ${address || ""}, description = ${description || ""}
+        SET name = ${name}, stars = ${starNum}, area = ${area}, phone = ${phone}, contact_name = ${contact_name || ""}, address = ${address || ""}, description = ${description || ""}
         WHERE id = ${partnerId}
       `;
     }
