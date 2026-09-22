@@ -297,6 +297,23 @@ export default function BantuanPage() {
       transition={{ duration: 0.4, ease: "easeOut" }}
       className="space-y-6"
     >
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(159, 21, 33, 0.25);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(159, 21, 33, 0.6);
+        }
+      `}</style>
+
       {/* 1. HEADER BAR */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div>
@@ -505,8 +522,8 @@ export default function BantuanPage() {
             />
           </div>
 
-          {/* List Vendor dengan Indikator Loading */}
-          <div className="space-y-3 min-h-[220px]">
+          {/* List Vendor dengan Tinggi Tetap & Scrollbar Vertikal */}
+          <div className="max-h-[380px] overflow-y-auto custom-scrollbar pr-1 space-y-3">
             {isLoading ? (
               <div className="py-16 flex flex-col items-center justify-center gap-2 text-xs text-slate-400 italic">
                 <Loader2 size={24} className="animate-spin text-[#9f1521]" />
@@ -527,23 +544,25 @@ export default function BantuanPage() {
                     key={vendor.id}
                     className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl flex items-center justify-between border border-slate-100 dark:border-slate-800 hover:border-slate-200 transition-all gap-4"
                   >
-                    <div className="space-y-1">
-                      <p className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                    {/* Informasi Vendor (Nama, Kategori, Telepon, Alamat di Bawah) */}
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <p className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate">
                         {vendor.name}
                       </p>
                       <p className="text-[10px] font-semibold text-[#9f1521] dark:text-rose-400 uppercase tracking-wider">
                         {vendor.category}
                       </p>
                       <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 space-y-0.5 pt-0.5">
-                        <p>📞 {displayPhone}</p>
+                        <p className="truncate">📞 {displayPhone}</p>
                         {vendor.address && (
-                          <p className="text-slate-400 dark:text-slate-500">
+                          <p className="text-slate-400 dark:text-slate-500 truncate">
                             📍 {vendor.address}
                           </p>
                         )}
                       </div>
                     </div>
 
+                    {/* Tombol Aksi */}
                     <div className="flex items-center gap-2 shrink-0">
                       <a
                         href={`https://wa.me/${cleanPhone}?text=Halo%20${encodeURIComponent(
