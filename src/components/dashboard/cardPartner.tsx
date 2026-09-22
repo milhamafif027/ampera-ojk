@@ -9,7 +9,7 @@ interface HotelPartner {
   stars: number;
   area: string;
   phone: string;
-  contact_name?: string; // <-- Ditambahkan agar mengenali nama kontak
+  contact_name?: string;
   address?: string;
   description?: string;
   img?: string;
@@ -28,15 +28,19 @@ export default function CardPartner({
   onEdit,
   onDelete,
 }: CardPartnerProps) {
+  const getValidImage = (img?: string) => {
+    if (!img || img.trim() === "" || img.startsWith("/uploads/")) {
+      return "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80";
+    }
+    return img;
+  };
+
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm flex flex-col transition-all hover:shadow-md">
       <div className="h-40 w-full overflow-hidden bg-slate-200 dark:bg-slate-800 relative">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={
-            hotel.img ||
-            "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80"
-          }
+          src={getValidImage(hotel.img)}
           alt={hotel.name}
           className="w-full h-full object-cover"
         />
@@ -87,7 +91,7 @@ export default function CardPartner({
         {/* Bagian Bawah: Nomor Telepon & Nama Kontak / PIC */}
         <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <a
-            href={`tel:${hotel.phone.replace(/\s+/g, "")}`}
+            href={`tel:${hotel.phone ? hotel.phone.replace(/\s+/g, "") : ""}`}
             className="text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-[#9f1521] flex items-center gap-1.5 transition-colors"
           >
             <Phone size={14} className="text-[#9f1521]" /> {hotel.phone}
