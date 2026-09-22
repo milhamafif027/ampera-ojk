@@ -589,24 +589,6 @@ export default function DashboardPage() {
                 </div>
               </Link>
 
-              {/* Menu 2: Panduan & SOP */}
-              <Link
-                href="/panduan"
-                className="p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl hover:border-[#9f1521] transition-all group flex flex-col justify-between space-y-4 hover:shadow-lg"
-              >
-                <div className="p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 w-fit rounded-xl">
-                  <BookOpen size={20} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-[#9f1521] transition-colors">
-                    Panduan & SOP
-                  </h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                    Tata cara pengajuan dan prosedur kunjungan resmi.
-                  </p>
-                </div>
-              </Link>
-
               {/* Menu 3: Hotel Rekanan */}
               <Link
                 href="/partners"
