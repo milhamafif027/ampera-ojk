@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Star, MapPin, Phone, Pencil, Trash2, Hotel } from "lucide-react";
+import { Star, MapPin, Phone, Pencil, Trash2, User } from "lucide-react";
 
 interface HotelPartner {
   id: number | string;
@@ -9,6 +9,7 @@ interface HotelPartner {
   stars: number;
   area: string;
   phone: string;
+  contact_name?: string; // <-- Ditambahkan agar mengenali nama kontak
   address?: string;
   description?: string;
   img?: string;
@@ -83,13 +84,20 @@ export default function CardPartner({
           </p>
         )}
 
-        <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        {/* Bagian Bawah: Nomor Telepon & Nama Kontak / PIC */}
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <a
             href={`tel:${hotel.phone.replace(/\s+/g, "")}`}
             className="text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-[#9f1521] flex items-center gap-1.5 transition-colors"
           >
             <Phone size={14} className="text-[#9f1521]" /> {hotel.phone}
           </a>
+
+          {hotel.contact_name && (
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 bg-slate-50 dark:bg-slate-800/60 px-2 py-1 rounded-lg border border-slate-100 dark:border-slate-800 w-fit">
+              <User size={12} className="text-[#9f1521]" /> {hotel.contact_name}
+            </span>
+          )}
         </div>
       </div>
     </div>
