@@ -542,7 +542,6 @@ export default function DashboardPage() {
           transition={{ duration: 0.4, delay: 0.1 }}
           className="space-y-6"
         >
-          
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 rounded-3xl shadow-sm space-y-6">
             <div>
               <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
@@ -1059,10 +1058,12 @@ export default function DashboardPage() {
                   <span className="text-slate-500 font-medium">
                     Tanggal Pelaksanaan:
                   </span>
-                  <span className="text-slate-900 dark:text-white font-bold">
-                    {detailModal.data?.date
-                      ? detailModal.data.date.slice(0, 10)
-                      : "-"}
+                  {/* PERBAIKAN: Menggunakan formatAgendaDate agar sesuai kaidah Indonesia */}
+                  <span className="text-slate-900 dark:text-white font-bold text-right">
+                    {formatAgendaDate(
+                      detailModal.data?.date,
+                      detailModal.data?.endDate,
+                    )}
                   </span>
                 </div>
                 <div className="flex justify-between">

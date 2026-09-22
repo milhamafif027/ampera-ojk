@@ -556,7 +556,25 @@ export default function KalenderPage() {
                   INFORMASI JADWAL TERPADU
                 </span>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
-                  Tanggal: {selectedDateModal.dateStr}
+                  {/* PERBAIKAN: Format Tanggal Indonesia */}
+                  Tanggal:{" "}
+                  {selectedDateModal.dateStr
+                    ? (() => {
+                        try {
+                          const dateObj = new Date(selectedDateModal.dateStr);
+                          return isNaN(dateObj.getTime())
+                            ? selectedDateModal.dateStr
+                            : dateObj.toLocaleDateString("id-ID", {
+                                weekday: "long",
+                                day: "numeric",
+                                month: "long",
+                                year: "numeric",
+                              });
+                        } catch {
+                          return selectedDateModal.dateStr;
+                        }
+                      })()
+                    : "-"}
                 </h3>
               </div>
               <button
