@@ -1,48 +1,28 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-
-const buildingImages = [
-  "/gedungOjk/tampakDepan1.jpg",
-  "/gedungOjk/tampakDepan2.jpeg",
-  "/gedungOjk/tampakDepan3.jpeg",
-  "/gedungOjk/tampakDepan4.jpeg",
-];
+import { motion } from "framer-motion";
 
 export default function Hero() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % buildingImages.length);
-    }, 6000);
-    return () => clearInterval(timer);
-  }, []);
-
   return (
     <section className="relative min-h-screen w-full flex flex-col overflow-hidden bg-slate-950">
-      {/* 1. BACKGROUND IMAGE FULLSCREEN SLIDESHOW TANPA GRADASI BAWAH */}
+      {/* 1. BACKGROUND VIDEO FULLSCREEN */}
       <div className="absolute inset-0 z-0">
-        <AnimatePresence mode="wait">
-          <motion.img
-            key={currentIndex}
-            src={buildingImages[currentIndex]}
-            alt="Latar Belakang Gedung OJK Sumsel"
-            initial={{ opacity: 0, scale: 1.05 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 1.5, ease: "easeInOut" }}
-            className="w-full h-full object-cover opacity-85"
-          />
-        </AnimatePresence>
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover opacity-85"
+        >
+          <source src="/bg-video02.mp4" type="video/mp4" />
+          Browser Anda tidak Mendukung Tag Video HTML5.
+        </video>
 
         {/* Gradien Gelap dari Sisi Kiri agar teks putih selalu tajam terbaca */}
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/60 to-transparent" />
-
-        {/* Gradien bawah dihapus sepenuhnya */}
       </div>
 
       {/* 2. MAIN HERO CONTENT */}
