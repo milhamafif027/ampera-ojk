@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { writeFile } from "fs/promises";
-import path from "path";
+import { supabase } from "@/lib/supabaseStorage"; // Pastikan path import ini sesuai dengan letak file client supabase Anda
 
 // 1. GET: Mengambil daftar partner
 export async function GET(request: NextRequest) {
@@ -21,7 +20,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 2. POST: Tambah Partner Baru
+// 2. POST: Tambah Partner Baru (Upload ke Supabase Storage)
 export async function POST(request: NextRequest) {
   try {
     const sessionCookie = request.cookies.get("session_token")?.value;
@@ -50,9 +49,27 @@ export async function POST(request: NextRequest) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
       const filename = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
-      const uploadDir = path.join(process.cwd(), "public/uploads");
-      await writeFile(path.join(uploadDir, filename), buffer);
-      imagePath = `/uploads/${filename}`;
+
+      // Upload ke Supabase Storage bucket 'PARTNERS_IMG'
+      const { error: uploadError } = await supabase.storage
+        .from("PARTNERS_IMG")
+        .upload(filename, buffer, {
+          contentType: file.type,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw new Error(
+          `Gagal upload gambar ke Supabase: ${uploadError.message}`,
+        );
+      }
+
+      // Ambil Public URL
+      const { data: publicURLData } = supabase.storage
+        .from("PARTNERS_IMG")
+        .getPublicUrl(filename);
+
+      imagePath = publicURLData.publicUrl;
     }
 
     const starNum = Number(stars) || 4;
@@ -73,7 +90,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 3. PUT: Edit Partner (Mempertahankan gambar lama jika tidak ada file baru yang di-upload)
+// 3. PUT: Edit Partner (Upload gambar baru ke Supabase Storage jika ada)
 export async function PUT(request: NextRequest) {
   try {
     const sessionCookie = request.cookies.get("session_token")?.value;
@@ -102,13 +119,28 @@ export async function PUT(request: NextRequest) {
     const partnerId = Number(id);
 
     if (file && file instanceof File && file.size > 0) {
-      // Jika user meng-upload foto baru
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
       const filename = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
-      const uploadDir = path.join(process.cwd(), "public/uploads");
-      await writeFile(path.join(uploadDir, filename), buffer);
-      const imagePath = `/uploads/${filename}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("PARTNERS_IMG")
+        .upload(filename, buffer, {
+          contentType: file.type,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw new Error(
+          `Gagal upload gambar ke Supabase: ${uploadError.message}`,
+        );
+      }
+
+      const { data: publicURLData } = supabase.storage
+        .from("PARTNERS_IMG")
+        .getPublicUrl(filename);
+
+      const imagePath = publicURLData.publicUrl;
 
       await db.$executeRaw`
         UPDATE partners 
@@ -116,7 +148,6 @@ export async function PUT(request: NextRequest) {
         WHERE id = ${partnerId}
       `;
     } else {
-      // Jika user tidak mengganti foto, update data teks saja tanpa mengubah kolom img
       await db.$executeRaw`
         UPDATE partners 
         SET name = ${name}, stars = ${starNum}, area = ${area}, phone = ${phone}, contact_name = ${contact_name || ""}, address = ${address || ""}, description = ${description || ""}
