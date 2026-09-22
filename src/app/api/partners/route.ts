@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
       // Ambil Public URL
       const { data: publicURLData } = supabase.storage
-        .from("PARTNERS_IMG")
+        .from("partners_img")
         .getPublicUrl(filename);
 
       imagePath = publicURLData.publicUrl;
@@ -124,7 +124,7 @@ export async function PUT(request: NextRequest) {
       const filename = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
 
       const { error: uploadError } = await supabase.storage
-        .from("PARTNERS_IMG")
+        .from("partners_img")
         .upload(filename, buffer, {
           contentType: file.type,
           upsert: true,
@@ -137,7 +137,7 @@ export async function PUT(request: NextRequest) {
       }
 
       const { data: publicURLData } = supabase.storage
-        .from("PARTNERS_IMG")
+        .from("partners_img")
         .getPublicUrl(filename);
 
       const imagePath = publicURLData.publicUrl;
