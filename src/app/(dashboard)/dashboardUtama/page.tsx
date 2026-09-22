@@ -122,91 +122,102 @@ export default function DashboardPage() {
     data: null,
   });
 
-  const loadDashboardData = useCallback(async (isInitial = false) => {
-    try {
-      if (isInitial) setIsLoading(true);
-      const [resAgendas, resRooms, resVehicles] = await Promise.all([
-        fetch("/api/agendas"),
-        fetch("/api/ruangan"),
-        fetch("/api/kendaraan"),
-      ]);
+  const isExternal = user?.role === "eksternal";
 
-      const resultAgendas = await resAgendas.json();
-      const resultRooms = await resRooms.json();
-      const resultVehicles = await resVehicles.json();
-
-      if (resAgendas.ok && resultAgendas.data) {
-        const mappedAgendas: ExtendedAgenda[] = resultAgendas.data.map(
-          (item: any) => {
-            const formattedDate = item.date
-              ? String(item.date).slice(0, 10)
-              : "";
-            const formattedEndDate = item.end_date
-              ? String(item.end_date).slice(0, 10)
-              : formattedDate;
-
-            let formattedTime = "";
-            if (item.start_time && item.end_time) {
-              const startStr = String(item.start_time);
-              const endStr = String(item.end_time);
-
-              const cleanStart = startStr.includes("T")
-                ? startStr.split("T")[1]
-                : startStr;
-              const cleanEnd = endStr.includes("T")
-                ? endStr.split("T")[1]
-                : endStr;
-
-              formattedTime = `${cleanStart.slice(0, 5)} - ${cleanEnd.slice(0, 5)}`;
-            } else {
-              formattedTime = item.time || "";
-            }
-
-            const agendaItem = {
-              id: String(item.id),
-              title: item.title,
-              date: formattedDate,
-              endDate: formattedEndDate,
-              time: formattedTime,
-              room: item.room_name || item.room || "Ruang Rapat OJK",
-              pic: item.pic || "Pegawai OJK",
-              dept: item.dept || "OJK Sumsel",
-              phone: item.phone || "",
-              layout: item.layout || "-",
-              status: item.status || "Pending",
-              total_participants: item.total_participants || 1,
-              meeting_leader: item.meeting_leader || "-",
-              notes: item.notes || "",
-            };
-
-            return {
-              ...agendaItem,
-              smartStatus: getSmartStatus(agendaItem) as StatusPengajuan,
-            };
-          },
-        );
-
-        setAgendas(mappedAgendas);
+  const loadDashboardData = useCallback(
+    async (isInitial = false) => {
+      // Jika user adalah eksternal, tidak perlu memuat data endpoint operasional/agenda
+      if (isExternal) {
+        if (isInitial) setIsLoading(false);
+        return;
       }
 
-      if (resRooms.ok && Array.isArray(resultRooms.data)) {
-        setRooms(resultRooms.data);
-      }
+      try {
+        if (isInitial) setIsLoading(true);
+        const [resAgendas, resRooms, resVehicles] = await Promise.all([
+          fetch("/api/agendas"),
+          fetch("/api/ruangan"),
+          fetch("/api/kendaraan"),
+        ]);
 
-      if (resVehicles.ok) {
-        if (resultVehicles.bookings) {
-          setVehicleBookings(resultVehicles.bookings);
+        const resultAgendas = await resAgendas.json();
+        const resultRooms = await resRooms.json();
+        const resultVehicles = await resVehicles.json();
+
+        if (resAgendas.ok && resultAgendas.data) {
+          const mappedAgendas: ExtendedAgenda[] = resultAgendas.data.map(
+            (item: any) => {
+              const formattedDate = item.date
+                ? String(item.date).slice(0, 10)
+                : "";
+              const formattedEndDate = item.end_date
+                ? String(item.end_date).slice(0, 10)
+                : formattedDate;
+
+              let formattedTime = "";
+              if (item.start_time && item.end_time) {
+                const startStr = String(item.start_time);
+                const endStr = String(item.end_time);
+
+                const cleanStart = startStr.includes("T")
+                  ? startStr.split("T")[1]
+                  : startStr;
+                const cleanEnd = endStr.includes("T")
+                  ? endStr.split("T")[1]
+                  : endStr;
+
+                formattedTime = `${cleanStart.slice(0, 5)} - ${cleanEnd.slice(0, 5)}`;
+              } else {
+                formattedTime = item.time || "";
+              }
+
+              const agendaItem = {
+                id: String(item.id),
+                title: item.title,
+                date: formattedDate,
+                endDate: formattedEndDate,
+                time: formattedTime,
+                room: item.room_name || item.room || "Ruang Rapat OJK",
+                pic: item.pic || "Pegawai OJK",
+                dept: item.dept || "OJK Sumsel",
+                phone: item.phone || "",
+                layout: item.layout || "-",
+                status: item.status || "Pending",
+                total_participants: item.total_participants || 1,
+                meeting_leader: item.meeting_leader || "-",
+                notes: item.notes || "",
+              };
+
+              return {
+                ...agendaItem,
+                smartStatus: getSmartStatus(agendaItem) as StatusPengajuan,
+              };
+            },
+          );
+
+          setAgendas(mappedAgendas);
         }
-        if (resultVehicles.vehicles) {
-          setAvailableVehicles(resultVehicles.vehicles);
+
+        if (resRooms.ok && Array.isArray(resultRooms.data)) {
+          setRooms(resultRooms.data);
         }
+
+        if (resVehicles.ok) {
+          if (resultVehicles.bookings) {
+            setVehicleBookings(resultVehicles.bookings);
+          }
+          if (resultVehicles.vehicles) {
+            setAvailableVehicles(resultVehicles.vehicles);
+          }
+        }
+      } catch (error) {
+        console.error("Gagal mengambil data dashboard:", error);
+      } finally {
+        if (isInitial) setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Gagal mengambil data dashboard:", error);
-    } finally {
-      if (isInitial) setIsLoading(false);
-    }
-  }, []);
+    },
+    [isExternal],
+  );
 
   useEffect(() => {
     let isCancelled = false;
@@ -216,6 +227,8 @@ export default function DashboardPage() {
     };
 
     init();
+
+    if (isExternal) return; // Tidak perlu interval polling untuk user eksternal
 
     const interval = setInterval(() => {
       if (!isCancelled) {
@@ -227,14 +240,13 @@ export default function DashboardPage() {
       isCancelled = true;
       clearInterval(interval);
     };
-  }, [loadDashboardData]);
+  }, [loadDashboardData, isExternal]);
 
   const handleManualRefresh = () => {
     loadDashboardData(true);
   };
 
   const isAdmin = user?.role === "admin";
-  const isExternal = user?.role === "eksternal";
 
   const liveAgendas = agendas.filter(
     (a) => a.smartStatus === "Sedang Berlangsung",
@@ -501,7 +513,7 @@ export default function DashboardPage() {
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
             Selamat Datang,{" "}
-            {user?.name || (isExternal ? "Tamu Eksternal" : "Pegawai OJK")}
+            {user?.name || (isExternal ? "User Eksternal" : "Pegawai OJK")}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
             {isExternal
@@ -511,13 +523,18 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={handleManualRefresh}
-            className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
-            title="Refresh Data"
-          >
-            <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
-          </button>
+          {!isExternal && (
+            <button
+              onClick={handleManualRefresh}
+              className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+              title="Refresh Data"
+            >
+              <RefreshCw
+                size={16}
+                className={isLoading ? "animate-spin" : ""}
+              />
+            </button>
+          )}
           <div className="px-4 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/50 text-right">
             <span className="block text-[9px] font-extrabold text-[#9f1521] uppercase tracking-wider">
               HARI INI
@@ -534,7 +551,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* DASHBOARD EKSTERNAL */}
+      {/* DASHBOARD EKSTERNAL (STATIS / TANPA ENDPOINT) */}
       {isExternal ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -592,7 +609,7 @@ export default function DashboardPage() {
 
               {/* Menu 3: Hotel Rekanan */}
               <Link
-                href="/#hotel"
+                href="/partners"
                 className="p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl hover:border-[#9f1521] transition-all group flex flex-col justify-between space-y-4 hover:shadow-lg"
               >
                 <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 w-fit rounded-xl">
@@ -1058,7 +1075,6 @@ export default function DashboardPage() {
                   <span className="text-slate-500 font-medium">
                     Tanggal Pelaksanaan:
                   </span>
-                  {/* PERBAIKAN: Menggunakan formatAgendaDate agar sesuai kaidah Indonesia */}
                   <span className="text-slate-900 dark:text-white font-bold text-right">
                     {formatAgendaDate(
                       detailModal.data?.date,
