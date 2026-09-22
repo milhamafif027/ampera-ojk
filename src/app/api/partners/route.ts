@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
       // Upload ke Supabase Storage bucket 'PARTNERS_IMG'
       const { error: uploadError } = await supabase.storage
-        .from("PARTNERS_IMG")
+        .from("partners_img")
         .upload(filename, buffer, {
           contentType: file.type,
           upsert: true,
