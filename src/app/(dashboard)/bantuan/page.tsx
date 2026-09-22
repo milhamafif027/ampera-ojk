@@ -525,29 +525,33 @@ export default function BantuanPage() {
                 return (
                   <div
                     key={vendor.id}
-                    className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl flex items-center justify-between border border-slate-100 dark:border-slate-800 hover:border-slate-200 transition-all"
+                    className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl flex items-center justify-between border border-slate-100 dark:border-slate-800 hover:border-slate-200 transition-all gap-4"
                   >
-                    <div className="space-y-0.5">
+                    <div className="space-y-1">
                       <p className="font-bold text-xs text-slate-800 dark:text-slate-200">
                         {vendor.name}
                       </p>
                       <p className="text-[10px] font-semibold text-[#9f1521] dark:text-rose-400 uppercase tracking-wider">
                         {vendor.category}
                       </p>
-                      <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 pt-1">
-                        📞 {displayPhone}{" "}
-                        {vendor.address ? `• 📍 ${vendor.address}` : ""}
-                      </p>
+                      <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 space-y-0.5 pt-0.5">
+                        <p>📞 {displayPhone}</p>
+                        {vendor.address && (
+                          <p className="text-slate-400 dark:text-slate-500">
+                            📍 {vendor.address}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <a
                         href={`https://wa.me/${cleanPhone}?text=Halo%20${encodeURIComponent(
                           vendor.name,
                         )},%20saya%20dari%20OJK%20Sumsel%20ingin%20menanyakan%20pemesanan%20konsumsi.`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm shrink-0 cursor-pointer"
+                        className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
                       >
                         <MessageCircle size={14} /> WhatsApp
                       </a>
@@ -605,9 +609,9 @@ export default function BantuanPage() {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl space-y-4"
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] max-w-sm w-full shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
           >
-            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 p-6 pb-3 shrink-0">
               <h3 className="font-bold text-slate-900 dark:text-white text-base">
                 Edit Ext: {selectedItService.title}
               </h3>
@@ -619,7 +623,10 @@ export default function BantuanPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveItExt} className="space-y-4 text-xs">
+            <form
+              onSubmit={handleSaveItExt}
+              className="p-6 space-y-4 text-xs overflow-y-auto flex-1"
+            >
               <div>
                 <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
                   Nomor Extension
@@ -660,9 +667,9 @@ export default function BantuanPage() {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-md w-full shadow-2xl space-y-4"
+            className="relative bg-white dark:bg-slate-900 rounded-[2rem] max-w-md w-full shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
           >
-            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 p-6 pb-3 shrink-0">
               <h3 className="font-bold text-slate-900 dark:text-white text-base">
                 {editingVendor ? "Edit Data Vendor" : "Tambah Vendor Baru"}
               </h3>
@@ -675,7 +682,10 @@ export default function BantuanPage() {
               </button>
             </div>
 
-            <form onSubmit={handleVendorSubmit} className="space-y-4 text-xs">
+            <form
+              onSubmit={handleVendorSubmit}
+              className="p-6 space-y-4 text-xs overflow-y-auto flex-1"
+            >
               <div>
                 <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
                   Nama Vendor / Toko
