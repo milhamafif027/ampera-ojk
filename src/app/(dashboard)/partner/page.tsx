@@ -1,697 +1,607 @@
 "use client";
 
-import { getSmartStatus, formatAgendaDate } from "@/lib/utils";
-import React, { useState, useRef, memo } from "react";
-import { motion, Variants, AnimatePresence } from "framer-motion";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Pencil,
-  Trash2,
-  Info,
-  Users,
-  Calendar,
-  X,
+  Hotel,
+  RefreshCw,
+  Search,
   Plus,
+  X,
+  AlertTriangle,
+  Loader2,
   ChevronLeft,
   ChevronRight,
-  Clock,
-  Building2,
-  User,
-  Car,
-  MapPin,
+  Download,
 } from "lucide-react";
-import { Room } from "@/types";
+import { motion } from "framer-motion";
+import CardPartner from "@/components/dashboard/cardPartner";
+
+interface HotelPartner {
+  id: number | string;
+  name: string;
+  stars: number;
+  area: string;
+  phone: string;
+  contact_name?: string; // <-- Ditambahkan sesuai kolom baru database
+  address?: string;
+  description?: string;
+  img?: string;
+}
 
 interface LocalUser {
   id: number;
   name: string;
   email: string;
   role: string;
-  nip?: string;
 }
 
-interface RoomCardProps {
-  room: Room;
-  isAdmin: boolean;
-  user: LocalUser | null;
-  getRoomLiveStatus: (name: string) => { isUsed: boolean; [key: string]: any };
-  handleOpenBooking: (room: Room) => void;
-  handleOpenEditModal: (room: Room) => void;
-  handleDeleteRoom?: (roomId: string | number) => void;
-  agendas?: any[];
-  cardVariants?: Variants;
-}
+export default function PartnerPage() {
+  const [partners, setPartners] = useState<HotelPartner[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<LocalUser | null>(null);
 
-function RoomCard({
-  room,
-  isAdmin,
-  getRoomLiveStatus,
-  handleOpenBooking,
-  handleOpenEditModal,
-  handleDeleteRoom,
-  agendas = [],
-}: RoomCardProps) {
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [imageError, setImageError] = useState(false);
+  // Ref untuk Scroll Horizontal Carousel Hotel Rekanan (Hanya aktif di mobile/HP)
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Ref untuk mengontrol posisi scroll gambar secara otomatis
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  // State untuk Modal Lightbox / Zoom Gambar
-  const [lightboxImg, setLightboxImg] = useState<string | null>(null);
-
-  // State untuk Modal Cek Jadwal Ruangan
-  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
-
-  // State untuk Modal Detail Jadwal Terpadu (Tanggal Tertentu)
-  const [selectedDateModal, setSelectedDateModal] = useState<{
-    isOpen: boolean;
-    dateStr: string;
-    agendas: any[];
-    vehicles: any[];
-  }>({
-    isOpen: false,
-    dateStr: "",
-    agendas: [],
-    vehicles: [],
-  });
-
-  const liveStatus = getRoomLiveStatus(room.name);
-
-  const roomDesc =
-    (room as any).description || "Perlengkapan: Proyektor | Sound System | AC";
-  const roomLayout = (room as any).layout;
-
-  let displayCapacity = room.capacity
-    ? String(room.capacity).trim()
-    : "50 Orang";
-  if (
-    room.name.toLowerCase().includes("sriwidjaya") &&
-    !displayCapacity.includes("-")
-  ) {
-    displayCapacity = "80 - 500 Orang";
-  } else if (!displayCapacity.toLowerCase().includes("orang")) {
-    displayCapacity = `${displayCapacity} Orang`;
-  }
-
-  const defaultImage =
-    "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80";
-
-  const roomImgs = (room as any).imgs;
-  let roomImages: string[] = [defaultImage];
-  if (roomImgs) {
-    if (Array.isArray(roomImgs) && roomImgs.length > 0) {
-      roomImages = roomImgs.filter(Boolean);
-    } else if (typeof roomImgs === "string") {
-      try {
-        const parsed = JSON.parse(roomImgs);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          roomImages = parsed.filter(Boolean);
-        }
-      } catch {
-        roomImages = [defaultImage];
-      }
-    }
-  }
-
-  const todayObj = new Date();
-  const todayStr = todayObj.toISOString().split("T")[0];
-
-  const tomorrowObj = new Date();
-  tomorrowObj.setDate(tomorrowObj.getDate() + 1);
-  const tomorrowStr = tomorrowObj.toISOString().split("T")[0];
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const scrollLeft = e.currentTarget.scrollLeft;
-    const width = e.currentTarget.offsetWidth;
-    if (width > 0) {
-      const index = Math.round(scrollLeft / width);
-      if (index !== activeImageIndex) {
-        setActiveImageIndex(index);
-      }
-    }
-  };
-
-  const scrollToImage = (index: number) => {
-    if (scrollContainerRef.current) {
-      const width = scrollContainerRef.current.offsetWidth;
-      scrollContainerRef.current.scrollTo({
-        left: width * index,
+  const scrollPartners = (direction: "left" | "right") => {
+    if (scrollRef.current) {
+      const { scrollLeft, clientWidth } = scrollRef.current;
+      const scrollAmount = clientWidth * 0.75;
+      scrollRef.current.scrollTo({
+        left:
+          direction === "left"
+            ? scrollLeft - scrollAmount
+            : scrollLeft + scrollAmount,
         behavior: "smooth",
       });
     }
-    setActiveImageIndex(index);
   };
 
-  const handlePrevImage = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const newIndex =
-      activeImageIndex === 0 ? roomImages.length - 1 : activeImageIndex - 1;
-    scrollToImage(newIndex);
-  };
+  // State Modal (Tambah / Edit)
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [currentId, setCurrentId] = useState<string | number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleNextImage = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const newIndex =
-      activeImageIndex === roomImages.length - 1 ? 0 : activeImageIndex + 1;
-    scrollToImage(newIndex);
-  };
+  // State Modal Konfirmasi Hapus
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{
+    id: number | string;
+    name: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDelete = () => {
-    if (
-      confirm(
-        `Apakah Anda yakin ingin menghapus ruangan ${room.name} ${roomLayout ? `(${roomLayout})` : ""}?`,
-      )
-    ) {
-      if (handleDeleteRoom) {
-        handleDeleteRoom(room.id);
+  const [formData, setFormData] = useState({
+    name: "",
+    stars: 4,
+    area: "",
+    phone: "",
+    contact_name: "", // <-- State baru untuk nama kontak
+    address: "",
+    description: "",
+  });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const fetchPartners = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/partners");
+      const result = await res.json();
+
+      if (res.ok && result.data) {
+        setPartners(result.data);
       }
+    } catch (error) {
+      console.error("Gagal mengambil data hotel rekanan:", error);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, []);
 
-  const handleEditClick = () => {
-    let existingImages = roomImages;
-    if (typeof roomImgs === "string") {
-      try {
-        existingImages = JSON.parse(roomImgs);
-      } catch {
-        existingImages = [defaultImage];
+  useEffect(() => {
+    const initData = async () => {
+      await Promise.resolve();
+      const storedUser = sessionStorage.getItem("local_user");
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch (err) {
+          console.error("Gagal membaca user session:", err);
+        }
       }
-    }
-
-    const roomWithExistingImgs = {
-      ...room,
-      existingImgs: existingImages,
+      fetchPartners();
     };
 
-    handleOpenEditModal(roomWithExistingImgs as Room);
+    initData();
+  }, [fetchPartners]);
+
+  const isAdmin = user?.role === "admin";
+
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const roomAgendas = agendas.filter((a) => {
-    if (!a.room || a.room.toLowerCase() !== room.name.toLowerCase())
-      return false;
-
-    const isValidStatus =
-      a.smartStatus === "Disetujui" || a.smartStatus === "Sedang Berlangsung";
-    if (!isValidStatus) return false;
-
-    if (a.date && a.date >= todayStr) {
-      return true;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
     }
-    return false;
-  });
+  };
 
-  const getAvailableSlotsForDate = (targetDateStr: string) => {
-    const operationalStart = "08:00";
-    const operationalEnd = "17:00";
-
-    const agendasOnDate = roomAgendas
-      .filter((a) => a.date === targetDateStr && a.time)
-      .map((a) => {
-        const parts = a.time.split("-");
-        if (parts.length === 2) {
-          return {
-            start: parts[0].trim().slice(0, 5),
-            end: parts[1].trim().slice(0, 5),
-          };
-        }
-        return null;
-      })
-      .filter(Boolean)
-      .sort((a: any, b: any) => a.start.localeCompare(b.start));
-
-    if (agendasOnDate.length === 0) {
-      return [`${operationalStart} - ${operationalEnd}`];
-    }
-
-    const slots: string[] = [];
-    let currentTime = operationalStart;
-
-    agendasOnDate.forEach((agenda: any) => {
-      if (currentTime < agenda.start) {
-        slots.push(`${currentTime} - ${agenda.start}`);
-      }
-      if (agenda.end > currentTime) {
-        currentTime = agenda.end;
-      }
+  const openAddModal = () => {
+    setIsEditMode(false);
+    setCurrentId(null);
+    setFormData({
+      name: "",
+      stars: 4,
+      area: "",
+      phone: "",
+      contact_name: "",
+      address: "",
+      description: "",
     });
-
-    if (currentTime < operationalEnd) {
-      slots.push(`${currentTime} - ${operationalEnd}`);
-    }
-
-    return slots.length > 0 ? slots : ["Penuh (Tidak ada slot kosong)"];
+    setSelectedFile(null);
+    setIsModalOpen(true);
   };
 
-  const todayAvailableSlots = getAvailableSlotsForDate(todayStr);
-  const tomorrowAvailableSlots = getAvailableSlotsForDate(tomorrowStr);
-
-  const renderFormattedDescription = (text: string) => {
-    if (!text) return null;
-    const italicTerms = [
-      "layout",
-      "Theater",
-      "Klasikal",
-      "U-Shape",
-      "Roundtable",
-      "Videotron",
-      "Infokus",
-      "Proyektor",
-      "Sound System",
-      "Mic Delegate Wireless",
-    ];
-    const escapedTerms = italicTerms.map((term) =>
-      term.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"),
-    );
-    const regex = new RegExp(`(${escapedTerms.join("|")})`, "gi");
-    const parts = text.split(regex);
-
-    return parts.map((part, i) => {
-      const isMatch = italicTerms.some(
-        (term) => term.toLowerCase() === part.toLowerCase(),
-      );
-      if (isMatch) {
-        return (
-          <span key={i} className="italic font-semibold">
-            {part}
-          </span>
-        );
-      }
-      return part;
+  const openEditModal = (hotel: HotelPartner) => {
+    setIsEditMode(true);
+    setCurrentId(hotel.id);
+    setFormData({
+      name: hotel.name,
+      stars: hotel.stars,
+      area: hotel.area,
+      phone: hotel.phone,
+      contact_name: hotel.contact_name || "", // <-- Ambil data nama kontak saat edit
+      address: hotel.address || "",
+      description: hotel.description || "",
     });
+    setSelectedFile(null);
+    setIsModalOpen(true);
   };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const data = new FormData();
+      if (isEditMode && currentId) {
+        data.append("id", String(currentId));
+      }
+      data.append("name", formData.name);
+      data.append("stars", String(formData.stars));
+      data.append("area", formData.area);
+      data.append("phone", formData.phone);
+      data.append("contact_name", formData.contact_name); // <-- Kirim ke API
+      data.append("address", formData.address);
+      data.append("description", formData.description);
+
+      if (selectedFile) {
+        data.append("image", selectedFile);
+      }
+
+      const res = await fetch("/api/partners", {
+        method: isEditMode ? "PUT" : "POST",
+        body: data,
+      });
+
+      if (res.ok) {
+        setIsModalOpen(false);
+        fetchPartners();
+      } else {
+        alert("Gagal menyimpan data hotel rekanan.");
+      }
+    } catch (error) {
+      console.error("Error saving partner:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const promptDelete = (id: number | string, name: string) => {
+    setItemToDelete({ id, name });
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/partners?id=${itemToDelete.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
+        fetchPartners();
+      } else {
+        alert("Gagal menghapus data hotel rekanan.");
+      }
+    } catch (error) {
+      console.error("Error deleting partner:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const filteredPartners = partners.filter(
+    (p) =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.area.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.address && p.address.toLowerCase().includes(searchTerm.toLowerCase())),
+  );
+
+  const inputClassName =
+    "w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium focus:bg-white dark:focus:bg-slate-900 focus:border-[#9f1521] outline-none text-slate-800 dark:text-slate-100 shadow-sm transition-colors";
+  const labelClassName =
+    "text-[10px] font-extrabold text-slate-500 dark:text-slate-400 mb-1.5 block tracking-wider uppercase";
 
   return (
-    <>
-      <div
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between transition-all hover:shadow-md w-full relative transform-gpu"
-        style={{
-          contentVisibility: "auto",
-          containIntrinsicSize: "auto 320px",
-        }}
-      >
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="space-y-6 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full pb-12"
+    >
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(159, 21, 33, 0.25);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(159, 21, 33, 0.6);
+        }
+      `}</style>
+
+      {/* HEADER BAR */}
+      <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
         <div>
-          <div className="relative h-40 sm:h-48 w-full bg-slate-950 overflow-hidden group">
-            <div
-              ref={scrollContainerRef}
-              onScroll={handleScroll}
-              className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scroll-smooth cursor-zoom-in transform-gpu"
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-              onClick={() => setLightboxImg(roomImages[activeImageIndex])}
-              title="Klik untuk memperbesar gambar"
-            >
-              {roomImages.map((imgUrl, idx) => (
-                <div
-                  key={idx}
-                  className="relative h-full w-full flex-shrink-0 snap-center"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={imageError ? defaultImage : imgUrl}
-                    alt={`${room.name} - ${idx + 1}`}
-                    loading="lazy"
-                    decoding="async"
-                    onError={() => setImageError(true)}
-                    className="w-full h-full object-cover transform-gpu transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                </div>
-              ))}
-            </div>
-
-            <div className="absolute bottom-0 left-0 right-0 p-3 flex justify-between items-end pointer-events-none z-20">
-              <div className="text-white">
-                <h3 className="font-bold text-sm sm:text-base leading-tight drop-shadow-md">
-                  {room.name}
-                </h3>
-                <p className="text-[10px] text-white/80 font-medium mt-0.5 flex items-center gap-1 drop-shadow-md">
-                  <Users size={10} /> Kapasitas: {displayCapacity}
-                </p>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLightboxImg(roomImages[activeImageIndex]);
-                }}
-                className="text-white/70 hover:text-white p-1 pointer-events-auto transition-colors"
-                title={`Info about ${room.name}`}
-              >
-                <Info size={18} />
-              </button>
-            </div>
-
-            {roomImages.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={handlePrevImage}
-                  className="absolute left-1.5 top-1/2 -translate-y-1/2 p-1 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all opacity-0 group-hover:opacity-100 cursor-pointer z-10 shadow-sm"
-                  title="Foto Sebelumnya"
-                >
-                  <ChevronLeft size={14} />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNextImage}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all opacity-0 group-hover:opacity-100 cursor-pointer z-10 shadow-sm"
-                  title="Foto Berikutnya"
-                >
-                  <ChevronRight size={14} />
-                </button>
-              </>
-            )}
-
-            <div className="absolute top-2.5 right-2.5 z-10 flex gap-1.5 pointer-events-none">
-              {liveStatus.isUsed ? (
-                <span className="px-2 py-0.5 bg-amber-500 text-white text-[9px] font-bold rounded-full shadow-sm">
-                  Sedang Digunakan
-                </span>
-              ) : (
-                <span className="px-2 py-0.5 bg-emerald-600 text-white text-[9px] font-bold rounded-full shadow-sm">
-                  Tersedia
-                </span>
-              )}
-            </div>
-
-            {roomImages.length > 1 && (
-              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 bg-black/50 px-2 py-0.5 rounded-full pointer-events-none">
-                {roomImages.map((_, idx) => (
-                  <span
-                    key={idx}
-                    className={`h-1 rounded-full transition-all ${
-                      activeImageIndex === idx
-                        ? "w-2.5 bg-white"
-                        : "w-1 bg-white/50"
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="p-3.5 flex flex-col space-y-2.5">
-            <div className="flex justify-between items-start gap-2">
-              <div className="min-w-0 flex-1 space-y-1">
-                <h3
-                  className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm truncate"
-                  title={room.name}
-                >
-                  {room.name}
-                </h3>
-
-                {roomLayout && (
-                  <span className="inline-block px-2 py-0.5 bg-rose-50 dark:bg-rose-950/40 text-[#9f1521] dark:text-rose-400 text-[9px] font-black rounded-md border border-rose-200 dark:border-rose-900/50 truncate max-w-full">
-                    Layout: {roomLayout}
-                  </span>
-                )}
-              </div>
-
-              {isAdmin && (
-                <div className="flex items-center gap-1 shrink-0 pt-0.5">
-                  <button
-                    onClick={handleEditClick}
-                    className="p-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 hover:text-amber-600 text-slate-600 dark:text-slate-300 rounded-lg transition-colors cursor-pointer"
-                    title="Edit Ruangan"
-                    type="button"
-                  >
-                    <Pencil size={12} />
-                  </button>
-
-                  <button
-                    onClick={handleDelete}
-                    className="p-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 text-slate-600 dark:text-slate-300 rounded-lg transition-colors cursor-pointer"
-                    title="Hapus Ruangan"
-                    type="button"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-              <Users size={12} className="text-[#9f1521] shrink-0" /> Kapasitas:{" "}
-              <strong className="text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md text-[10px]">
-                {displayCapacity}
-              </strong>
-            </p>
-
-            <div className="max-h-[70px] overflow-y-auto custom-scrollbar pr-1 bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2">
-              <div className="flex items-start gap-1.5 text-[10px] text-slate-600 dark:text-slate-300">
-                <Info size={12} className="text-slate-400 shrink-0 mt-0.5" />
-                <div className="leading-relaxed">
-                  {renderFormattedDescription(roomDesc)}
-                </div>
-              </div>
-            </div>
-          </div>
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Hotel className="text-[#9f1521] shrink-0" size={22} /> Kemitraan
+            Hotel Rekanan
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+            Daftar akomodasi hotel mitra resmi Kantor OJK Provinsi Sumatera
+            Selatan.
+          </p>
         </div>
 
-        <div className="px-3.5 py-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 mt-auto gap-2">
-          <button
-            onClick={() => setIsScheduleModalOpen(true)}
-            className="flex-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1"
-            type="button"
-          >
-            <Calendar size={13} /> Cek Jadwal
-          </button>
-          <button
-            onClick={() => handleOpenBooking(room)}
-            className="flex-1 px-2.5 py-1.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-[11px] font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 shadow-sm"
-            type="button"
-          >
-            <Plus size={13} /> Pesan Ruangan
-          </button>
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap sm:flex-nowrap justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchPartners}
+              className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors cursor-pointer shrink-0"
+              title="Refresh Data"
+            >
+              <RefreshCw
+                size={16}
+                className={isLoading ? "animate-spin" : ""}
+              />
+            </button>
+            {!isLoading && filteredPartners.length > 0 && (
+              <div className="hidden sm:flex items-center gap-1.5">
+                <button
+                  onClick={() => scrollPartners("left")}
+                  className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                  title="Geser Kiri"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  onClick={() => scrollPartners("right")}
+                  className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                  title="Geser Kanan"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-1 justify-end flex-wrap sm:flex-nowrap">
+            <a
+              href="/List Kerjasama Hotel Sumsel 2026.xlsx"
+              download="List Kerjasama Hotel Sumsel 2026.xlsx"
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer whitespace-nowrap"
+            >
+              <Download size={16} /> Download List Harga (Excel)
+            </a>
+
+            {isAdmin && (
+              <button
+                onClick={openAddModal}
+                className="px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer whitespace-nowrap"
+              >
+                <Plus size={16} /> Tambah Kemitraan
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* MODAL LIGHTBOX / ZOOM GAMBAR */}
-      <AnimatePresence>
-        {lightboxImg && (
-          <div
-            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200"
-            onClick={() => setLightboxImg(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="relative max-w-4xl w-full max-h-[85vh] flex items-center justify-center transform-gpu"
-              onClick={(e) => e.stopPropagation()}
+      {/* SEARCH BAR */}
+      <div className="relative w-full max-w-md">
+        <Search
+          size={16}
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+        />
+        <input
+          type="text"
+          placeholder="Cari nama hotel, area, atau jalan..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100 shadow-sm"
+        />
+      </div>
+
+      {/* GRID / CAROUSEL KATALOG HOTEL REKANAN */}
+      <div
+        ref={scrollRef}
+        className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-6 overflow-x-auto sm:overflow-x-visible custom-scrollbar pb-4 sm:pb-0 snap-x sm:snap-none snap-mandatory"
+        style={{ scrollbarWidth: "thin" }}
+      >
+        {isLoading ? (
+          [1, 2, 3].map((n) => (
+            <div
+              key={n}
+              className="bg-white dark:bg-slate-900 rounded-3xl h-64 animate-pulse border border-slate-200 dark:border-slate-800 w-[280px] sm:w-full shrink-0"
+            />
+          ))
+        ) : filteredPartners.length > 0 ? (
+          filteredPartners.map((hotel) => (
+            <div
+              key={hotel.id}
+              className="w-[280px] sm:w-full shrink-0 sm:shrink snap-start"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={lightboxImg}
-                alt={room.name}
-                className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-slate-700"
+              <CardPartner
+                hotel={hotel}
+                isAdmin={isAdmin}
+                onEdit={() => openEditModal(hotel)}
+                onDelete={() => promptDelete(hotel.id, hotel.name)}
               />
-
-              {roomImages.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const newIdx =
-                        activeImageIndex === 0
-                          ? roomImages.length - 1
-                          : activeImageIndex - 1;
-                      setActiveImageIndex(newIdx);
-                      setLightboxImg(roomImages[newIdx]);
-                    }}
-                    className="absolute left-3 p-3 bg-black/60 hover:bg-black text-white rounded-full transition-colors cursor-pointer shadow-lg"
-                    title="Sebelumnya"
-                  >
-                    <ChevronLeft size={22} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const newIdx =
-                        activeImageIndex === roomImages.length - 1
-                          ? 0
-                          : activeImageIndex + 1;
-                      setActiveImageIndex(newIdx);
-                      setLightboxImg(roomImages[newIdx]);
-                    }}
-                    className="absolute right-3 p-3 bg-black/60 hover:bg-black text-white rounded-full transition-colors cursor-pointer shadow-lg"
-                    title="Berikutnya"
-                  >
-                    <ChevronRight size={22} />
-                  </button>
-                </>
-              )}
-
-              <button
-                onClick={() => setLightboxImg(null)}
-                className="absolute top-3 right-3 p-2 bg-black/60 hover:bg-black text-white rounded-full transition-colors cursor-pointer shadow-lg"
-                title="Tutup"
-              >
-                <X size={20} />
-              </button>
-            </motion.div>
+            </div>
+          ))
+        ) : (
+          <div className="col-span-full py-12 text-center text-xs text-slate-400 italic bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            Tidak ditemukan hotel rekanan yang sesuai dengan pencarian.
           </div>
         )}
-      </AnimatePresence>
+      </div>
 
-      {/* MODAL CEK JADWAL RUANGAN */}
-      <AnimatePresence>
-        {isScheduleModalOpen && (
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 sm:p-8 max-w-xl w-full shadow-2xl space-y-6 my-auto border border-slate-200/80 dark:border-slate-800 transform-gpu"
-              onClick={(e) => e.stopPropagation()}
+      {/* MODAL TAMBAH / EDIT KEMITRAAN */}
+      {isModalOpen && isAdmin && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh] my-auto"
+          >
+            <div className="px-6 py-5 bg-gradient-to-br from-[#9f1521] to-[#7a1019] text-white flex justify-between items-center shrink-0">
+              <h2 className="text-base font-black tracking-tight">
+                {isEditMode
+                  ? "Edit Hotel Rekanan"
+                  : "Tambah Hotel Rekanan Baru"}
+              </h2>
+              <button
+                disabled={isSubmitting}
+                onClick={() => setIsModalOpen(false)}
+                className="p-1.5 hover:bg-white/20 rounded-full transition-colors bg-white/10 cursor-pointer disabled:opacity-50"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleSubmit}
+              className="p-6 overflow-y-auto flex-1 space-y-4 custom-scrollbar text-xs"
             >
-              <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div>
+                <label className={labelClassName}>Nama Hotel</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  disabled={isSubmitting}
+                  className={`${inputClassName} disabled:opacity-50`}
+                  placeholder="Contoh: Hotel Aryaduta Palembang"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
-                    DETAIL JADWAL RUANGAN
-                  </span>
-                  <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white mt-0.5">
-                    {room.name}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    Pratinjau slot waktu kosong & acara terkonfirmasi (Hari ini
-                    & Besok).
-                  </p>
+                  <label className={labelClassName}>Bintang</label>
+                  <select
+                    name="stars"
+                    value={formData.stars}
+                    onChange={handleInputChange}
+                    disabled={isSubmitting}
+                    className={`${inputClassName} disabled:opacity-50`}
+                  >
+                    <option value={3}>3 Bintang</option>
+                    <option value={4}>4 Bintang</option>
+                    <option value={5}>5 Bintang</option>
+                  </select>
                 </div>
-                <button
-                  onClick={() => setIsScheduleModalOpen(false)}
-                  className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
-                  title="Tutup"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="space-y-5 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 text-xs">
-                <div className="space-y-2.5">
-                  <span className="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-2 text-sm">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>{" "}
-                    Saran Slot Kosong (08:00 - 17:00)
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div className="p-4 bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/80 rounded-2xl space-y-2.5">
-                      <div className="flex justify-between items-center text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                        <span>HARI INI</span>
-                        <span className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 shadow-xs">
-                          {new Date().toLocaleDateString("id-ID", {
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric",
-                          })}
-                        </span>
-                      </div>
-                      <div className="space-y-1.5">
-                        {todayAvailableSlots.map((slot, sIdx) => (
-                          <div
-                            key={sIdx}
-                            className="text-center py-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-xl font-bold border border-emerald-200/80 dark:border-emerald-900/50 text-xs flex items-center justify-center gap-1.5 shadow-2xs"
-                          >
-                            <Clock size={13} /> {slot}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="p-4 bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/80 rounded-2xl space-y-2.5">
-                      <div className="flex justify-between items-center text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                        <span>BESOK</span>
-                        <span className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 shadow-xs">
-                          {(() => {
-                            const tomorrow = new Date();
-                            tomorrow.setDate(tomorrow.getDate() + 1);
-                            return tomorrow.toLocaleDateString("id-ID", {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                            });
-                          })()}
-                        </span>
-                      </div>
-                      <div className="space-y-1.5">
-                        {tomorrowAvailableSlots.map((slot, sIdx) => (
-                          <div
-                            key={sIdx}
-                            className="text-center py-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 rounded-xl font-bold border border-emerald-200/80 dark:border-emerald-900/50 text-xs flex items-center justify-center gap-1.5 shadow-2xs"
-                          >
-                            <Clock size={13} /> {slot}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2.5 pt-1">
-                  <span className="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-2 text-sm">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#9f1521]"></span>{" "}
-                    Jadwal Terisi (Approved)
-                  </span>
-
-                  {roomAgendas.length > 0 ? (
-                    <div className="space-y-2.5">
-                      {roomAgendas.map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="p-3.5 bg-rose-50/40 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 rounded-2xl flex justify-between items-center gap-3"
-                        >
-                          <div className="space-y-1">
-                            <p className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
-                              {item.title}
-                            </p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
-                              🕒 {item.time} (
-                              {formatAgendaDate(item.date, item.endDate)})
-                            </p>
-                            {/* PENAMBAHAN KONTAK/NAMA PIC DI SEBELAH NO HP */}
-                            <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1 pt-0.5">
-                              👤 <strong>{item.pic}</strong>
-                              {item.phone && (
-                                <span className="font-mono ml-1">
-                                  • 📞 {item.phone}
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                          <span className="px-2.5 py-1.5 bg-white dark:bg-slate-800 text-[#9f1521] dark:text-rose-400 text-[11px] font-black rounded-xl border border-rose-200/80 dark:border-rose-900/50 shrink-0 shadow-2xs">
-                            {item.dept || "OJK Sumsel"}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-8 text-center text-xs text-slate-400 font-medium italic bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-700">
-                      Belum ada agenda terkonfirmasi untuk ruangan ini.
-                    </div>
-                  )}
+                <div>
+                  <label className={labelClassName}>Area / Wilayah</label>
+                  <input
+                    type="text"
+                    name="area"
+                    value={formData.area}
+                    onChange={handleInputChange}
+                    disabled={isSubmitting}
+                    className={`${inputClassName} disabled:opacity-50`}
+                    placeholder="Contoh: Ilir Timur I"
+                    required
+                  />
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3">
-                <span className="text-[11px] text-slate-400 font-medium italic text-center sm:text-left">
-                  Saran waktu berdasarkan pemesanan aktif instansi.
-                </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClassName}>
+                    No. Telepon / WhatsApp
+                  </label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    disabled={isSubmitting}
+                    className={`${inputClassName} disabled:opacity-50`}
+                    placeholder="0711-xxxxxx"
+                    required
+                  />
+                </div>
+                <div>
+                  {/* INPUT BARU UNTUK NAMA KONTAK / PIC */}
+                  <label className={labelClassName}>Nama Kontak (PIC)</label>
+                  <input
+                    type="text"
+                    name="contact_name"
+                    value={formData.contact_name}
+                    onChange={handleInputChange}
+                    disabled={isSubmitting}
+                    className={`${inputClassName} disabled:opacity-50`}
+                    placeholder="Contoh: Bpk. Andi (Marketing)"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClassName}>
+                  Upload Foto (JPG / PNG)
+                </label>
+                <input
+                  type="file"
+                  accept="image/jpeg, image/png, image/jpg"
+                  disabled={isSubmitting}
+                  onChange={handleFileChange}
+                  className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-rose-50 file:text-[#9f1521] hover:file:bg-rose-100 transition-all cursor-pointer disabled:opacity-50"
+                />
+              </div>
+
+              <div>
+                <label className={labelClassName}>Alamat Lengkap</label>
+                <input
+                  type="text"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleInputChange}
+                  disabled={isSubmitting}
+                  className={`${inputClassName} disabled:opacity-50`}
+                  placeholder="Jl. POM IX, Palembang"
+                />
+              </div>
+
+              <div>
+                <label className={labelClassName}>Deskripsi Kemitraan</label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  disabled={isSubmitting}
+                  rows={3}
+                  className={`${inputClassName} disabled:opacity-50 resize-none`}
+                  placeholder="Keterangan fasilitas khusus atau rate korporat OJK."
+                />
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsScheduleModalOpen(false);
-                    handleOpenBooking(room);
-                  }}
-                  className="w-full sm:w-auto px-6 py-3 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-rose-900/10 cursor-pointer"
+                  disabled={isSubmitting}
+                  onClick={() => setIsModalOpen(false)}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 text-xs cursor-pointer disabled:opacity-50"
                 >
-                  + Ajukan Reservasi Ruangan
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full sm:w-auto px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs disabled:opacity-75 transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {isSubmitting && (
+                    <Loader2 size={14} className="animate-spin" />
+                  )}
+                  {isSubmitting
+                    ? "Menyimpan..."
+                    : isEditMode
+                      ? "Simpan Perubahan"
+                      : "Simpan Kemitraan"}
                 </button>
               </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* MODAL KONFIRMASI HAPUS */}
+      {isDeleteModalOpen && isAdmin && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[2rem] p-6 shadow-2xl text-center space-y-4"
+          >
+            <div className="w-14 h-14 bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mx-auto">
+              <AlertTriangle size={28} />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="font-black text-slate-900 dark:text-white text-base">
+                Konfirmasi Hapus
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Apakah Anda yakin ingin menghapus kemitraan{" "}
+                <strong className="text-slate-800 dark:text-slate-200">
+                  {itemToDelete?.name}
+                </strong>
+                ? Data yang dihapus tidak dapat dikembalikan.
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => {
+                  setIsDeleteModalOpen(false);
+                  setItemToDelete(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75"
+              >
+                {isDeleting && <Loader2 size={14} className="animate-spin" />}
+                {isDeleting ? "Menghapus..." : "Ya, Hapus"}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </motion.div>
   );
 }
-
-export default memo(RoomCard);
