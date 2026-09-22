@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 
-// 1. GET: Mengambil daftar vendor berdasarkan kategori
+// 1. GET: Mengambil daftar vendor berdasarkan kategori (Dibuka untuk publik / form pemesanan)
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -12,14 +12,14 @@ export async function GET(req: NextRequest) {
 
     if (category && category !== "all") {
       rows = await db.$queryRaw`
-        SELECT id, name, category, phone, contact_name, address 
+        SELECT id, name, category, phone, address 
         FROM vendors 
         WHERE category = ${category} 
         ORDER BY name ASC
       `;
     } else {
       rows = await db.$queryRaw`
-        SELECT id, name, category, phone, contact_name, address 
+        SELECT id, name, category, phone, address 
         FROM vendors 
         ORDER BY name ASC
       `;
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// 2. POST: Menambah vendor baru
+// 2. POST: Menambah vendor baru (Tetap Diamankan)
 export async function POST(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("session_token")?.value;
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, category, phone, contact_name, address } = body;
+    const { name, category, phone, address } = body;
 
     if (!name || !category || !phone) {
       return NextResponse.json(
@@ -63,8 +63,8 @@ export async function POST(req: NextRequest) {
     }
 
     const result: any = await db.$queryRaw`
-      INSERT INTO vendors (name, category, phone, contact_name, address)
-      VALUES (${name}, ${category}, ${phone}, ${contact_name || null}, ${address || null})
+      INSERT INTO vendors (name, category, phone, address)
+      VALUES (${name}, ${category}, ${phone}, ${address || null})
       RETURNING id
     `;
 
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// 3. PUT: Memperbarui data vendor
+// 3. PUT: Memperbarui data vendor (Tetap Diamankan)
 export async function PUT(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("session_token")?.value;
@@ -97,7 +97,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, name, category, phone, contact_name, address } = body;
+    const { id, name, category, phone, address } = body;
 
     if (!id || !name || !category || !phone) {
       return NextResponse.json(
@@ -113,7 +113,7 @@ export async function PUT(req: NextRequest) {
 
     await db.$executeRaw`
       UPDATE vendors 
-      SET name = ${name}, category = ${category}, phone = ${phone}, contact_name = ${contact_name || null}, address = ${address || null}
+      SET name = ${name}, category = ${category}, phone = ${phone}, address = ${address || null}
       WHERE id = ${vendorId}
     `;
 
@@ -130,7 +130,7 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// 4. DELETE: Menghapus vendor
+// 4. DELETE: Menghapus vendor (Tetap Diamankan)
 export async function DELETE(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("session_token")?.value;
