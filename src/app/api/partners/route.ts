@@ -4,11 +4,13 @@ import { db } from "@/lib/db";
 import { writeFile } from "fs/promises";
 import path from "path";
 
-// 1. GET: Mengambil daftar partner (Dibuka untuk publik agar tidak 401)
+// 1. GET: Mengambil daftar partner
 export async function GET(request: NextRequest) {
   try {
     const rows = await db.$queryRaw`
-      SELECT * FROM partners ORDER BY id ASC
+      SELECT id, name, stars, area, phone, contact_name, address, description, img 
+      FROM partners 
+      ORDER BY id ASC
     `;
     return NextResponse.json({ success: true, data: rows });
   } catch (error: any) {
@@ -19,7 +21,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 2. POST: Tambah Partner Baru (Tetap Diamankan)
+// 2. POST: Tambah Partner Baru
 export async function POST(request: NextRequest) {
   try {
     const sessionCookie = request.cookies.get("session_token")?.value;
@@ -38,13 +40,13 @@ export async function POST(request: NextRequest) {
     const stars = formData.get("stars") as string;
     const area = formData.get("area") as string;
     const phone = formData.get("phone") as string;
-    const contact_name = formData.get("contact_name") as string; // <-- Tangkap contact_name
+    const contact_name = formData.get("contact_name") as string;
     const address = formData.get("address") as string;
     const description = formData.get("description") as string;
     const file = formData.get("image") as File | null;
 
     let imagePath = "";
-    if (file && file.size > 0) {
+    if (file && file instanceof File && file.size > 0) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
       const filename = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
@@ -57,12 +59,13 @@ export async function POST(request: NextRequest) {
 
     const result: any = await db.$queryRaw`
       INSERT INTO partners (name, stars, area, phone, contact_name, address, description, img) 
-      VALUES (${name}, ${starNum}, ${area}, ${phone}, ${contact_name || ""}, ${address || ""}, ${description || ""}, ${imagePath || ""})
+      VALUES (${name}, ${starNum}, ${area}, ${phone}, ${contact_name || ""}, ${address || ""}, ${description || ""}, ${imagePath})
       RETURNING id
     `;
 
     return NextResponse.json({ success: true, insertId: result[0]?.id });
   } catch (error: any) {
+    console.error("API POST PARTNERS ERROR:", error);
     return NextResponse.json(
       { success: false, message: error.message },
       { status: 500 },
@@ -70,7 +73,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 3. PUT: Edit Partner (Tetap Diamankan)
+// 3. PUT: Edit Partner (Mempertahankan gambar lama jika tidak ada file baru yang di-upload)
 export async function PUT(request: NextRequest) {
   try {
     const sessionCookie = request.cookies.get("session_token")?.value;
@@ -90,7 +93,7 @@ export async function PUT(request: NextRequest) {
     const stars = formData.get("stars") as string;
     const area = formData.get("area") as string;
     const phone = formData.get("phone") as string;
-    const contact_name = formData.get("contact_name") as string; // <-- Tangkap contact_name
+    const contact_name = formData.get("contact_name") as string;
     const address = formData.get("address") as string;
     const description = formData.get("description") as string;
     const file = formData.get("image") as File | null;
@@ -98,7 +101,8 @@ export async function PUT(request: NextRequest) {
     const starNum = Number(stars) || 4;
     const partnerId = Number(id);
 
-    if (file && file.size > 0) {
+    if (file && file instanceof File && file.size > 0) {
+      // Jika user meng-upload foto baru
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
       const filename = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
@@ -112,6 +116,7 @@ export async function PUT(request: NextRequest) {
         WHERE id = ${partnerId}
       `;
     } else {
+      // Jika user tidak mengganti foto, update data teks saja tanpa mengubah kolom img
       await db.$executeRaw`
         UPDATE partners 
         SET name = ${name}, stars = ${starNum}, area = ${area}, phone = ${phone}, contact_name = ${contact_name || ""}, address = ${address || ""}, description = ${description || ""}
@@ -124,6 +129,7 @@ export async function PUT(request: NextRequest) {
       message: "Partner berhasil diperbarui",
     });
   } catch (error: any) {
+    console.error("API PUT PARTNERS ERROR:", error);
     return NextResponse.json(
       { success: false, message: error.message },
       { status: 500 },
@@ -131,7 +137,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// 4. DELETE: Hapus Partner (Tetap Diamankan)
+// 4. DELETE: Hapus Partner
 export async function DELETE(request: NextRequest) {
   try {
     const sessionCookie = request.cookies.get("session_token")?.value;

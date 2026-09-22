@@ -22,7 +22,7 @@ interface HotelPartner {
   stars: number;
   area: string;
   phone: string;
-  contact_name?: string; // <-- Ditambahkan sesuai kolom baru database
+  contact_name?: string; // Kolom Nama Kontak / PIC
   address?: string;
   description?: string;
   img?: string;
@@ -77,7 +77,7 @@ export default function PartnerPage() {
     stars: 4,
     area: "",
     phone: "",
-    contact_name: "", // <-- State baru untuk nama kontak
+    contact_name: "", // State untuk Nama Kontak / PIC
     address: "",
     description: "",
   });
@@ -157,7 +157,7 @@ export default function PartnerPage() {
       stars: hotel.stars,
       area: hotel.area,
       phone: hotel.phone,
-      contact_name: hotel.contact_name || "", // <-- Ambil data nama kontak saat edit
+      contact_name: hotel.contact_name || "", // Memuat data contact_name saat edit
       address: hotel.address || "",
       description: hotel.description || "",
     });
@@ -177,12 +177,12 @@ export default function PartnerPage() {
       data.append("stars", String(formData.stars));
       data.append("area", formData.area);
       data.append("phone", formData.phone);
-      data.append("contact_name", formData.contact_name); // <-- Kirim ke API
+      data.append("contact_name", formData.contact_name); // Mengirim contact_name ke API
       data.append("address", formData.address);
       data.append("description", formData.description);
 
       if (selectedFile) {
-        data.append("image", selectedFile);
+        data.append("image", selectedFile); // Mengirim file gambar jika dipilih
       }
 
       const res = await fetch("/api/partners", {
@@ -190,14 +190,17 @@ export default function PartnerPage() {
         body: data,
       });
 
-      if (res.ok) {
+      const result = await res.json();
+
+      if (res.ok && result.success !== false) {
         setIsModalOpen(false);
         fetchPartners();
       } else {
-        alert("Gagal menyimpan data hotel rekanan.");
+        alert(result.message || "Gagal menyimpan data hotel rekanan.");
       }
     } catch (error) {
       console.error("Error saving partner:", error);
+      alert("Terjadi kesalahan jaringan atau sistem saat menyimpan.");
     } finally {
       setIsSubmitting(false);
     }
@@ -470,7 +473,7 @@ export default function PartnerPage() {
                   />
                 </div>
                 <div>
-                  {/* INPUT BARU UNTUK NAMA KONTAK / PIC */}
+                  {/* Field input Nama Kontak (PIC) */}
                   <label className={labelClassName}>Nama Kontak (PIC)</label>
                   <input
                     type="text"
