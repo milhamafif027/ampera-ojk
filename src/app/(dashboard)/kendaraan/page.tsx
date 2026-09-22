@@ -12,10 +12,17 @@ import {
   User,
   MapPin,
   CheckCircle2,
+  Download,
+  Printer,
+  Loader2,
+  Search,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import VehicleBookingModal from "@/components/dashboard/VehicleBookingModal";
-import VehicleShowcaseGrid from "@/components/dashboard/VehicleShowcaseGrid"; // <-- Impor komponen baru
+import VehicleShowcaseGrid from "@/components/dashboard/VehicleShowcaseGrid";
 
 interface Vehicle {
   id: string | number;
@@ -34,7 +41,7 @@ interface VehicleBooking {
   dept: string;
   startDate: string;
   endDate: string;
-  status: "Pending" | "Disetujui" | "Selesai" | string;
+  status: "Pending" | "Disetujui" | "Selesai" | "Ditolak" | string;
   passengers?: string | number;
   notes?: string;
   userId?: string | number;
@@ -56,6 +63,13 @@ export default function KendaraanPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [bookings, setBookings] = useState<VehicleBooking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // State Filter & Search
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("Semua Status");
+  const [monthFilter, setMonthFilter] = useState<string>("Semua Bulan");
+  const [yearFilter, setYearFilter] = useState<string>("Semua Tahun");
+  const [isExporting, setIsExporting] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddVehicleModalOpen, setIsAddVehicleModalOpen] = useState(false);
@@ -187,17 +201,254 @@ export default function KendaraanPage() {
     );
   }, [user]);
 
-  const filteredBookings = useMemo(() => {
-    if (!bookings) return [];
-    if (isExternalUser && user) {
-      return bookings.filter(
-        (b) =>
-          b.borrower.toLowerCase() === user.name.toLowerCase() ||
-          b.borrower.toLowerCase().includes("tamu eksternal"),
-      );
+  // Opsi Tahun & Bulan Berdasarkan Data Peminjaman
+  const yearOptions = useMemo(() => {
+    const yearsSet = new Set<string>();
+    bookings.forEach((b) => {
+      if (b.startDate) {
+        yearsSet.add(b.startDate.slice(0, 4));
+      }
+    });
+    return Array.from(yearsSet).sort().reverse();
+  }, [bookings]);
+
+  const monthOptions = useMemo(() => {
+    const monthsSet = new Set<string>();
+    bookings.forEach((b) => {
+      if (b.startDate) {
+        const year = b.startDate.slice(0, 4);
+        if (yearFilter === "Semua Tahun" || year === yearFilter) {
+          monthsSet.add(b.startDate.slice(5, 7));
+        }
+      }
+    });
+    return Array.from(monthsSet).sort();
+  }, [bookings, yearFilter]);
+
+  const formatMonthName = (monthNum: string) => {
+    try {
+      const parsed = parseInt(monthNum, 10);
+      if (isNaN(parsed) || parsed < 1 || parsed > 12) return monthNum;
+      return new Date(2026, parsed - 1, 1).toLocaleDateString("id-ID", {
+        month: "long",
+      });
+    } catch {
+      return monthNum;
     }
-    return bookings;
-  }, [bookings, isExternalUser, user]);
+  };
+
+  // Filter Data Peminjaman (Menampilkan semua data lama dengan filter aktif)
+  const filteredBookings = useMemo(() => {
+    return bookings
+      .filter((b) => {
+        // Jika user eksternal, hanya tampilkan miliknya sendiri
+        if (isExternalUser && user) {
+          const isOwner =
+            b.borrower.toLowerCase() === user.name.toLowerCase() ||
+            b.borrower.toLowerCase().includes("tamu eksternal");
+          if (!isOwner) return false;
+        }
+
+        const matchSearch =
+          b.destination.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          b.borrower.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          b.vehicleName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (b.dept && b.dept.toLowerCase().includes(searchTerm.toLowerCase()));
+
+        const matchStatus =
+          statusFilter === "Semua Status" || b.status === statusFilter;
+
+        const itemYear = b.startDate ? b.startDate.slice(0, 4) : "";
+        const itemMonth = b.startDate ? b.startDate.slice(5, 7) : "";
+
+        const matchYear =
+          yearFilter === "Semua Tahun" || itemYear === yearFilter;
+        const matchMonth =
+          monthFilter === "Semua Bulan" || itemMonth === monthFilter;
+
+        return matchSearch && matchStatus && matchYear && matchMonth;
+      })
+      .sort((a, b) => (b.startDate || "").localeCompare(a.startDate || ""));
+  }, [
+    bookings,
+    isExternalUser,
+    user,
+    searchTerm,
+    statusFilter,
+    yearFilter,
+    monthFilter,
+  ]);
+
+  // =============== FITUR CETAK / EKSPOR EXCEL (XLSX) ===============
+  const handleExportExcel = () => {
+    setIsExporting(true);
+    try {
+      const currentDate = new Date().toISOString().split("T")[0];
+      const exportData: any[][] = [];
+
+      exportData.push(["KANTOR OJK PROVINSI SUMATERA SELATAN"]);
+      exportData.push(["LAPORAN REKAPITULASI PEMINJAMAN KENDARAAN DINAS"]);
+      exportData.push([
+        `Tanggal Cetak: ${currentDate} | Status: ${statusFilter} | Tahun: ${yearFilter} | Bulan: ${monthFilter}`,
+      ]);
+      exportData.push([]);
+
+      exportData.push([
+        "No",
+        "Armada / Kendaraan",
+        "Tujuan Perjalanan",
+        "Peminjam",
+        "Satuan Kerja (Satker)",
+        "Tanggal Penugasan",
+        "Jumlah Penumpang",
+        "Catatan Admin",
+        "Status",
+      ]);
+
+      filteredBookings.forEach((b, idx) => {
+        exportData.push([
+          idx + 1,
+          b.vehicleName || "Menunggu Plotting",
+          b.destination || "-",
+          b.borrower || "-",
+          b.dept || "-",
+          `${b.startDate} s.d ${b.endDate}`,
+          b.passengers || 1,
+          b.notes || "-",
+          b.status,
+        ]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(exportData);
+      ws["!cols"] = [
+        { wch: 5 },
+        { wch: 25 },
+        { wch: 30 },
+        { wch: 25 },
+        { wch: 25 },
+        { wch: 25 },
+        { wch: 15 },
+        { wch: 35 },
+        { wch: 15 },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Rekap Kendaraan");
+      XLSX.writeFile(wb, `Laporan_Peminjaman_Kendaraan_${currentDate}.xlsx`);
+    } catch (error) {
+      console.error("Gagal ekspor Excel:", error);
+      alert("Gagal melakukan ekspor data Excel.");
+    } finally {
+      setTimeout(() => setIsExporting(false), 500);
+    }
+  };
+
+  const loadLogoBase64 = (src: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL("image/png"));
+          } else {
+            resolve(null);
+          }
+        } catch {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  };
+
+  // =============== FITUR CETAK PDF ===============
+  const handleDownloadPDF = async () => {
+    setIsExporting(true);
+    try {
+      const doc = new jsPDF("landscape", "mm", "a4");
+      const currentDate = new Date().toISOString().split("T")[0];
+      const imgData = await loadLogoBase64("/otoritas-jasa-keuangan-logo.png");
+
+      if (imgData) {
+        doc.addImage(imgData, "PNG", 240, 10, 32, 16);
+      }
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("OTORITAS JASA KEUANGAN REPUBLIK INDONESIA", 14, 15);
+      doc.setFontSize(13);
+      doc.text("KANTOR OJK PROVINSI SUMATERA SELATAN", 14, 22);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text("Laporan Rekapitulasi Peminjaman Kendaraan Dinas", 14, 28);
+      doc.text(
+        `Tanggal Cetak: ${currentDate} | Status: ${statusFilter} | Tahun: ${yearFilter} | Bulan: ${monthFilter}`,
+        14,
+        33,
+      );
+      doc.setLineWidth(0.5);
+      doc.line(14, 37, 283, 37);
+
+      const tableColumn = [
+        "No",
+        "Armada / Kendaraan",
+        "Tujuan & Penumpang",
+        "Peminjam / Satker",
+        "Tanggal Penugasan",
+        "Catatan",
+        "Status",
+      ];
+      const tableRows = filteredBookings.map((b, idx) => [
+        idx + 1,
+        b.vehicleName || "Menunggu Plotting",
+        `${b.destination}\n(${b.passengers} Penumpang)`,
+        `${b.borrower}\n(${b.dept || "Umum"})`,
+        `${b.startDate} s.d\n${b.endDate}`,
+        b.notes || "-",
+        b.status,
+      ]);
+
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 42,
+        theme: "grid",
+        headStyles: {
+          fillColor: [159, 21, 33],
+          textColor: [255, 255, 255],
+          halign: "center",
+          fontSize: 9,
+        },
+        bodyStyles: { fontSize: 8, textColor: [30, 30, 30] },
+        columnStyles: {
+          0: { halign: "center", cellWidth: 10 },
+          6: { halign: "center", cellWidth: 24 },
+        },
+        didDrawPage: () => {
+          doc.setFontSize(8);
+          doc.text(
+            `Halaman ${doc.getNumberOfPages()}`,
+            14,
+            doc.internal.pageSize.height - 10,
+          );
+        },
+      });
+
+      doc.save(`Laporan_Peminjaman_Kendaraan_${currentDate}.pdf`);
+    } catch (error) {
+      console.error("Gagal cetak PDF:", error);
+      alert("Terjadi kesalahan saat memproses PDF.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleOpenModal = () => {
     const defaultDept = user && !isExternalUser ? "OJK Sumsel" : "";
@@ -379,15 +630,47 @@ export default function KendaraanPage() {
 
       {/* HEADER BAR */}
       <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Car className="text-[#9f1521] shrink-0" size={22} /> Layanan Armada
-            & Kendaraan Dinas
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-            Kelola dan ajukan request peminjaman kendaraan operasional dinas
-            Kantor OJK Sumsel.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Car className="text-[#9f1521] shrink-0" size={22} /> Layanan
+              Armada & Kendaraan Dinas
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+              Kelola, pantau, dan ajukan request peminjaman kendaraan
+              operasional dinas Kantor OJK Sumsel.
+            </p>
+          </div>
+
+          {/* TOMBOL CETAK / EKSPOR KHUSUS ADMIN */}
+          {isAdmin && (
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              <button
+                onClick={handleExportExcel}
+                disabled={isExporting}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors shadow-sm cursor-pointer disabled:opacity-75"
+              >
+                {isExporting ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Download size={15} />
+                )}
+                {isExporting ? "Mengekspor..." : "Ekspor Excel"}
+              </button>
+              <button
+                onClick={handleDownloadPDF}
+                disabled={isExporting}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors shadow-sm cursor-pointer disabled:opacity-75"
+              >
+                {isExporting ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Printer size={15} />
+                )}
+                {isExporting ? "Memproses PDF..." : "Cetak PDF"}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap sm:flex-nowrap justify-between">
@@ -424,15 +707,75 @@ export default function KendaraanPage() {
         </div>
       </div>
 
-      {/* ================= PANGGIL KOMPONEN SHOWCASE GRID KENDARAAN ================= */}
+      {/* SHOWCASE GRID KENDARAAN */}
       <VehicleShowcaseGrid vehicles={vehicles} />
 
-      {/* DAFTAR PENGAJUAN KENDARAAN */}
+      {/* DAFTAR PENGAJUAN KENDARAAN (DENGAN FILTER BULAN & TAHUN) */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
-        <h2 className="font-bold text-slate-800 dark:text-white text-base border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
-          <Calendar size={18} className="text-[#9f1521]" /> Daftar Pengajuan
-          Kendaraan
-        </h2>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <h2 className="font-bold text-slate-800 dark:text-white text-base flex items-center gap-2">
+            <Calendar size={18} className="text-[#9f1521]" /> Daftar
+            Rekapitulasi Peminjaman Kendaraan
+          </h2>
+
+          {/* FILTER BAR & SEARCH */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full sm:w-auto">
+            <div className="relative col-span-2 sm:col-span-1">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="text"
+                placeholder="Cari tujuan/peminjam..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521]"
+              />
+            </div>
+
+            <select
+              value={yearFilter}
+              onChange={(e) => {
+                setYearFilter(e.target.value);
+                setMonthFilter("Semua Bulan");
+              }}
+              className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold cursor-pointer"
+            >
+              <option value="Semua Tahun">Semua Tahun</option>
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={monthFilter}
+              onChange={(e) => setMonthFilter(e.target.value)}
+              className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold cursor-pointer"
+            >
+              <option value="Semua Bulan">Semua Bulan</option>
+              {monthOptions.map((m) => (
+                <option key={m} value={m}>
+                  {formatMonthName(m)}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold cursor-pointer"
+            >
+              <option value="Semua Status">Semua Status</option>
+              <option value="Disetujui">Disetujui</option>
+              <option value="Pending">Pending</option>
+              <option value="Selesai">Selesai</option>
+              <option value="Ditolak">Ditolak</option>
+            </select>
+          </div>
+        </div>
 
         {filteredBookings.length > 0 ? (
           <div className="overflow-x-auto custom-scrollbar">
@@ -488,12 +831,10 @@ export default function KendaraanPage() {
                       {b.startDate} s.d {b.endDate}
                     </td>
                     <td className="p-3 text-slate-500">
-                      {b.status === "Disetujui" ? (
+                      {b.notes && b.notes !== "-" ? (
                         <p className="italic text-[11px]">💬 {b.notes}</p>
                       ) : (
-                        <span className="italic text-slate-400">
-                          Menunggu verifikasi admin (Cek Dashboard Utama)
-                        </span>
+                        <span className="italic text-slate-400">-</span>
                       )}
                     </td>
                     <td className="p-3 text-center whitespace-nowrap">
@@ -501,7 +842,11 @@ export default function KendaraanPage() {
                         className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
                           b.status === "Disetujui"
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400"
-                            : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400"
+                            : b.status === "Selesai"
+                              ? "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400"
+                              : b.status === "Ditolak"
+                                ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400"
+                                : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400"
                         }`}
                       >
                         {b.status}
@@ -532,13 +877,14 @@ export default function KendaraanPage() {
             </table>
           </div>
         ) : (
-          <p className="text-xs text-slate-400 italic py-4 text-center border-t border-dashed border-slate-200 dark:border-slate-800">
-            Belum ada catatan request peminjaman kendaraan aktif saat ini.
+          <p className="text-xs text-slate-400 italic py-6 text-center border-t border-dashed border-slate-200 dark:border-slate-800">
+            Tidak ditemukan data peminjaman kendaraan yang sesuai dengan
+            kriteria filter.
           </p>
         )}
       </div>
 
-      {/* MODAL TAMBAH / EDIT KENDARAAN (KHUSUS ADMIN) */}
+      {/* MODAL TAMBAH KENDARAAN (KHUSUS ADMIN) */}
       {isAddVehicleModalOpen && isAdmin && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
@@ -691,7 +1037,7 @@ export default function KendaraanPage() {
         </div>
       )}
 
-      {/* MODAL KONFIRMASI HAPUS PENGAJUAN KENDARAAN */}
+      {/* MODAL KONFIRMASI HAPUS PENGAJUAN */}
       {deleteModal.isOpen && isAdmin && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div

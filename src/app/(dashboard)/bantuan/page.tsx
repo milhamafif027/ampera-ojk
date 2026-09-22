@@ -341,10 +341,6 @@ export default function BantuanPage() {
             <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
           </button>
 
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded-xl text-xs font-bold text-[#9f1521] dark:text-rose-400 shrink-0">
-            <ShieldCheck size={16} /> TIM LMSt SUPPORT{" "}
-            {isAdmin && "(ADMIN MODE)"}
-          </div>
         </div>
       </div>
 

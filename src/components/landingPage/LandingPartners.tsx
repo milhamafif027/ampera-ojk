@@ -1,7 +1,7 @@
 "use client";
 
 import React, { memo, useState } from "react";
-import { Star, MapPin, Info, X, Phone } from "lucide-react";
+import { Star, MapPin, Info, X, Phone, User } from "lucide-react";
 import { motion, Variants, AnimatePresence } from "framer-motion";
 
 interface LandingPartnersProps {
@@ -153,7 +153,7 @@ function LandingPartners({
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="relative max-w-4xl w-full bg-white rounded-[2rem] overflow-hidden shadow-2xl flex flex-col md:flex-row transform-gpu"
+              className="relative max-w-4xl w-full bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl flex flex-col md:flex-row transform-gpu"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Bagian Kiri: Gambar Full */}
@@ -183,19 +183,19 @@ function LandingPartners({
                       ),
                     )}
                   </div>
-                  <h3 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">
+                  <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white leading-tight">
                     {lightbox.partner.name}
                   </h3>
-                  <span className="inline-block mt-2 px-3 py-1 bg-rose-50 text-[#9f1521] text-xs font-bold rounded-lg uppercase tracking-wider">
-                    Mitra Resmi
+                  <span className="inline-block mt-2 px-3 py-1 bg-rose-50 dark:bg-rose-950/50 text-[#9f1521] dark:text-rose-400 text-xs font-bold rounded-lg uppercase tracking-wider border border-rose-100 dark:border-rose-900/40">
+                    Mitra Resmi OJK Sumsel
                   </span>
                 </div>
 
-                <div className="space-y-4 text-sm font-medium text-slate-600">
+                <div className="space-y-4 text-sm font-medium text-slate-600 dark:text-slate-300">
                   <div className="flex items-start gap-3">
                     <MapPin
                       size={18}
-                      className="text-slate-400 mt-0.5 shrink-0"
+                      className="text-[#9f1521] dark:text-rose-400 mt-0.5 shrink-0"
                     />
                     <span>
                       {lightbox.partner.address ||
@@ -203,18 +203,35 @@ function LandingPartners({
                         "Alamat tidak tersedia"}
                     </span>
                   </div>
+
                   <div className="flex items-center gap-3">
-                    <Phone size={18} className="text-slate-400 shrink-0" />
+                    <Phone
+                      size={18}
+                      className="text-[#9f1521] dark:text-rose-400 shrink-0"
+                    />
                     <span>
                       {lightbox.partner.phone || "Kontak tidak tersedia"}
                     </span>
                   </div>
-                  <div className="flex items-start gap-3 pt-4 border-t border-slate-100">
+
+                  {lightbox.partner.contact_name && (
+                    <div className="flex items-center gap-3">
+                      <User
+                        size={18}
+                        className="text-[#9f1521] dark:text-rose-400 shrink-0"
+                      />
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        PIC: {lightbox.partner.contact_name}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex items-start gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
                     <Info
                       size={18}
-                      className="text-slate-400 mt-0.5 shrink-0"
+                      className="text-[#9f1521] dark:text-rose-400 mt-0.5 shrink-0"
                     />
-                    <p className="leading-relaxed">
+                    <p className="leading-relaxed text-xs">
                       {lightbox.partner.description ||
                         "Tersedia rate khusus Corporate OJK. Silakan hubungi nomor di atas untuk reservasi kamar atau fasilitas lainnya."}
                     </p>
@@ -223,18 +240,19 @@ function LandingPartners({
 
                 <button
                   onClick={() => setLightbox({ isOpen: false, partner: null })}
-                  className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl transition-colors mt-4"
+                  className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl transition-colors mt-4 cursor-pointer text-xs"
                 >
                   Tutup Detail
                 </button>
               </div>
 
-              {/* Tombol Silang Pojok Kanan Atas (Tampil di Mobile) */}
+              {/* Tombol Close / Silang Pojok Kanan Atas (Diperbarui dengan hover warna gelap/rose yang elegan) */}
               <button
                 onClick={() => setLightbox({ isOpen: false, partner: null })}
-                className="absolute top-3 right-3 p-2 bg-black/10 hover:bg-black/20 text-slate-800 md:text-white md:hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm"
+                className="absolute top-4 right-4 p-2.5 bg-slate-900/60 hover:bg-[#9f1521] text-white rounded-full transition-all duration-200 backdrop-blur-md shadow-lg cursor-pointer"
+                title="Tutup"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </motion.div>
           </div>
