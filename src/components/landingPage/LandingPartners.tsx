@@ -21,9 +21,8 @@ function LandingPartners({
     partner: any | null;
   }>({ isOpen: false, partner: null });
 
-  // Render Kartu Partner (MUI Titlebar ImageListItem Style)
+  // Render Kartu Partner
   const renderPartnerCard = (partner: any, index: number) => {
-    // Item pertama dibuat lebih besar sebagai "Featured" (2x2 grid)
     const isFeatured = index === 0;
     const imgUrl =
       partner.img ||
@@ -33,9 +32,9 @@ function LandingPartners({
       <motion.div
         variants={itemVariants}
         key={partner.id || index}
-        className={`relative overflow-hidden rounded-2xl bg-slate-900 group shadow-md hover:shadow-xl transition-all cursor-pointer transform-gpu ${
+        className={`relative overflow-hidden rounded-2xl bg-slate-900 group shadow-md hover:shadow-xl transition-all cursor-pointer transform-gpu shrink-0 w-[280px] sm:w-auto ${
           isFeatured
-            ? "md:col-span-2 md:row-span-2 h-[300px] md:h-[620px]" // Kartu Utama Besar
+            ? "sm:md:col-span-2 sm:md:row-span-2 h-[300px] sm:md:h-[620px]" // Kartu Utama Besar (Grid di Desktop, Card tetap di Mobile)
             : "col-span-1 h-[300px]" // Kartu Standar
         }`}
         onClick={() => setLightbox({ isOpen: true, partner })}
@@ -49,7 +48,7 @@ function LandingPartners({
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
 
-        {/* Overlay Gradien Gelap dari bawah (MUI ImageListItemBar Style) */}
+        {/* Overlay Gradien Gelap dari bawah */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity duration-300" />
 
         {/* Konten Titlebar Overlay */}
@@ -104,6 +103,19 @@ function LandingPartners({
       variants={itemVariants}
       className="bg-slate-50 border-y border-slate-200 py-16 sm:py-24 overflow-hidden"
     >
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(159, 21, 33, 0.25);
+          border-radius: 10px;
+        }
+      `}</style>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-10 sm:space-y-12">
         {/* Header Section */}
         <div className="text-center max-w-2xl mx-auto space-y-3">
@@ -119,15 +131,15 @@ function LandingPartners({
           </p>
         </div>
 
-        {/* GRID LAYOUT ALA MUI IMAGE LIST */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 auto-rows-[300px]">
+        {/* MOBILE: HORIZONTAL SCROLL | DESKTOP: GRID */}
+        <div className="flex sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 overflow-x-auto sm:overflow-x-visible custom-scrollbar pb-4 sm:pb-0 snap-x sm:snap-none">
           {isLoading ? (
             [1, 2, 3, 4, 5].map((n) => (
               <div
                 key={n}
-                className={`rounded-2xl bg-slate-200 animate-pulse ${
+                className={`rounded-2xl bg-slate-200 animate-pulse shrink-0 w-[280px] sm:w-auto ${
                   n === 1
-                    ? "md:col-span-2 md:row-span-2 h-[300px] md:h-[620px]"
+                    ? "sm:md:col-span-2 sm:md:row-span-2 h-[300px] sm:md:h-[620px]"
                     : "col-span-1 h-[300px]"
                 }`}
               />
@@ -135,7 +147,7 @@ function LandingPartners({
           ) : partners.length > 0 ? (
             partners.map((partner, index) => renderPartnerCard(partner, index))
           ) : (
-            <div className="col-span-full text-center py-16 text-slate-400 text-sm font-medium italic bg-white rounded-3xl border border-slate-200 shadow-sm">
+            <div className="col-span-full text-center py-16 text-slate-400 text-sm font-medium italic bg-white rounded-3xl border border-slate-200 shadow-sm w-full">
               Belum ada data hotel rekanan yang tersedia saat ini.
             </div>
           )}
