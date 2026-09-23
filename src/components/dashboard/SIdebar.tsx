@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
-import { Search, ChevronDown, LogOut, HelpCircle } from "lucide-react";
+import { Search, ChevronDown, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
 import { getFilteredNavItems, LocalUser } from "@/lib/auth";
 
@@ -13,11 +13,15 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Inisialisasi state user langsung dari localStorage untuk menghindari error sinkronisasi
-  const [user] = useState<LocalUser | null>(() => {
+  const [user, setUser] = useState<LocalUser | null>(() => {
     if (typeof window !== "undefined") {
-      const storedUser = localStorage.getItem("local_user");
-      return storedUser ? JSON.parse(storedUser) : null;
+      try {
+        const storedUser = sessionStorage.getItem("local_user");
+        return storedUser ? JSON.parse(storedUser) : null;
+      } catch (err) {
+        console.error("Gagal mengambil data user dari session:", err);
+        return null;
+      }
     }
     return null;
   });
@@ -25,13 +29,13 @@ export default function Sidebar() {
   const filteredNavItems = getFilteredNavItems(user?.role);
 
   const handleLogout = () => {
-    localStorage.removeItem("local_user");
+    sessionStorage.removeItem("local_user");
     router.push("/login");
   };
 
   return (
     <motion.aside
-      className="fixed left-4 top-4 bottom-4 bg-white text-slate-700 z-50 flex flex-col justify-between shadow-2xl rounded-3xl border border-slate-200/80 overflow-hidden"
+      className="fixed left-4 top-4 bottom-4 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 z-50 flex flex-col justify-between shadow-2xl rounded-3xl border border-slate-200/80 dark:border-slate-800 overflow-hidden"
       initial={{ width: 88 }}
       animate={{ width: isHovered ? 280 : 88 }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
@@ -39,8 +43,8 @@ export default function Sidebar() {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div>
-        {/* 1. BRAND HEADER (Diperbaiki agar logo di tengah saat tertutup) */}
-        <div className="p-4 flex items-center border-b border-slate-100 overflow-hidden whitespace-nowrap min-h-[80px]">
+        {/* 1. BRAND HEADER */}
+        <div className="p-4 flex items-center border-b border-slate-100 dark:border-slate-800 overflow-hidden whitespace-nowrap min-h-[80px]">
           <div
             className={`flex items-center gap-3 w-full ${isHovered ? "justify-start px-0" : "justify-center"}`}
           >
@@ -59,7 +63,9 @@ export default function Sidebar() {
               }}
               className="overflow-hidden text-left"
             >
-              <h2 className="font-bold text-xs text-slate-900">AMPERA OJK</h2>
+              <h2 className="font-bold text-xs text-slate-900 dark:text-white">
+                AMPERA OJK
+              </h2>
               <p className="text-[10px] text-slate-400">Portal Pegawai</p>
             </motion.div>
           </div>
@@ -73,7 +79,7 @@ export default function Sidebar() {
 
         {/* 2. SEARCH BAR */}
         <div className="p-4">
-          <div className="relative flex items-center bg-slate-100 rounded-2xl px-3 py-2.5">
+          <div className="relative flex items-center bg-slate-100 dark:bg-slate-800 rounded-2xl px-3 py-2.5">
             <Search size={16} className="text-slate-400 shrink-0 mx-auto" />
             <motion.input
               type="text"
@@ -82,7 +88,7 @@ export default function Sidebar() {
                 opacity: isHovered ? 1 : 0,
                 width: isHovered ? "100%" : 0,
               }}
-              className="bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none pl-2.5 overflow-hidden"
+              className="bg-transparent text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none pl-2.5 overflow-hidden"
             />
           </div>
         </div>
@@ -101,8 +107,8 @@ export default function Sidebar() {
                   isHovered ? "gap-3.5 justify-start" : "justify-center"
                 } ${
                   isActive
-                    ? "bg-rose-50 text-[#9f1521] font-bold"
-                    : "text-slate-500 hover:bg-slate-100/80 hover:text-slate-900"
+                    ? "bg-rose-50 dark:bg-rose-950/40 text-[#9f1521] dark:text-rose-400 font-bold"
+                    : "text-slate-500 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 {IconComponent && (
@@ -128,7 +134,7 @@ export default function Sidebar() {
         <div className="px-3 pb-2">
           <button
             onClick={handleLogout}
-            className={`flex items-center p-3 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all w-full cursor-pointer ${
+            className={`flex items-center p-3 text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-2xl transition-all w-full cursor-pointer ${
               isHovered ? "gap-3.5 justify-start" : "justify-center"
             }`}
           >
@@ -145,9 +151,9 @@ export default function Sidebar() {
           </button>
         </div>
 
-        {/* 5. USER PROFILE FOOTER (Diperbaiki agar ikon user di tengah saat tertutup) */}
+        {/* 5. USER PROFILE FOOTER */}
         <div
-          className={`p-3.5 border-t border-slate-100 bg-slate-50/50 flex items-center gap-3 overflow-hidden whitespace-nowrap ${
+          className={`p-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center gap-3 overflow-hidden whitespace-nowrap ${
             isHovered ? "justify-start" : "justify-center"
           }`}
         >
@@ -166,7 +172,7 @@ export default function Sidebar() {
             }}
             className="overflow-hidden"
           >
-            <h4 className="font-bold text-xs text-slate-800 truncate">
+            <h4 className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate">
               {user ? user.name : "Memuat..."}
             </h4>
             <p className="text-[10px] text-slate-400 truncate">

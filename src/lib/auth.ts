@@ -7,6 +7,7 @@ import {
   Hotel,
   HelpCircle,
   Users,
+  FileSpreadsheet, // <-- Tambahan Icon untuk Rekap KOPG
 } from "lucide-react";
 
 export interface LocalUser {
@@ -52,6 +53,13 @@ export const navItemsConfig = [
     href: "/kendaraan",
     icon: Car,
     roles: ["admin", "internal", "internal_kopg", "eksternal"],
+  },
+  {
+    key: "rekapKendaraan",
+    label: "Rekap Kendaraan KOPG",
+    href: "/rekap-kendaraan",
+    icon: FileSpreadsheet,
+    roles: ["admin", "internal_kopg"], // Hanya bisa diakses admin dan internal_kopg
   },
   {
     key: "partner",
