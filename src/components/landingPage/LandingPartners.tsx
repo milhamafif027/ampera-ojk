@@ -246,7 +246,7 @@ function LandingPartners({
                 </button>
               </div>
 
-              {/* Tombol Close / Silang Pojok Kanan Atas (Diperbarui dengan hover warna gelap/rose yang elegan) */}
+              {/* Tombol Close / Silang Pojok Kanan Atas */}
               <button
                 onClick={() => setLightbox({ isOpen: false, partner: null })}
                 className="absolute top-4 right-4 p-2.5 bg-slate-900/60 hover:bg-[#9f1521] text-white rounded-full transition-all duration-200 backdrop-blur-md shadow-lg cursor-pointer"

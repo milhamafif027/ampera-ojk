@@ -18,21 +18,17 @@ interface LandingRoomsProps {
 }
 
 /* =========================================================
-   KOMPONEN INTERNAL KARTU RUANGAN (DENGAN LAZY HOVER RENDER)
+   KOMPONEN KARTU RUANGAN (RINGAN & SUPPORT HORIZONTAL SCROLL)
 ========================================================= */
-const RoomGridCard = ({
+const RoomCard = ({
   room,
-  isFeatured,
   onEnlarge,
 }: {
   room: any;
-  isFeatured: boolean;
+  isFeatured?: boolean; // Tambahkan tanda tanya (?) opsional di sini
   onEnlarge: (imgs: string[], index: number, roomName: string) => void;
 }) => {
   const [activeIdx, setActiveIdx] = useState(0);
-  // State untuk melacak apakah kartu sedang di-hover atau pernah di-hover
-  const [hasHovered, setHasHovered] = useState(false);
-
   const scrollRef = useRef<HTMLDivElement>(null);
   const [imgError, setImgError] = useState(false);
 
@@ -52,12 +48,7 @@ const RoomGridCard = ({
     roomImages = [defaultImage];
   }
 
-  // Menentukan gambar mana saja yang boleh dirender.
-  // Jika belum di-hover, render HANYA gambar indeks 0.
-  // Jika sudah di-hover, render semua gambar.
-  const imagesToRender = hasHovered ? roomImages : [roomImages[0]];
-
-  // Membersihkan Bug "Orang Orang"
+  // Format Kapasitas
   let displayCapacity = room.capacity ? String(room.capacity).trim() : "50";
   if (
     room.name.toLowerCase().includes("sriwidjaya") &&
@@ -67,7 +58,6 @@ const RoomGridCard = ({
   }
   displayCapacity = displayCapacity.replace(/orang/gi, "").trim() + " Orang";
 
-  // Logika Scroll / Swipe Gambar Internal
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const scrollLeft = e.currentTarget.scrollLeft;
     const width = e.currentTarget.offsetWidth;
@@ -99,23 +89,17 @@ const RoomGridCard = ({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl bg-slate-900 group shadow-md hover:shadow-xl transition-shadow cursor-pointer transform-gpu ${
-        isFeatured
-          ? "md:col-span-2 md:row-span-2 h-[260px] md:h-full" // Kartu Besar
-          : "col-span-1 row-span-1 h-[240px] md:h-full" // Kartu Kecil
-      }`}
+      className="relative overflow-hidden rounded-2xl bg-slate-900 group shadow-md hover:shadow-xl transition-all cursor-pointer shrink-0 w-[280px] sm:w-[320px] md:w-full h-[280px]"
       onClick={() => onEnlarge(roomImages, activeIdx, room.name)}
-      onMouseEnter={() => setHasHovered(true)} // Memicu render sisa gambar saat hover
-      onTouchStart={() => setHasHovered(true)} // Memicu render di layar sentuh
     >
-      {/* Slider Gambar */}
+      {/* Slider Gambar (Ringan & Lazy Load) */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="absolute inset-0 flex overflow-x-auto snap-x snap-mandatory scroll-smooth transform-gpu"
+        className="absolute inset-0 flex overflow-x-auto snap-x snap-mandatory scroll-smooth"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
-        {imagesToRender.map((imgUrl, idx) => (
+        {roomImages.map((imgUrl, idx) => (
           <div
             key={idx}
             className="relative w-full h-full shrink-0 snap-center"
@@ -124,34 +108,34 @@ const RoomGridCard = ({
             <img
               src={imgError ? defaultImage : imgUrl}
               alt={`${room.name} - ${idx + 1}`}
-              loading={idx === 0 ? "lazy" : "eager"} // Gambar 1 lazy bawaan browser, sisanya eager karena baru dipanggil saat hover
+              loading="lazy"
               onError={() => setImgError(true)}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
           </div>
         ))}
       </div>
 
-      {/* Overlay Gradient ala MUI */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity duration-300" />
+      {/* Overlay Gradient */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none opacity-90" />
 
-      {/* Tombol Swipe Internal (Muncul saat di-hover dan sudah diload) */}
-      {hasHovered && roomImages.length > 1 && (
+      {/* Tombol Swipe Internal (Jika gambar lebih dari 1) */}
+      {roomImages.length > 1 && (
         <>
           <button
             onClick={prevImg}
             className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all z-10"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={16} />
           </button>
           <button
             onClick={nextImg}
             className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all z-10"
           >
-            <ChevronRight size={18} />
+            <ChevronRight size={16} />
           </button>
 
-          {/* Titik Indikator Gambar */}
+          {/* Titik Indikator */}
           <div className="absolute top-3 right-3 z-10 flex gap-1 pointer-events-none">
             {roomImages.map((_, i) => (
               <span
@@ -165,33 +149,25 @@ const RoomGridCard = ({
         </>
       )}
 
-      {/* Teks Bawah (Titlebar) */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 flex justify-between items-end z-20 pointer-events-none">
+      {/* Teks Bawah */}
+      <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-between items-end z-20 pointer-events-none">
         <div className="text-white min-w-0 pr-2">
-          <h4
-            className={`font-bold drop-shadow-md truncate ${
-              isFeatured ? "text-lg sm:text-2xl" : "text-sm sm:text-base"
-            }`}
-          >
+          <h4 className="font-bold drop-shadow-md text-sm sm:text-base truncate">
             {room.name}
           </h4>
-          <span
-            className={`flex items-center gap-1.5 text-white/80 drop-shadow-md mt-1 font-medium ${
-              isFeatured ? "text-xs sm:text-sm" : "text-[11px]"
-            }`}
-          >
-            <Users size={isFeatured ? 15 : 12} /> {displayCapacity}
+          <span className="flex items-center gap-1.5 text-white/80 drop-shadow-md mt-1 font-medium text-[11px]">
+            <Users size={13} /> {displayCapacity}
           </span>
         </div>
         <button
-          className="text-white/60 hover:text-white pointer-events-auto p-1.5 shrink-0 transition-colors"
+          className="text-white/70 hover:text-white pointer-events-auto p-1.5 shrink-0 transition-colors"
           onClick={(e) => {
             e.stopPropagation();
             onEnlarge(roomImages, activeIdx, room.name);
           }}
           title="Lihat Detail & Perbesar"
         >
-          <Info size={isFeatured ? 26 : 20} />
+          <Info size={20} />
         </button>
       </div>
     </div>
@@ -199,7 +175,7 @@ const RoomGridCard = ({
 };
 
 /* =========================================================
-   KOMPONEN UTAMA LANDING ROOMS
+   KOMPONEN UTAMA LANDING ROOMS (RESPONSIF & SMOOTH)
 ========================================================= */
 export default function LandingRooms({
   rooms,
@@ -253,6 +229,19 @@ export default function LandingRooms({
       id="fasilitas"
       className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24 w-full space-y-12 sm:space-y-16"
     >
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(159, 21, 33, 0.25);
+          border-radius: 10px;
+        }
+      `}</style>
+
       {/* Header Section */}
       <motion.div
         variants={itemVariants}
@@ -270,7 +259,7 @@ export default function LandingRooms({
       {/* ================= SECTION 1: RUANGAN PERTEMUAN ================= */}
       <motion.div
         variants={itemVariants}
-        className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-slate-200/80 shadow-xl shadow-slate-100 p-5 sm:p-8 md:p-10 space-y-6 sm:space-y-8"
+        className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-slate-200/80 shadow-xl shadow-slate-100 p-5 sm:p-8 md:p-10 space-y-6"
       >
         <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
           <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
@@ -287,24 +276,21 @@ export default function LandingRooms({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 auto-rows-[240px]">
+        {/* MOBILE: HORIZONTAL SCROLL | DESKTOP: GRID */}
+        <div className="flex sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 overflow-x-auto sm:overflow-x-visible custom-scrollbar pb-3 sm:pb-0 snap-x sm:snap-none">
           {isLoading ? (
             [1, 2, 3, 4].map((n) => (
               <div
                 key={n}
-                className={`rounded-2xl bg-slate-100 animate-pulse ${
-                  n === 1
-                    ? "md:col-span-2 md:row-span-2 h-[260px] md:h-full"
-                    : "col-span-1 h-[240px] md:h-full"
-                }`}
+                className="rounded-2xl bg-slate-100 animate-pulse h-[280px] w-[280px] sm:w-full shrink-0"
               />
             ))
           ) : conferenceRooms.length > 0 ? (
-            conferenceRooms.map((room: any, idx: number) => (
-              <RoomGridCard
+            conferenceRooms.map((room: any) => (
+              <RoomCard
                 key={room.id}
                 room={room}
-                isFeatured={idx === 0}
+                isFeatured={false}
                 onEnlarge={handleEnlarge}
               />
             ))
@@ -319,7 +305,7 @@ export default function LandingRooms({
       {/* ================= SECTION 2: RUANGAN RAPAT ================= */}
       <motion.div
         variants={itemVariants}
-        className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-slate-200/80 shadow-xl shadow-slate-100 p-5 sm:p-8 md:p-10 space-y-6 sm:space-y-8"
+        className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-slate-200/80 shadow-xl shadow-slate-100 p-5 sm:p-8 md:p-10 space-y-6"
       >
         <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
           <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
@@ -336,24 +322,21 @@ export default function LandingRooms({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 auto-rows-[240px]">
+        {/* MOBILE: HORIZONTAL SCROLL | DESKTOP: GRID */}
+        <div className="flex sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 overflow-x-auto sm:overflow-x-visible custom-scrollbar pb-3 sm:pb-0 snap-x sm:snap-none">
           {isLoading ? (
             [1, 2, 3, 4, 5].map((n) => (
               <div
                 key={n}
-                className={`rounded-2xl bg-slate-100 animate-pulse ${
-                  n === 1
-                    ? "md:col-span-2 md:row-span-2 h-[260px] md:h-full"
-                    : "col-span-1 h-[240px] md:h-full"
-                }`}
+                className="rounded-2xl bg-slate-100 animate-pulse h-[280px] w-[280px] sm:w-full shrink-0"
               />
             ))
           ) : meetingRooms.length > 0 ? (
-            meetingRooms.map((room: any, idx: number) => (
-              <RoomGridCard
+            meetingRooms.map((room: any) => (
+              <RoomCard
                 key={room.id}
                 room={room}
-                isFeatured={idx === 0}
+                isFeatured={false}
                 onEnlarge={handleEnlarge}
               />
             ))
@@ -379,7 +362,7 @@ export default function LandingRooms({
               className="relative max-w-5xl w-full max-h-[85vh] flex items-center justify-center transform-gpu"
               onClick={(e) => e.stopPropagation()}
             >
-              <span className="absolute -top-10 left-0 text-white font-bold tracking-wide">
+              <span className="absolute -top-10 left-0 text-white font-bold tracking-wide text-xs sm:text-sm">
                 {lightbox.title} ({lightbox.index + 1} /{" "}
                 {lightbox.images.length})
               </span>
@@ -395,15 +378,15 @@ export default function LandingRooms({
                 <>
                   <button
                     onClick={prevLightbox}
-                    className="absolute left-2 sm:-left-12 p-3 sm:p-4 bg-white/10 hover:bg-white/30 text-white rounded-full transition-colors shadow-lg"
+                    className="absolute left-2 sm:-left-12 p-3 bg-white/10 hover:bg-white/30 text-white rounded-full transition-colors shadow-lg"
                   >
-                    <ChevronLeft size={28} />
+                    <ChevronLeft size={24} />
                   </button>
                   <button
                     onClick={nextLightbox}
-                    className="absolute right-2 sm:-right-12 p-3 sm:p-4 bg-white/10 hover:bg-white/30 text-white rounded-full transition-colors shadow-lg"
+                    className="absolute right-2 sm:-right-12 p-3 bg-white/10 hover:bg-white/30 text-white rounded-full transition-colors shadow-lg"
                   >
-                    <ChevronRight size={28} />
+                    <ChevronRight size={24} />
                   </button>
                 </>
               )}
@@ -413,7 +396,7 @@ export default function LandingRooms({
                 className="absolute top-2 right-2 sm:-top-10 sm:-right-6 p-2 text-white/60 hover:text-white transition-colors"
                 title="Tutup"
               >
-                <X size={28} />
+                <X size={24} />
               </button>
             </motion.div>
           </div>
