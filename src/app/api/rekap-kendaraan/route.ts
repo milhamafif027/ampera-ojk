@@ -6,7 +6,7 @@ import { db } from "@/lib/db"; // Sesuaikan path koneksi database Anda
 export async function GET(request: NextRequest) {
   try {
     const rows = await db.$queryRaw`
-      SELECT id, hari_tanggal, no_pol, jam_awal, km_awal, tujuan, keperluan, pengguna, driver, km_akhir, durasi, created_at
+      SELECT id, hari_tanggal, no_pol, jam_awal, km_awal, tujuan, keperluan, pengguna, driver, km_akhir, jam_selesai, created_at
       FROM rekap_kendaraan_kopg
       ORDER BY id DESC
     `;
@@ -34,16 +34,17 @@ export async function POST(request: NextRequest) {
       pengguna,
       driver,
       km_akhir,
-      durasi,
+      jam_selesai,
     } = body;
 
     const kmAwalNum = Number(km_awal) || 0;
-    const kmAkhirNum = km_akhir ? Number(km_akhir) : kmAwalNum;
-    const durasiStr = durasi && durasi.trim() !== "" ? durasi : "-";
+    const kmAkhirNum = Number(km_akhir) || 0;
+    const jamSelesaiStr =
+      jam_selesai && jam_selesai.trim() !== "" ? jam_selesai : "-";
 
     const result: any = await db.$queryRaw`
-      INSERT INTO rekap_kendaraan_kopg (hari_tanggal, no_pol, jam_awal, km_awal, tujuan, keperluan, pengguna, driver, km_akhir, durasi)
-      VALUES (${hari_tanggal}, ${no_pol}, ${jam_awal}, ${kmAwalNum}, ${tujuan}, ${keperluan}, ${pengguna}, ${driver}, ${kmAkhirNum}, ${durasiStr})
+      INSERT INTO rekap_kendaraan_kopg (hari_tanggal, no_pol, jam_awal, km_awal, tujuan, keperluan, pengguna, driver, km_akhir, jam_selesai)
+      VALUES (${hari_tanggal}, ${no_pol}, ${jam_awal}, ${kmAwalNum}, ${tujuan}, ${keperluan}, ${pengguna}, ${driver}, ${kmAkhirNum}, ${jamSelesaiStr})
       RETURNING id
     `;
 
