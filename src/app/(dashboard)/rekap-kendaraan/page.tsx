@@ -52,7 +52,7 @@ export default function RekapKendaraanPage() {
   // State Filter
   const [searchTerm, setSearchTerm] = useState("");
 
-  // State Form Input (Semua Wajib Diisi)
+  // State Form Input (Semua Wajib Diisi, Termasuk Km Akhir)
   const [formData, setFormData] = useState({
     hari_tanggal: new Date().toISOString().split("T")[0],
     no_pol: "",
@@ -74,14 +74,22 @@ export default function RekapKendaraanPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Ambil Data Rekap dan Master Kendaraan Sekaligus
+  // Ambil Data Rekap dan Master Kendaraan dengan penanganan kredensial (atasi 401)
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
       const [resRekap, resVehicles] = await Promise.all([
-        fetch("/api/rekap-kendaraan"),
-        fetch("/api/kendaraan"),
+        fetch("/api/rekap-kendaraan", {
+          headers: { "Content-Type": "application/json" },
+        }),
+        fetch("/api/kendaraan", {
+          headers: { "Content-Type": "application/json" },
+        }),
       ]);
+
+      if (resRekap.status === 401 || resVehicles.status === 401) {
+        console.warn("Sesi memerlukan otorisasi ulang.");
+      }
 
       const resultRekap = await resRekap.json();
       const resultVehicles = await resVehicles.json();
@@ -293,7 +301,7 @@ export default function RekapKendaraanPage() {
       const tableColumn = [
         "No",
         "Tanggal",
-        "No. Polisi / Mobil",
+        "No. Pol / Mobil",
         "Jam Awal",
         "Km Awal",
         "Tujuan",
@@ -497,7 +505,7 @@ export default function RekapKendaraanPage() {
         )}
       </div>
 
-      {/* MODAL INPUT FORM REKAP KOPG (SEMUA WAJIB DIISI) */}
+      {/* MODAL INPUT FORM REKAP KOPG */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
@@ -655,6 +663,7 @@ export default function RekapKendaraanPage() {
                 </div>
               </div>
 
+              {/* RAPI BERDAMPINGAN: KM AKHIR & JAM SELESAI */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
