@@ -1,0 +1,745 @@
+"use client";
+
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  Car,
+  Plus,
+  Calendar,
+  X,
+  RefreshCw,
+  Trash2,
+  AlertTriangle,
+  Download,
+  Printer,
+  Loader2,
+  Search,
+  CheckCircle2,
+  Clock,
+  Gauge,
+} from "lucide-react";
+import { motion } from "framer-motion";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+
+interface RekapItem {
+  id: string | number;
+  hari_tanggal: string;
+  no_pol: string;
+  jam_awal: string;
+  km_awal: number;
+  tujuan: string;
+  keperluan: string;
+  pengguna: string;
+  driver: string;
+  km_akhir: number;
+  durasi: string;
+}
+
+export default function RekapKendaraanPage() {
+  const [rekapList, setRekapList] = useState<RekapItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // State Filter
+  const [searchTerm, setSearchTerm] = useState("");
+  const [yearFilter, setYearFilter] = useState("Semua Tahun");
+  const [monthFilter, setMonthFilter] = useState("Semua Bulan");
+
+  // State Form Input
+  const [formData, setFormData] = useState({
+    hari_tanggal: "Rabu / 23 Sept 2026",
+    no_pol: "BG 1128 OZ",
+    jam_awal: "11:27",
+    km_awal: "154442",
+    tujuan: "",
+    keperluan: "",
+    pengguna: "",
+    driver: "",
+    km_akhir: "",
+    durasi: "",
+  });
+
+  const handleRefresh = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/rekap-kendaraan");
+      const result = await res.json();
+      if (res.ok && result.data) {
+        setRekapList(result.data);
+      }
+    } catch (error) {
+      console.error("Gagal memuat rekap kendaraan:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    id: string | null;
+    title: string;
+  }>({ isOpen: false, id: null, title: "" });
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
+
+  const fetchRekapData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/rekap-kendaraan");
+      const result = await res.json();
+      if (res.ok && result.data) {
+        setRekapList(result.data);
+      }
+    } catch (error) {
+      console.error("Gagal memuat rekap kendaraan:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Diubah menjadi seperti ini agar bersih dari linter error:
+  useEffect(() => {
+    let isCancelled = false;
+
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch("/api/rekap-kendaraan");
+        const result = await res.json();
+        if (!isCancelled && res.ok && result.data) {
+          setRekapList(result.data);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          console.error("Gagal memuat rekap kendaraan:", error);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []); // Array dependency kosong agar hanya dipanggil sekali saat komponen dimuat
+
+  // Filter Data
+  const filteredData = useMemo(() => {
+    return rekapList.filter((item) => {
+      const matchSearch =
+        item.tujuan.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.pengguna.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.driver.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.no_pol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.keperluan.toLowerCase().includes(searchTerm.toLowerCase());
+
+      return matchSearch;
+    });
+  }, [rekapList, searchTerm]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/rekap-kendaraan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (!res.ok) throw new Error("Gagal menyimpan rekap");
+
+      setIsModalOpen(false);
+      setSuccessMsg("Rekap kegiatan dinas kendaraan KOPG berhasil disimpan!");
+      fetchRekapData();
+    } catch (error) {
+      console.error(error);
+      alert("Terjadi kesalahan saat menyimpan data.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteModal.id) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/rekap-kendaraan?id=${deleteModal.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setDeleteModal({ isOpen: false, id: null, title: "" });
+        fetchRekapData();
+      } else {
+        alert("Gagal menghapus data.");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // --- EKSPOR EXCEL ---
+  const handleExportExcel = () => {
+    setIsExporting(true);
+    try {
+      const currentDate = new Date().toISOString().split("T")[0];
+      const exportData: any[][] = [];
+
+      exportData.push(["KANTOR OJK PROVINSI SUMATERA SELATAN"]);
+      exportData.push(["REKAPITULASI KEGIATAN DINAS KENDARAAN KOPG"]);
+      exportData.push([`Tanggal Cetak: ${currentDate}`]);
+      exportData.push([]);
+
+      exportData.push([
+        "No",
+        "Hari / Tanggal",
+        "No. Polisi",
+        "Jam Awal",
+        "Km Awal",
+        "Tujuan",
+        "Keperluan",
+        "Pengguna",
+        "Driver",
+        "Km Akhir",
+        "Durasi",
+      ]);
+
+      filteredData.forEach((item, idx) => {
+        exportData.push([
+          idx + 1,
+          item.hari_tanggal,
+          item.no_pol,
+          item.jam_awal,
+          item.km_awal,
+          item.tujuan,
+          item.keperluan,
+          item.pengguna,
+          item.driver,
+          item.km_akhir,
+          item.durasi,
+        ]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(exportData);
+      ws["!cols"] = [
+        { wch: 5 },
+        { wch: 20 },
+        { wch: 15 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 25 },
+        { wch: 25 },
+        { wch: 20 },
+        { wch: 15 },
+        { wch: 12 },
+        { wch: 12 },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Rekap KOPG");
+      XLSX.writeFile(wb, `Rekap_Kendaraan_KOPG_${currentDate}.xlsx`);
+    } catch (error) {
+      console.error("Excel export error:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // --- CETAK PDF ---
+  const handleDownloadPDF = () => {
+    setIsExporting(true);
+    try {
+      const doc = new jsPDF("landscape", "mm", "a4");
+      const currentDate = new Date().toISOString().split("T")[0];
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("OTORITAS JASA KEUANGAN PROVINSI SUMATERA SELATAN", 14, 15);
+      doc.setFontSize(10);
+      doc.text("Laporan Rekapitulasi Kegiatan Dinas Kendaraan KOPG", 14, 22);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(`Tanggal Cetak: ${currentDate}`, 14, 28);
+      doc.setLineWidth(0.5);
+      doc.line(14, 32, 283, 32);
+
+      const tableColumn = [
+        "No",
+        "Hari / Tgl",
+        "No. Pol",
+        "Jam",
+        "Km Awal",
+        "Tujuan",
+        "Keperluan",
+        "Pengguna",
+        "Driver",
+        "Km Akhir",
+        "Durasi",
+      ];
+      const tableRows = filteredData.map((item, idx) => [
+        idx + 1,
+        item.hari_tanggal,
+        item.no_pol,
+        item.jam_awal,
+        item.km_awal,
+        item.tujuan,
+        item.keperluan,
+        item.pengguna,
+        item.driver,
+        item.km_akhir,
+        item.durasi,
+      ]);
+
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 36,
+        theme: "grid",
+        headStyles: {
+          fillColor: [159, 21, 33],
+          textColor: [255, 255, 255],
+          fontSize: 8,
+          halign: "center",
+        },
+        bodyStyles: { fontSize: 7.5, textColor: [30, 30, 30] },
+      });
+
+      doc.save(`Rekap_Kendaraan_KOPG_${currentDate}.pdf`);
+    } catch (error) {
+      console.error("PDF export error:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="space-y-6 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full pb-12"
+    >
+      {/* HEADER BAR & ACTION BUTTONS */}
+      <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Car className="text-[#9f1521] shrink-0" size={22} /> Rekapitulasi
+              Kegiatan Dinas Kendaraan KOPG
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+              Catat dan pantau seluruh aktivitas operasional kedinasan kendaraan
+              KOPG OJK Sumsel secara terstruktur.
+            </p>
+          </div>
+
+          {/* Tombol Cetak & Ekspor Khusus */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleExportExcel}
+              disabled={isExporting}
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+            >
+              <Download size={15} /> Ekspor Excel
+            </button>
+            <button
+              onClick={handleDownloadPDF}
+              disabled={isExporting}
+              className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+            >
+              <Printer size={15} /> Cetak PDF
+            </button>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-rose-900/10 cursor-pointer"
+            >
+              <Plus size={16} /> Rekap Kegiatan Baru
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* TABEL DATA REKAP KEGIATAN */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <h2 className="font-bold text-slate-800 dark:text-white text-base flex items-center gap-2">
+            <Calendar size={18} className="text-[#9f1521]" /> Tabel Rekapitulasi
+            Dinas
+          </h2>
+
+          <div className="relative w-full sm:w-72">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              type="text"
+              placeholder="Cari tujuan, pengguna, driver..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium outline-none"
+            />
+          </div>
+        </div>
+
+        {filteredData.length > 0 ? (
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase font-black tracking-wider">
+                  <th className="p-3">Hari / Tanggal</th>
+                  <th className="p-3">No. Polisi</th>
+                  <th className="p-3">Jam & Km Awal</th>
+                  <th className="p-3">Tujuan & Keperluan</th>
+                  <th className="p-3">Pengguna / Driver</th>
+                  <th className="p-3">Km Akhir & Durasi</th>
+                  <th className="p-3 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
+                {filteredData.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors"
+                  >
+                    <td className="p-3 whitespace-nowrap font-bold text-slate-900 dark:text-white">
+                      {item.hari_tanggal}
+                    </td>
+                    <td className="p-3 whitespace-nowrap font-mono font-bold text-[#9f1521]">
+                      {item.no_pol}
+                    </td>
+                    <td className="p-3 whitespace-nowrap">
+                      <div className="flex flex-col gap-0.5 text-slate-500">
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} /> {item.jam_awal}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Gauge size={12} /> {item.km_awal} Km
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <div className="space-y-0.5">
+                        <p className="font-bold text-slate-900 dark:text-white">
+                          📍 {item.tujuan}
+                        </p>
+                        <p className="text-[11px] text-slate-500 italic">
+                          💡 {item.keperluan}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="p-3 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className="font-bold">👤 {item.pengguna}</span>
+                        <span className="text-[11px] text-slate-400">
+                          🚗 Driver: {item.driver}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-3 whitespace-nowrap">
+                      <div className="flex flex-col text-slate-600 dark:text-slate-300">
+                        <span>🏁 Km Akhir: {item.km_akhir}</span>
+                        <span className="font-bold text-emerald-600">
+                          ⏱️ Durasi: {item.durasi}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-3 text-center whitespace-nowrap">
+                      <button
+                        onClick={() =>
+                          setDeleteModal({
+                            isOpen: true,
+                            id: String(item.id),
+                            title: `${item.tujuan} (${item.pengguna})`,
+                          })
+                        }
+                        className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors cursor-pointer"
+                        title="Hapus Rekap"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-xs text-slate-400 italic py-8 text-center border-t border-dashed border-slate-200 dark:border-slate-800">
+            Belum ada data rekap kegiatan dinas KOPG tercatat.
+          </p>
+        )}
+      </div>
+
+      {/* MODAL INPUT FORM REKAP KOPG */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-2xl flex flex-col my-auto"
+          >
+            <div className="px-6 py-5 bg-[#9f1521] text-white flex justify-between items-center">
+              <h3 className="font-bold text-base">
+                Form Rekap Kegiatan Dinas KOPG
+              </h3>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-1 hover:bg-white/20 rounded-full cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleSubmit}
+              className="p-6 space-y-4 text-xs font-medium text-slate-800 dark:text-slate-100 max-h-[70vh] overflow-y-auto custom-scrollbar"
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                    Hari / Tanggal
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.hari_tanggal}
+                    onChange={(e) =>
+                      setFormData({ ...formData, hari_tanggal: e.target.value })
+                    }
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
+                    placeholder="Rabu / 23 Sept 2026"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                    No. Polisi
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.no_pol}
+                    onChange={(e) =>
+                      setFormData({ ...formData, no_pol: e.target.value })
+                    }
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-mono"
+                    placeholder="BG 1128 OZ"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                    Jam Awal
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.jam_awal}
+                    onChange={(e) =>
+                      setFormData({ ...formData, jam_awal: e.target.value })
+                    }
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
+                    placeholder="11:27"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                    Km Awal
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.km_awal}
+                    onChange={(e) =>
+                      setFormData({ ...formData, km_awal: e.target.value })
+                    }
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
+                    placeholder="154442"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                  Tujuan Perjalanan
+                </label>
+                <input
+                  type="text"
+                  value={formData.tujuan}
+                  onChange={(e) =>
+                    setFormData({ ...formData, tujuan: e.target.value })
+                  }
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
+                  placeholder="pakjo, kedamaian"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                  Keperluan Dinas
+                </label>
+                <input
+                  type="text"
+                  value={formData.keperluan}
+                  onChange={(e) =>
+                    setFormData({ ...formData, keperluan: e.target.value })
+                  }
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
+                  placeholder="survei rumdin"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                    Pengguna / User
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.pengguna}
+                    onChange={(e) =>
+                      setFormData({ ...formData, pengguna: e.target.value })
+                    }
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
+                    placeholder="Bang jeff"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                    Driver
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.driver}
+                    onChange={(e) =>
+                      setFormData({ ...formData, driver: e.target.value })
+                    }
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
+                    placeholder="rio"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                    Km Akhir (Opsional)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.km_akhir}
+                    onChange={(e) =>
+                      setFormData({ ...formData, km_akhir: e.target.value })
+                    }
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
+                    placeholder="154465"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                    Durasi (Opsional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.durasi}
+                    onChange={(e) =>
+                      setFormData({ ...formData, durasi: e.target.value })
+                    }
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
+                    placeholder="13.43"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-[#9f1521] text-white rounded-xl font-bold hover:bg-[#7a1019] cursor-pointer"
+                >
+                  Simpan Rekap
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* MODAL KONFIRMASI HAPUS */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl text-center space-y-4">
+            <div className="w-14 h-14 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+              <AlertTriangle size={28} />
+            </div>
+            <h3 className="text-base font-black text-slate-900 dark:text-white">
+              Hapus Data Rekap?
+            </h3>
+            <p className="text-xs text-slate-500">
+              Apakah Anda yakin ingin menghapus rekap kegiatan ke{" "}
+              <strong>{deleteModal.title}</strong>?
+            </p>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() =>
+                  setDeleteModal({ isOpen: false, id: null, title: "" })
+                }
+                className="flex-1 py-2.5 bg-slate-100 rounded-xl font-bold text-xs"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 bg-rose-600 text-white rounded-xl font-bold text-xs"
+              >
+                {isDeleting ? "Menghapus..." : "Ya, Hapus"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL SUKSES */}
+      {successMsg && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-8 max-w-sm w-full shadow-2xl text-center space-y-4">
+            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle2 size={32} />
+            </div>
+            <h3 className="text-lg font-black text-slate-900 dark:text-white">
+              Berhasil!
+            </h3>
+            <p className="text-xs text-slate-500">{successMsg}</p>
+            <button
+              onClick={() => setSuccessMsg("")}
+              className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold text-xs"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}

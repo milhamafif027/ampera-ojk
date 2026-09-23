@@ -1,0 +1,86 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { db } from "@/lib/db"; // Sesuaikan path koneksi database Anda
+
+// 1. GET: Mengambil seluruh daftar rekap kegiatan dinas kendaraan KOPG
+export async function GET(request: NextRequest) {
+  try {
+    const rows = await db.$queryRaw`
+      SELECT id, hari_tanggal, no_pol, jam_awal, km_awal, tujuan, keperluan, pengguna, driver, km_akhir, durasi, created_at
+      FROM rekap_kendaraan_kopg
+      ORDER BY id DESC
+    `;
+    return NextResponse.json({ success: true, data: rows });
+  } catch (error: any) {
+    console.error("API GET REKAP KENDARAAN ERROR:", error);
+    return NextResponse.json(
+      { success: false, message: error.message },
+      { status: 500 },
+    );
+  }
+}
+
+// 2. POST: Menambah rekap kegiatan dinas baru
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const {
+      hari_tanggal,
+      no_pol,
+      jam_awal,
+      km_awal,
+      tujuan,
+      keperluan,
+      pengguna,
+      driver,
+      km_akhir,
+      durasi,
+    } = body;
+
+    const kmAwalNum = Number(km_awal) || 0;
+    const kmAkhirNum = km_akhir ? Number(km_akhir) : kmAwalNum;
+    const durasiStr = durasi && durasi.trim() !== "" ? durasi : "-";
+
+    const result: any = await db.$queryRaw`
+      INSERT INTO rekap_kendaraan_kopg (hari_tanggal, no_pol, jam_awal, km_awal, tujuan, keperluan, pengguna, driver, km_akhir, durasi)
+      VALUES (${hari_tanggal}, ${no_pol}, ${jam_awal}, ${kmAwalNum}, ${tujuan}, ${keperluan}, ${pengguna}, ${driver}, ${kmAkhirNum}, ${durasiStr})
+      RETURNING id
+    `;
+
+    return NextResponse.json({ success: true, insertId: result[0]?.id });
+  } catch (error: any) {
+    console.error("API POST REKAP KENDARAAN ERROR:", error);
+    return NextResponse.json(
+      { success: false, message: error.message },
+      { status: 500 },
+    );
+  }
+}
+
+// 3. DELETE: Menghapus data rekap berdasarkan ID
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, message: "ID tidak ditemukan" },
+        { status: 400 },
+      );
+    }
+
+    await db.$executeRaw`DELETE FROM rekap_kendaraan_kopg WHERE id = ${Number(id)}`;
+
+    return NextResponse.json({
+      success: true,
+      message: "Data rekap kegiatan berhasil dihapus",
+    });
+  } catch (error: any) {
+    console.error("API DELETE REKAP KENDARAAN ERROR:", error);
+    return NextResponse.json(
+      { success: false, message: error.message },
+      { status: 500 },
+    );
+  }
+}
