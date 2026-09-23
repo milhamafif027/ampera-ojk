@@ -32,6 +32,7 @@ interface RekapItem {
   keperluan: string;
   pengguna: string;
   driver: string;
+  km_akhir: number;
   jam_selesai: string;
 }
 
@@ -53,7 +54,7 @@ export default function RekapKendaraanPage() {
 
   // State Form Input (Semua Wajib Diisi)
   const [formData, setFormData] = useState({
-    hari_tanggal: new Date().toISOString().split("T")[0], // Tanggal default hari ini
+    hari_tanggal: new Date().toISOString().split("T")[0],
     no_pol: "",
     jam_awal: "",
     km_awal: "",
@@ -61,6 +62,7 @@ export default function RekapKendaraanPage() {
     keperluan: "",
     pengguna: "",
     driver: "",
+    km_akhir: "",
     jam_selesai: "",
   });
 
@@ -225,6 +227,7 @@ export default function RekapKendaraanPage() {
         "Keperluan",
         "Pengguna",
         "Driver",
+        "Km Akhir",
         "Jam Selesai",
       ]);
 
@@ -239,6 +242,7 @@ export default function RekapKendaraanPage() {
           item.keperluan,
           item.pengguna,
           item.driver,
+          item.km_akhir,
           item.jam_selesai,
         ]);
       });
@@ -254,7 +258,8 @@ export default function RekapKendaraanPage() {
         { wch: 25 },
         { wch: 20 },
         { wch: 15 },
-        { wch: 15 },
+        { wch: 12 },
+        { wch: 12 },
       ];
 
       const wb = XLSX.utils.book_new();
@@ -295,6 +300,7 @@ export default function RekapKendaraanPage() {
         "Keperluan",
         "Pengguna",
         "Driver",
+        "Km Akhir",
         "Jam Selesai",
       ];
       const tableRows = filteredData.map((item, idx) => [
@@ -307,6 +313,7 @@ export default function RekapKendaraanPage() {
         item.keperluan,
         item.pengguna,
         item.driver,
+        item.km_akhir,
         item.jam_selesai,
       ]);
 
@@ -411,7 +418,7 @@ export default function RekapKendaraanPage() {
                   <th className="p-3">Jam & Km Awal</th>
                   <th className="p-3">Tujuan & Keperluan</th>
                   <th className="p-3">Pengguna / Driver</th>
-                  <th className="p-3">Jam Selesai</th>
+                  <th className="p-3">Km Akhir & Jam Selesai</th>
                   <th className="p-3 text-center">Aksi</th>
                 </tr>
               </thead>
@@ -455,8 +462,13 @@ export default function RekapKendaraanPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="p-3 whitespace-nowrap font-bold text-emerald-600">
-                      🏁 {item.jam_selesai || "-"}
+                    <td className="p-3 whitespace-nowrap">
+                      <div className="flex flex-col text-slate-600 dark:text-slate-300">
+                        <span>🏁 {item.km_akhir} Km</span>
+                        <span className="font-bold text-emerald-600">
+                          ⏱️ Selesai: {item.jam_selesai}
+                        </span>
+                      </div>
                     </td>
                     <td className="p-3 text-center whitespace-nowrap">
                       <button
@@ -643,19 +655,36 @@ export default function RekapKendaraanPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                  Jam Selesai <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="time"
-                  value={formData.jam_selesai}
-                  onChange={(e) =>
-                    setFormData({ ...formData, jam_selesai: e.target.value })
-                  }
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none cursor-pointer"
-                  required
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                    Km Akhir <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.km_akhir}
+                    onChange={(e) =>
+                      setFormData({ ...formData, km_akhir: e.target.value })
+                    }
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
+                    placeholder="Contoh: 154465"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                    Jam Selesai <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={formData.jam_selesai}
+                    onChange={(e) =>
+                      setFormData({ ...formData, jam_selesai: e.target.value })
+                    }
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none cursor-pointer"
+                    required
+                  />
+                </div>
               </div>
 
               <div className="pt-3 flex justify-end gap-2">
