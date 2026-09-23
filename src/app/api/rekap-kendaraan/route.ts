@@ -1,12 +1,24 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { db } from "@/lib/db"; // Sesuaikan path koneksi database Anda
+import { db } from "@/lib/db";
 
 // 1. GET: Mengambil seluruh daftar rekap kegiatan dinas kendaraan KOPG
 export async function GET(request: NextRequest) {
   try {
     const rows = await db.$queryRaw`
-      SELECT id, hari_tanggal, no_pol, jam_awal, km_awal, tujuan, keperluan, pengguna, driver, km_akhir, jam_selesai, created_at
+      SELECT 
+        id, 
+        hari_tanggal, 
+        no_pol, 
+        jam_awal, 
+        km_awal, 
+        tujuan, 
+        keperluan, 
+        pengguna, 
+        driver, 
+        km_akhir, 
+        jam_selesai, 
+        created_at
       FROM rekap_kendaraan_kopg
       ORDER BY id DESC
     `;
@@ -20,7 +32,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 2. POST: Menambah rekap kegiatan dinas baru
+// 2. POST: Menambah rekap kegiatan dinas baru secara eksplisit
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -43,8 +55,30 @@ export async function POST(request: NextRequest) {
       jam_selesai && jam_selesai.trim() !== "" ? jam_selesai : "-";
 
     const result: any = await db.$queryRaw`
-      INSERT INTO rekap_kendaraan_kopg (hari_tanggal, no_pol, jam_awal, km_awal, tujuan, keperluan, pengguna, driver, km_akhir, jam_selesai)
-      VALUES (${hari_tanggal}, ${no_pol}, ${jam_awal}, ${kmAwalNum}, ${tujuan}, ${keperluan}, ${pengguna}, ${driver}, ${kmAkhirNum}, ${jamSelesaiStr})
+      INSERT INTO rekap_kendaraan_kopg (
+        hari_tanggal, 
+        no_pol, 
+        jam_awal, 
+        km_awal, 
+        tujuan, 
+        keperluan, 
+        pengguna, 
+        driver, 
+        km_akhir, 
+        jam_selesai
+      )
+      VALUES (
+        ${hari_tanggal}, 
+        ${no_pol}, 
+        ${jam_awal}, 
+        ${kmAwalNum}, 
+        ${tujuan}, 
+        ${keperluan}, 
+        ${pengguna}, 
+        ${driver}, 
+        ${kmAkhirNum}, 
+        ${jamSelesaiStr}
+      )
       RETURNING id
     `;
 
