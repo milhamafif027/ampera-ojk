@@ -34,6 +34,8 @@ interface RekapItem {
   driver: string;
   km_akhir: number;
   jam_selesai: string;
+  durasi: string;
+  total_km: number;
 }
 
 interface VehicleOption {
@@ -52,7 +54,7 @@ export default function RekapKendaraanPage() {
   // State Filter
   const [searchTerm, setSearchTerm] = useState("");
 
-  // State Form Input (Semua Wajib Diisi, Termasuk Km Akhir)
+  // State Form Input
   const [formData, setFormData] = useState({
     hari_tanggal: new Date().toISOString().split("T")[0],
     no_pol: "",
@@ -74,7 +76,31 @@ export default function RekapKendaraanPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Ambil Data Rekap dan Master Kendaraan dengan penanganan kredensial (atasi 401)
+  // Helper untuk menghitung selisih waktu & jarak secara otomatis
+  const calculateDerivedValues = (
+    jAwal: string,
+    jSelesai: string,
+    kmAwal: string,
+    kmAkhir: string,
+  ) => {
+    let durasiStr = "-";
+    if (jAwal && jSelesai) {
+      const [h1, m1] = jAwal.split(":").map(Number);
+      const [h2, m2] = jSelesai.split(":").map(Number);
+      let diffMins = h2 * 60 + m2 - (h1 * 60 + m1);
+      if (diffMins < 0) diffMins += 24 * 60;
+      const hours = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+      durasiStr = `${hours} jam ${mins} mnt`;
+    }
+
+    const km1 = Number(kmAwal) || 0;
+    const km2 = Number(kmAkhir) || 0;
+    const totalKm = km2 >= km1 ? km2 - km1 : 0;
+
+    return { durasi: durasiStr, total_km: totalKm };
+  };
+
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -87,15 +113,24 @@ export default function RekapKendaraanPage() {
         }),
       ]);
 
-      if (resRekap.status === 401 || resVehicles.status === 401) {
-        console.warn("Sesi memerlukan otorisasi ulang.");
-      }
-
       const resultRekap = await resRekap.json();
       const resultVehicles = await resVehicles.json();
 
       if (resRekap.ok && resultRekap.data) {
-        setRekapList(resultRekap.data);
+        const enriched = resultRekap.data.map((item: any) => {
+          const derived = calculateDerivedValues(
+            item.jam_awal,
+            item.jam_selesai,
+            item.km_awal,
+            item.km_akhir,
+          );
+          return {
+            ...item,
+            durasi: derived.durasi,
+            total_km: derived.total_km,
+          };
+        });
+        setRekapList(enriched);
       }
 
       if (resVehicles.ok && resultVehicles.vehicles) {
@@ -115,10 +150,11 @@ export default function RekapKendaraanPage() {
     }
   }, []);
 
+  // useEffect yang bersih dari linter error cascading render
   useEffect(() => {
     let isCancelled = false;
 
-    const load = async () => {
+    const loadData = async () => {
       try {
         setIsLoading(true);
         const [resRekap, resVehicles] = await Promise.all([
@@ -131,7 +167,20 @@ export default function RekapKendaraanPage() {
 
         if (!isCancelled) {
           if (resRekap.ok && resultRekap.data) {
-            setRekapList(resultRekap.data);
+            const enriched = resultRekap.data.map((item: any) => {
+              const derived = calculateDerivedValues(
+                item.jam_awal,
+                item.jam_selesai,
+                item.km_awal,
+                item.km_akhir,
+              );
+              return {
+                ...item,
+                durasi: derived.durasi,
+                total_km: derived.total_km,
+              };
+            });
+            setRekapList(enriched);
           }
           if (resVehicles.ok && resultVehicles.vehicles) {
             setVehicles(
@@ -150,7 +199,7 @@ export default function RekapKendaraanPage() {
       }
     };
 
-    load();
+    loadData();
 
     return () => {
       isCancelled = true;
@@ -221,7 +270,7 @@ export default function RekapKendaraanPage() {
       const exportData: any[][] = [];
 
       exportData.push(["KANTOR OJK PROVINSI SUMATERA SELATAN"]);
-      exportData.push(["REKAPITULASI KEGIATAN DINAS KENDARAAN"]);
+      exportData.push(["REKAPITULASI KEGIATAN DINAS KENDARAAN KOPG"]);
       exportData.push([`Tanggal Cetak: ${currentDate}`]);
       exportData.push([]);
 
@@ -230,13 +279,15 @@ export default function RekapKendaraanPage() {
         "Tanggal",
         "No. Polisi / Mobil",
         "Jam Awal",
+        "Jam Selesai",
+        "Durasi",
         "Km Awal",
+        "Km Akhir",
+        "Total Km",
         "Tujuan",
         "Keperluan",
         "Pengguna",
         "Driver",
-        "Km Akhir",
-        "Jam Selesai",
       ]);
 
       filteredData.forEach((item, idx) => {
@@ -245,31 +296,19 @@ export default function RekapKendaraanPage() {
           item.hari_tanggal,
           item.no_pol,
           item.jam_awal,
+          item.jam_selesai,
+          item.durasi,
           item.km_awal,
+          item.km_akhir,
+          `${item.total_km} Km`,
           item.tujuan,
           item.keperluan,
           item.pengguna,
           item.driver,
-          item.km_akhir,
-          item.jam_selesai,
         ]);
       });
 
       const ws = XLSX.utils.aoa_to_sheet(exportData);
-      ws["!cols"] = [
-        { wch: 5 },
-        { wch: 15 },
-        { wch: 25 },
-        { wch: 12 },
-        { wch: 12 },
-        { wch: 25 },
-        { wch: 25 },
-        { wch: 20 },
-        { wch: 15 },
-        { wch: 12 },
-        { wch: 12 },
-      ];
-
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Rekap KOPG");
       XLSX.writeFile(wb, `Rekap_Kendaraan_KOPG_${currentDate}.xlsx`);
@@ -302,27 +341,23 @@ export default function RekapKendaraanPage() {
         "No",
         "Tanggal",
         "No. Pol / Mobil",
-        "Jam Awal",
-        "Km Awal",
-        "Tujuan",
-        "Keperluan",
-        "Pengguna",
-        "Driver",
-        "Km Akhir",
-        "Jam Selesai",
+        "Jam",
+        "Durasi",
+        "Km Awal - Akhir",
+        "Total Km",
+        "Tujuan & Keperluan",
+        "Pengguna / Driver",
       ];
       const tableRows = filteredData.map((item, idx) => [
         idx + 1,
         item.hari_tanggal,
         item.no_pol,
-        item.jam_awal,
-        item.km_awal,
-        item.tujuan,
-        item.keperluan,
-        item.pengguna,
-        item.driver,
-        item.km_akhir,
-        item.jam_selesai,
+        `${item.jam_awal} - ${item.jam_selesai}`,
+        item.durasi,
+        `${item.km_awal} s.d ${item.km_akhir}`,
+        `${item.total_km} Km`,
+        `${item.tujuan} (${item.keperluan})`,
+        `${item.pengguna} / ${item.driver}`,
       ]);
 
       autoTable(doc, {
@@ -423,10 +458,10 @@ export default function RekapKendaraanPage() {
                 <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase font-black tracking-wider">
                   <th className="p-3">Tanggal</th>
                   <th className="p-3">No. Polisi / Mobil</th>
-                  <th className="p-3">Jam & Km Awal</th>
+                  <th className="p-3">Waktu & Durasi</th>
+                  <th className="p-3">Kilometer (Awal - Akhir)</th>
                   <th className="p-3">Tujuan & Keperluan</th>
                   <th className="p-3">Pengguna / Driver</th>
-                  <th className="p-3">Km Akhir & Jam Selesai</th>
                   <th className="p-3 text-center">Aksi</th>
                 </tr>
               </thead>
@@ -443,12 +478,23 @@ export default function RekapKendaraanPage() {
                       {item.no_pol}
                     </td>
                     <td className="p-3 whitespace-nowrap">
-                      <div className="flex flex-col gap-0.5 text-slate-500">
-                        <span className="flex items-center gap-1">
-                          <Clock size={12} /> {item.jam_awal}
+                      <div className="flex flex-col gap-0.5">
+                        <span className="flex items-center gap-1 text-slate-600">
+                          <Clock size={12} /> {item.jam_awal} -{" "}
+                          {item.jam_selesai}
                         </span>
+                        <span className="font-bold text-emerald-600">
+                          ⏱️ {item.durasi}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-3 whitespace-nowrap">
+                      <div className="flex flex-col text-slate-600 dark:text-slate-300">
                         <span className="flex items-center gap-1">
-                          <Gauge size={12} /> {item.km_awal} Km
+                          <Gauge size={12} /> {item.km_awal} ➔ {item.km_akhir}
+                        </span>
+                        <span className="font-bold text-indigo-600">
+                          🚗 Total: {item.total_km} Km
                         </span>
                       </div>
                     </td>
@@ -467,14 +513,6 @@ export default function RekapKendaraanPage() {
                         <span className="font-bold">👤 {item.pengguna}</span>
                         <span className="text-[11px] text-slate-400">
                           🚗 Driver: {item.driver}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="p-3 whitespace-nowrap">
-                      <div className="flex flex-col text-slate-600 dark:text-slate-300">
-                        <span>🏁 {item.km_akhir} Km</span>
-                        <span className="font-bold text-emerald-600">
-                          ⏱️ Selesai: {item.jam_selesai}
                         </span>
                       </div>
                     </td>
@@ -583,6 +621,23 @@ export default function RekapKendaraanPage() {
                 </div>
                 <div>
                   <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                    Jam Selesai <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={formData.jam_selesai}
+                    onChange={(e) =>
+                      setFormData({ ...formData, jam_selesai: e.target.value })
+                    }
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none cursor-pointer"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
                     Km Awal <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -596,7 +651,55 @@ export default function RekapKendaraanPage() {
                     required
                   />
                 </div>
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
+                    Km Akhir <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.km_akhir}
+                    onChange={(e) =>
+                      setFormData({ ...formData, km_akhir: e.target.value })
+                    }
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
+                    placeholder="Contoh: 154465"
+                    required
+                  />
+                </div>
               </div>
+
+              {/* Info Preview Kalkulasi Otomatis */}
+              {formData.jam_awal && formData.jam_selesai && (
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/50 rounded-xl flex items-center justify-between text-[11px] text-rose-800 dark:text-rose-300">
+                  <span>
+                    ⏱️ Perkiraan Durasi:{" "}
+                    <strong>
+                      {
+                        calculateDerivedValues(
+                          formData.jam_awal,
+                          formData.jam_selesai,
+                          formData.km_awal,
+                          formData.km_akhir,
+                        ).durasi
+                      }
+                    </strong>
+                  </span>
+                  <span>
+                    🚗 Total Jarak:{" "}
+                    <strong>
+                      {
+                        calculateDerivedValues(
+                          formData.jam_awal,
+                          formData.jam_selesai,
+                          formData.km_awal,
+                          formData.km_akhir,
+                        ).total_km
+                      }{" "}
+                      Km
+                    </strong>
+                  </span>
+                </div>
+              )}
 
               <div>
                 <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
@@ -658,39 +761,6 @@ export default function RekapKendaraanPage() {
                     }
                     className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
                     placeholder="Contoh: Rio"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* RAPI BERDAMPINGAN: KM AKHIR & JAM SELESAI */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                    Km Akhir <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.km_akhir}
-                    onChange={(e) =>
-                      setFormData({ ...formData, km_akhir: e.target.value })
-                    }
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
-                    placeholder="Contoh: 154465"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                    Jam Selesai <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="time"
-                    value={formData.jam_selesai}
-                    onChange={(e) =>
-                      setFormData({ ...formData, jam_selesai: e.target.value })
-                    }
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none cursor-pointer"
                     required
                   />
                 </div>

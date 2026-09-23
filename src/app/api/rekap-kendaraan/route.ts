@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 2. POST: Menambah rekap kegiatan dinas baru secara eksplisit
+// 2. POST: Menambah rekap kegiatan dinas baru
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
