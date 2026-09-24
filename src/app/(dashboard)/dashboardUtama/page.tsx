@@ -21,6 +21,7 @@ import {
   Loader2,
   X,
   BookOpen,
+  Building,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -545,7 +546,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* DASHBOARD EKSTERNAL (STATIS / TANPA ENDPOINT) */}
+      {/* DASHBOARD EKSTERNAL (DENGAN TAMBAHAN QUICK STATS) */}
       {isExternal ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -563,8 +564,8 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            {/* Grid 4 Kartu Menu */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {/* Grid Kartu Menu */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {/* Menu 1: Katalog Ruangan */}
               <Link
                 href="/ruangan"
@@ -583,7 +584,7 @@ export default function DashboardPage() {
                 </div>
               </Link>
 
-              {/* Menu 3: Hotel Rekanan */}
+              {/* Menu 2: Hotel Rekanan */}
               <Link
                 href="/partners"
                 className="p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl hover:border-[#9f1521] transition-all group flex flex-col justify-between space-y-4 hover:shadow-lg"
@@ -601,7 +602,7 @@ export default function DashboardPage() {
                 </div>
               </Link>
 
-              {/* Menu 4: Pusat Bantuan */}
+              {/* Menu 3: Pusat Bantuan */}
               <Link
                 href="/bantuan"
                 className="p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-2xl hover:border-[#9f1521] transition-all group flex flex-col justify-between space-y-4 hover:shadow-lg"
@@ -618,6 +619,51 @@ export default function DashboardPage() {
                   </p>
                 </div>
               </Link>
+            </div>
+          </div>
+
+          {/* QUICK STATS (STATISTIK RINGKAS - DITAMBAHKAN DI SINI) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-[#9f1521] flex items-center justify-center shrink-0 font-bold">
+                <Building size={22} />
+              </div>
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                  Fasilitas Ruangan
+                </p>
+                <h3 className="text-base font-black text-slate-900 dark:text-white mt-0.5">
+                  Unit Rapat Tersedia
+                </h3>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0 font-bold">
+                <Hotel size={22} />
+              </div>
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                  Mitra Akomodasi
+                </p>
+                <h3 className="text-base font-black text-slate-900 dark:text-white mt-0.5">
+                  Hotel Rekanan Resmi
+                </h3>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center shrink-0 font-bold">
+                <CheckCircle2 size={22} />
+              </div>
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                  Status Layanan
+                </p>
+                <h3 className="text-base font-black text-emerald-600 mt-0.5 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Normal / Aktif
+                </h3>
+              </div>
             </div>
           </div>
         </motion.div>
