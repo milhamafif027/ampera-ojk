@@ -512,14 +512,8 @@ export default function DashboardPage() {
             <ShieldCheck size={14} /> Panel Operasional OJK Sumsel
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            Selamat Datang,{" "}
             {user?.name || (isExternal ? "User Eksternal" : "Pegawai OJK")}
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-            {isExternal
-              ? "Akses portal eksternal OJK Sumsel untuk melihat katalog fasilitas ruangan dan layanan instansi."
-              : "Pantau ketersediaan ruang rapat, jadwal kegiatan live, dan status pengajuan fasilitas secara real-time."}
-          </p>
         </div>
 
         <div className="flex items-center gap-3">
