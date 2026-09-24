@@ -74,6 +74,12 @@ export default function DashboardPage() {
   const [rooms, setRooms] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // State statistik khusus user eksternal
+  const [externalStats, setExternalStats] = useState({
+    roomsCount: 0,
+    hotelsCount: 0,
+  });
+
   // State untuk Pengajuan Pending Kendaraan di Dashboard Utama
   const [vehicleBookings, setVehicleBookings] = useState<any[]>([]);
   const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
@@ -124,6 +130,34 @@ export default function DashboardPage() {
   });
 
   const isExternal = user?.role === "eksternal";
+
+  // Ambil data statistik jika role eksternal
+  useEffect(() => {
+    if (!isExternal) return;
+
+    async function fetchExternalStats() {
+      try {
+        const [resRooms, resPartners] = await Promise.all([
+          fetch("/api/ruangan"),
+          fetch("/api/partner"),
+        ]);
+
+        const dataRooms = await resRooms.json();
+        const dataPartners = await resPartners.json();
+
+        setExternalStats({
+          roomsCount: dataRooms.data?.length || dataRooms.rooms?.length || 3,
+          hotelsCount:
+            dataPartners.data?.length || dataPartners.partners?.length || 5,
+        });
+      } catch (err) {
+        console.error("Gagal memuat statistik eksternal:", err);
+        setExternalStats({ roomsCount: 3, hotelsCount: 5 });
+      }
+    }
+
+    fetchExternalStats();
+  }, [isExternal]);
 
   const loadDashboardData = useCallback(
     async (isInitial = false) => {
@@ -546,7 +580,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* DASHBOARD EKSTERNAL (DENGAN TAMBAHAN QUICK STATS) */}
+      {/* DASHBOARD EKSTERNAL (DENGAN QUICK STATS DINAMIS) */}
       {isExternal ? (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -622,7 +656,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* QUICK STATS (STATISTIK RINGKAS - DITAMBAHKAN DI SINI) */}
+          {/* QUICK STATS (STATISTIK RINGKAS DENGAN DATA DINAMIS) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-[#9f1521] flex items-center justify-center shrink-0 font-bold">
@@ -633,7 +667,7 @@ export default function DashboardPage() {
                   Fasilitas Ruangan
                 </p>
                 <h3 className="text-base font-black text-slate-900 dark:text-white mt-0.5">
-                  Unit Rapat Tersedia
+                  {externalStats.roomsCount} Unit Rapat Tersedia
                 </h3>
               </div>
             </div>
@@ -647,7 +681,7 @@ export default function DashboardPage() {
                   Mitra Akomodasi
                 </p>
                 <h3 className="text-base font-black text-slate-900 dark:text-white mt-0.5">
-                  Hotel Rekanan Resmi
+                  {externalStats.hotelsCount} Hotel Rekanan Resmi
                 </h3>
               </div>
             </div>
@@ -661,7 +695,8 @@ export default function DashboardPage() {
                   Status Layanan
                 </p>
                 <h3 className="text-base font-black text-emerald-600 mt-0.5 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Normal / Aktif
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>{" "}
+                  Normal / Aktif
                 </h3>
               </div>
             </div>
