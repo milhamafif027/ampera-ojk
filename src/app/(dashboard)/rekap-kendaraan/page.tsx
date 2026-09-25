@@ -460,8 +460,10 @@ export default function RekapKendaraanPage() {
                   <th className="p-3">No. Polisi / Mobil</th>
                   <th className="p-3">Waktu & Durasi</th>
                   <th className="p-3">Kilometer (Awal - Akhir)</th>
-                  <th className="p-3">Tujuan & Keperluan</th>
-                  <th className="p-3">Pengguna / Driver</th>
+                  <th className="p-3">Tujuan</th>
+                  <th className="p-3">Keperluan</th>
+                  <th className="p-3">Pengguna</th>
+                  <th className="p-3">Driver</th>
                   <th className="p-3 text-center">Aksi</th>
                 </tr>
               </thead>
@@ -498,23 +500,17 @@ export default function RekapKendaraanPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="p-3">
-                      <div className="space-y-0.5">
-                        <p className="font-bold text-slate-900 dark:text-white">
-                          📍 {item.tujuan}
-                        </p>
-                        <p className="text-[11px] text-slate-500 italic">
-                          💡 {item.keperluan}
-                        </p>
-                      </div>
+                    <td className="p-3 whitespace-nowrap font-bold text-slate-900 dark:text-white">
+                      📍 {item.tujuan}
                     </td>
-                    <td className="p-3 whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <span className="font-bold">👤 {item.pengguna}</span>
-                        <span className="text-[11px] text-slate-400">
-                          🚗 Driver: {item.driver}
-                        </span>
-                      </div>
+                    <td className="p-3 text-slate-500 italic">
+                      💡 {item.keperluan}
+                    </td>
+                    <td className="p-3 whitespace-nowrap font-bold">
+                      👤 {item.pengguna}
+                    </td>
+                    <td className="p-3 whitespace-nowrap text-slate-600 dark:text-slate-300 font-medium">
+                      🚗 {item.driver}
                     </td>
                     <td className="p-3 text-center whitespace-nowrap">
                       <button
