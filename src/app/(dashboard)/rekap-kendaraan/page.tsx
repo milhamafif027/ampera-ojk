@@ -350,6 +350,8 @@ export default function RekapKendaraanPage() {
         "Pengguna",
         "Driver",
       ];
+
+      // Memetakan data dari filteredData agar baris tabel tidak kosong
       const tableRows = filteredData.map((item, idx) => [
         idx + 1,
         item.hari_tanggal,
