@@ -343,10 +343,12 @@ export default function RekapKendaraanPage() {
         "No. Pol / Mobil",
         "Jam",
         "Durasi",
-        "Km Awal - Akhir",
+        "Km (A-S)",
         "Total Km",
-        "Tujuan & Keperluan",
-        "Pengguna / Driver",
+        "Tujuan",
+        "Keperluan",
+        "Pengguna",
+        "Driver",
       ];
       const tableRows = filteredData.map((item, idx) => [
         idx + 1,
@@ -354,10 +356,12 @@ export default function RekapKendaraanPage() {
         item.no_pol,
         `${item.jam_awal} - ${item.jam_selesai}`,
         item.durasi,
-        `${item.km_awal} s.d ${item.km_akhir}`,
+        `${item.km_awal} - ${item.km_akhir}`,
         `${item.total_km} Km`,
-        `${item.tujuan} (${item.keperluan})`,
-        `${item.pengguna} / ${item.driver}`,
+        item.tujuan,
+        item.keperluan,
+        item.pengguna,
+        item.driver,
       ]);
 
       autoTable(doc, {
@@ -368,10 +372,10 @@ export default function RekapKendaraanPage() {
         headStyles: {
           fillColor: [159, 21, 33],
           textColor: [255, 255, 255],
-          fontSize: 8,
+          fontSize: 7.5,
           halign: "center",
         },
-        bodyStyles: { fontSize: 7.5, textColor: [30, 30, 30] },
+        bodyStyles: { fontSize: 7, textColor: [30, 30, 30] },
       });
 
       doc.save(`Rekap_Kendaraan_KOPG_${currentDate}.pdf`);
