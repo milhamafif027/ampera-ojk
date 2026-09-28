@@ -83,17 +83,19 @@ export default function DashboardLayout({
     return () => clearTimeout(timer);
   }, [authUser, authLoading]);
 
-  // Efek untuk memunculkan Modal Update
+  // Efek untuk memunculkan Modal Update (Hanya untuk Admin & Internal)
   useEffect(() => {
     const timer = setTimeout(() => {
-      const hasSeenUpdate = sessionStorage.getItem("ampera_update_v2_seen");
-      if (!hasSeenUpdate) {
-        setShowUpdateModal(true);
+      if (user && user.role !== "eksternal") {
+        const hasSeenUpdate = sessionStorage.getItem("ampera_update_v2_seen");
+        if (!hasSeenUpdate) {
+          setShowUpdateModal(true);
+        }
       }
     }, 100);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [user]);
 
   const handleCloseUpdateModal = () => {
     sessionStorage.setItem("ampera_update_v2_seen", "true");
@@ -515,7 +517,7 @@ export default function DashboardLayout({
         </main>
       </div>
 
-      {/* MODAL PENGUMUMAN UPDATE (GLOBAL LAYOUT) */}
+      {/* MODAL PENGUMUMAN UPDATE (HANYA UNTUK ADMIN & INTERNAL) */}
       <AnimatePresence>
         {showUpdateModal && (
           <motion.div
@@ -529,98 +531,88 @@ export default function DashboardLayout({
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               transition={{ type: "spring", stiffness: 300, damping: 25 }}
-              className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6 border border-slate-100 dark:border-slate-800"
+              className="relative bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden max-w-lg w-full shadow-2xl border border-slate-100 dark:border-slate-800"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-rose-50 text-[#9f1521] flex items-center justify-center shrink-0">
-                  <Sparkles size={24} />
+              {/* Ilustrasi Gambar Menu Baru / Aset Lokal */}
+              <div className="relative h-44 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <Image
+                  src="/MenuBaru.png"
+                  alt="Ilustrasi Pembaruan Sistem Ampera"
+                  fill
+                  className="object-cover object-center"
+                  priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent flex items-end p-6">
+                  <div className="space-y-1">
+                    <span className="px-2.5 py-0.5 bg-[#9f1521] text-white text-[9px] font-black uppercase tracking-widest rounded-full">
+                      FITUR UTAMA BARU
+                    </span>
+                    <h3 className="text-lg font-black text-white leading-snug">
+                      Pembaruan & Optimalisasi Modul AMPERA
+                    </h3>
+                  </div>
                 </div>
+              </div>
+
+              <div className="p-6 sm:p-8 space-y-6">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                  Selamat datang kembali! Berikut adalah ringkasan peningkatan
+                  fitur operasional terbaru yang telah diintegrasikan untuk
+                  mendukung kelancaran administrasi di lingkungan OJK Provinsi
+                  Sumatera Selatan:
+                </p>
+
+                <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 max-h-[35vh] overflow-y-auto custom-scrollbar">
+                  <div className="flex items-start gap-3">
+                    <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                      <Check size={12} />
+                    </div>
+                    <div>
+                      <strong className="text-slate-900 dark:text-white">
+                        Modul Rekapitulasi Kendaraan KOPG:
+                      </strong>{" "}
+                      Pemisahan kolom detail tujuan, keperluan, pengguna, serta
+                      driver secara presisi untuk laporan digital yang lebih
+                      rapi.
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                      <Check size={12} />
+                    </div>
+                    <div>
+                      <strong className="text-slate-900 dark:text-white">
+                        Validasi Otomatis Ruang Komunal & Ballroom:
+                      </strong>{" "}
+                      Penyaringan kapasitas ketat untuk mencegah bentrok
+                      reservasi kegiatan berskala besar.
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                      <Check size={12} />
+                    </div>
+                    <div>
+                      <strong className="text-slate-900 dark:text-white">
+                        Aksi Pembatalan Mandiri:
+                      </strong>{" "}
+                      Kemudahan bagi pegawai internal untuk mengelola atau
+                      membatalkan status agenda langsung dari sistem.
+                    </div>
+                  </div>
+                </div>
+
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-[#9f1521]">
-                    PEMBARUAN SISTEM V2.5
-                  </span>
-                  <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                    Selamat Datang di AMPERA
-                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleCloseUpdateModal}
+                    className="w-full py-3.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-xl transition-all shadow-lg shadow-rose-900/20 cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    Mengerti, Lanjutkan ke Dashboard <ArrowRight size={16} />
+                  </button>
                 </div>
-              </div>
-
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-                Kami telah merilis sejumlah pembaruan fitur untuk mengoptimalkan
-                manajemen fasilitas dan pengalaman operasional di lingkungan OJK
-                Provinsi Sumatera Selatan:
-              </p>
-
-              <div className="space-y-4 bg-slate-50 dark:bg-slate-800/50 p-4 sm:p-5 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 max-h-[45vh] overflow-y-auto custom-scrollbar">
-                <div className="flex items-start gap-3">
-                  <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                    <Check size={12} />
-                  </div>
-                  <div className="leading-relaxed">
-                    <strong className="text-slate-900 dark:text-white">
-                      Integrasi & Validasi Otomatis Ruang Komunal:
-                    </strong>{" "}
-                    Sistem kini secara otomatis membatasi pemesanan Ruang
-                    Komunal apabila Ballroom sedang digunakan dalam kapasitas
-                    maksimal (500 peserta) atau menggunakan konfigurasi tata
-                    letak Round Table (≥200 peserta) untuk menjaga kenyamanan
-                    dan kelancaran kegiatan bersama.
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                    <Check size={12} />
-                  </div>
-                  <div className="leading-relaxed">
-                    <strong className="text-slate-900 dark:text-white">
-                      Pencarian & Filter Kapasitas Ruangan:
-                    </strong>{" "}
-                    Penambahan fitur filter pencarian yang memungkinkan pengguna
-                    menyaring daftar ruangan berdasarkan jumlah digit atau
-                    spesifikasi kapasitas angka ruangan secara presisi.
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                    <Check size={12} />
-                  </div>
-                  <div className="leading-relaxed">
-                    <strong className="text-slate-900 dark:text-white">
-                      Aksi Pembatalan Mandiri (Internal):
-                    </strong>{" "}
-                    Penyediaan tombol batal khusus pada menu daftar agenda untuk
-                    pengguna ber-role internal, memungkinkan pegawai membatalkan
-                    pengajuan kegiatan mereka sendiri secara langsung dari
-                    sistem.
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                    <Check size={12} />
-                  </div>
-                  <div className="leading-relaxed">
-                    <strong className="text-slate-900 dark:text-white">
-                      Akses Cepat Detail Kegiatan:
-                    </strong>{" "}
-                    Penambahan tombol interaktif (ikon mata) pada seluruh daftar
-                    agenda, termasuk pada kartu Agenda Terdekat dan Live Status,
-                    sehingga pengguna dapat langsung melihat rincian lengkap
-                    kegiatan secara instan tanpa harus berpindah halaman.
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleCloseUpdateModal}
-                  className="w-full py-3.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-xl transition-all shadow-lg shadow-rose-900/20 cursor-pointer flex items-center justify-center gap-2"
-                >
-                  Mengerti, Lanjutkan ke Dashboard <ArrowRight size={16} />
-                </button>
               </div>
             </motion.div>
           </motion.div>
