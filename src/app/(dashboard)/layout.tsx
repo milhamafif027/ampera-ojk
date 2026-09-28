@@ -619,65 +619,89 @@ export default function DashboardLayout({
         )}
       </AnimatePresence>
 
-      {/* MODAL LOGOUT MANUAL */}
+      {/* MODAL PENGUMUMAN UPDATE (HANYA UNTUK ADMIN & INTERNAL) */}
       <AnimatePresence>
-        {isLogoutModalOpen && (
+        {showUpdateModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+            className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
           >
-            <div
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-              onClick={() => !isLoggingOut && setIsLogoutModalOpen(false)}
-            />
-
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
               transition={{ type: "spring", stiffness: 300, damping: 25 }}
-              className="relative bg-white dark:bg-slate-900 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl text-center space-y-4 z-10 border border-slate-100 dark:border-slate-800"
+              className="relative bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden max-w-lg w-full shadow-2xl border border-slate-100 dark:border-slate-800"
             >
-              <div className="w-14 h-14 bg-rose-100 dark:bg-rose-900/40 text-rose-600 rounded-full flex items-center justify-center mx-auto">
-                <LogOut size={28} />
+              {/* Ilustrasi Gambar Menu Baru (Diperbesar menjadi h-64 agar lebih besar) */}
+              <div className="relative h-64 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <Image
+                  src="/MenuBaru.png"
+                  alt="Ilustrasi Pembaruan Sistem Ampera"
+                  fill
+                  className="object-cover object-center"
+                  priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent flex items-end p-6">
+                  <div className="space-y-1">
+                    <span className="px-2.5 py-0.5 bg-[#9f1521] text-white text-[9px] font-black uppercase tracking-widest rounded-full">
+                      FITUR UTAMA BARU
+                    </span>
+                    <h3 className="text-lg font-black text-white leading-snug">
+                      Pembaruan & Optimalisasi Modul AMPERA
+                    </h3>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <h3 className="font-black text-slate-900 dark:text-white text-base">
-                  Konfirmasi Keluar
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Apakah Anda yakin ingin keluar dari Portal AMPERA OJK Sumsel?
+              <div className="p-6 sm:p-8 space-y-6">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                  Selamat datang kembali! Berikut adalah ringkasan peningkatan
+                  fitur operasional terbaru yang telah diintegrasikan untuk
+                  mendukung kelancaran administrasi di lingkungan OJK Provinsi
+                  Sumatera Selatan:
                 </p>
-              </div>
 
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  disabled={isLoggingOut}
-                  onClick={() => setIsLogoutModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  Batal
-                </button>
+                <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 max-h-[35vh] overflow-y-auto custom-scrollbar">
+                  <div className="flex items-start gap-3">
+                    <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                      <Check size={12} />
+                    </div>
+                    <div>
+                      <strong className="text-slate-900 dark:text-white">
+                        Modul Rekapitulasi Kendaraan KOPG:
+                      </strong>{" "}
+                      Fitur yang diranvang untuk setiap pengguna kendaraan dinas
+                      untuk wajib melaporkan penggunaan kendaraan sebagai data
+                      untuk admin.
+                    </div>
+                  </div>
 
-                <button
-                  type="button"
-                  disabled={isLoggingOut}
-                  onClick={handleConfirmLogout}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-[#9f1521] hover:bg-[#7a1019] text-white transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75"
-                >
-                  {isLoggingOut ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>Keluar...</span>
-                    </>
-                  ) : (
-                    <span>Ya, Keluar</span>
-                  )}
-                </button>
+                  <div className="flex items-start gap-3">
+                    <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
+                      <Check size={12} />
+                    </div>
+                    <div>
+                      <strong className="text-slate-900 dark:text-white">
+                        Aksi Pembatalan Mandiri:
+                      </strong>{" "}
+                      Kemudahan bagi pegawai internal untuk mengelola atau
+                      membatalkan status agenda langsung dari sistem.
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <button
+                    type="button"
+                    onClick={handleCloseUpdateModal}
+                    className="w-full py-3.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-xl transition-all shadow-lg shadow-rose-900/20 cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    Mengerti, Lanjutkan ke Dashboard <ArrowRight size={16} />
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
