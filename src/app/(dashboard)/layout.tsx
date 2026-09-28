@@ -515,7 +515,7 @@ export default function DashboardLayout({
         </main>
       </div>
 
-      {/* MODAL PENGUMUMAN UPDATE (FULL IMAGE DENGAN CAPTION TRANSPARAN 70% DI BAWAH) */}
+      {/* MODAL PENGUMUMAN UPDATE (FULL COVER IMAGE DENGAN OVERLAY TEKS DI BAWAH) */}
       <AnimatePresence>
         {showUpdateModal && (
           <motion.div
@@ -529,7 +529,7 @@ export default function DashboardLayout({
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 15 }}
               transition={{ type: "spring", stiffness: 350, damping: 25 }}
-              className="relative w-full max-w-2xl bg-slate-950 rounded-[2rem] overflow-hidden shadow-2xl border border-slate-800 flex flex-col"
+              className="relative w-full max-w-xl bg-slate-950 rounded-[2rem] overflow-hidden shadow-2xl border border-slate-800"
             >
               {/* Tombol Close Silang di Pojok Kanan Atas */}
               <button
@@ -540,39 +540,43 @@ export default function DashboardLayout({
                 <X size={18} />
               </button>
 
-              {/* Kontainer Gambar Penuh & Bersih */}
-              <div className="relative w-full h-[360px] sm:h-[450px] bg-black flex items-center justify-center overflow-hidden">
+              {/* Kontainer Gambar Full Cover (Penuh tanpa hitam/putih) */}
+              <div className="relative w-full h-[400px] sm:h-[480px] bg-slate-950 overflow-hidden">
                 <Image
                   src="/MenuBaru.png"
                   alt="Pembaruan Sistem Ampera OJK"
                   fill
-                  className="object-contain object-center"
+                  className="object-cover object-center"
                   quality={100}
                   priority
                 />
 
-                {/* Kotak Teks Informasi dengan Background Transparan 70% di Bagian Bawah Gambar */}
-                <div className="absolute bottom-4 left-4 right-4 z-30 bg-slate-900/70 backdrop-blur-md border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xl">
+                {/* Overlay Latar Belakang Transparan di Bagian Bawah untuk Teks */}
+                <div className="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent pt-16 pb-6 px-6 sm:px-8 space-y-3">
                   <div className="space-y-1">
-                    <span className="text-[10px] font-black text-rose-400 uppercase tracking-wider">
+                    <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest bg-rose-950/60 px-2.5 py-1 rounded-md border border-rose-800/40">
                       INFORMASI PEMBARUAN V2.5
                     </span>
-                    <h3 className="text-sm sm:text-base font-black text-white tracking-tight leading-snug">
+                    <h3 className="text-lg sm:text-xl font-black text-white tracking-tight leading-snug pt-1">
                       Optimalisasi & Pembaruan Sistem AMPERA
                     </h3>
-                    <p className="text-[11px] sm:text-xs text-slate-300 font-medium leading-relaxed">
+                    <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed">
                       Pembaruan modul rekapitulasi kendaraan KOPG dan fitur
-                      pembatalan mandiri agenda kini telah aktif.
+                      pembatalan mandiri agenda kini telah aktif untuk mendukung
+                      efisiensi operasional.
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleCloseUpdateModal}
-                    className="shrink-0 px-5 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-xl transition-all shadow-md cursor-pointer flex items-center gap-1.5"
-                  >
-                    <span>Mengerti</span> <ArrowRight size={14} />
-                  </button>
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={handleCloseUpdateModal}
+                      className="w-full py-3 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-xl transition-all shadow-md cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <span>Mengerti, Lanjutkan ke Dashboard</span>{" "}
+                      <ArrowRight size={15} />
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>
