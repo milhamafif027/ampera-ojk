@@ -515,21 +515,21 @@ export default function DashboardLayout({
         </main>
       </div>
 
-      {/* MODAL PENGUMUMAN UPDATE (FULL CLEAN IMAGE TANPA KONTENER KOTAK) */}
+      {/* MODAL PENGUMUMAN UPDATE (RESPONSIF MENGIKUTI BENTUK GAMBAR ASLI) */}
       <AnimatePresence>
         {showUpdateModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[300] flex items-center justify-center p-4 sm:p-6 bg-slate-950/85 backdrop-blur-md"
+            className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md"
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 15 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 15 }}
               transition={{ type: "spring", stiffness: 350, damping: 25 }}
-              className="relative w-full max-w-xl overflow-hidden rounded-3xl shadow-2xl"
+              className="relative w-full max-w-3xl overflow-hidden rounded-[2rem] shadow-2xl bg-slate-950"
             >
               {/* Tombol Close Silang di Pojok Kanan Atas */}
               <button
@@ -540,41 +540,37 @@ export default function DashboardLayout({
                 <X size={18} />
               </button>
 
-              {/* Kontainer Gambar Penuh & Bersih Tanpa Ada Bingkai/Kontainer Luar */}
-              <div className="relative w-full h-[420px] sm:h-[500px] bg-slate-950 overflow-hidden">
-                <Image
+              {/* Kontainer Gambar Menyesuaikan Aspek Rasio Asli Tanpa Crop */}
+              <div className="relative w-full flex flex-col bg-slate-950">
+                <img
                   src="/MenuBaru.png"
                   alt="Pembaruan Sistem Ampera OJK"
-                  fill
-                  className="object-cover object-center"
-                  quality={100}
-                  priority
+                  className="w-full h-auto object-contain block max-h-[70vh]"
                 />
 
-                {/* Overlay Latar Belakang Transparan di Bagian Bawah untuk Teks */}
-                <div className="absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-20 pb-6 px-6 sm:px-8 space-y-3">
+                {/* Overlay Teks Informasi di Bagian Bawah Gambar */}
+                <div className="absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-16 pb-5 px-6 sm:px-8 space-y-2.5">
                   <div className="space-y-1">
                     <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest bg-rose-950/80 px-2.5 py-1 rounded-md border border-rose-800/40">
                       INFORMASI PEMBARUAN V2.5
                     </span>
-                    <h3 className="text-lg sm:text-xl font-black text-white tracking-tight leading-snug pt-1.5">
+                    <h3 className="text-base sm:text-lg font-black text-white tracking-tight leading-snug pt-1">
                       Optimalisasi & Pembaruan Sistem AMPERA
                     </h3>
-                    <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed">
+                    <p className="text-[11px] sm:text-xs text-slate-300 font-medium leading-relaxed">
                       Pembaruan modul rekapitulasi kendaraan KOPG dan fitur
-                      pembatalan mandiri agenda kini telah aktif untuk mendukung
-                      efisiensi operasional.
+                      pembatalan mandiri agenda kini telah aktif.
                     </p>
                   </div>
 
-                  <div className="pt-2">
+                  <div className="pt-1">
                     <button
                       type="button"
                       onClick={handleCloseUpdateModal}
-                      className="w-full py-3.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-xl transition-all shadow-xl cursor-pointer flex items-center justify-center gap-2"
+                      className="w-full py-3 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-xl transition-all shadow-xl cursor-pointer flex items-center justify-center gap-2"
                     >
                       <span>Mengerti, Lanjutkan ke Dashboard</span>{" "}
-                      <ArrowRight size={15} />
+                      <ArrowRight size={14} />
                     </button>
                   </div>
                 </div>
@@ -583,7 +579,7 @@ export default function DashboardLayout({
           </motion.div>
         )}
       </AnimatePresence>
-      
+
       {/* MODAL LOGOUT MANUAL */}
       <AnimatePresence>
         {isLogoutModalOpen && (
