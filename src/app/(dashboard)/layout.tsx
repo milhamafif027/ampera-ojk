@@ -619,88 +619,73 @@ export default function DashboardLayout({
         )}
       </AnimatePresence>
 
-      {/* MODAL PENGUMUMAN UPDATE (HANYA UNTUK ADMIN & INTERNAL) */}
+      {/* MODAL PENGUMUMAN UPDATE (FULL GAMBAR / POSTER STYLE) */}
       <AnimatePresence>
         {showUpdateModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               transition={{ type: "spring", stiffness: 300, damping: 25 }}
-              className="relative bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden max-w-lg w-full shadow-2xl border border-slate-100 dark:border-slate-800"
+              className="relative w-full max-w-xl bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-2xl border border-slate-700/60"
             >
-              {/* Ilustrasi Gambar Menu Baru (Diperbesar menjadi h-64 agar lebih besar) */}
-              <div className="relative h-64 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              {/* Tombol Close Silang di Pojok Kanan Atas */}
+              <button
+                onClick={handleCloseUpdateModal}
+                className="absolute top-4 right-4 z-30 p-2.5 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md transition-all cursor-pointer"
+                title="Tutup"
+              >
+                <X size={18} />
+              </button>
+
+              {/* Kontainer Gambar Full & Tajam */}
+              <div className="relative h-[380px] sm:h-[420px] w-full bg-slate-950 flex items-center justify-center overflow-hidden">
                 <Image
                   src="/MenuBaru.png"
-                  alt="Ilustrasi Pembaruan Sistem Ampera"
+                  alt="Pembaruan Sistem Ampera OJK"
                   fill
                   className="object-cover object-center"
+                  quality={100}
                   priority
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent flex items-end p-6">
-                  <div className="space-y-1">
-                    <span className="px-2.5 py-0.5 bg-[#9f1521] text-white text-[9px] font-black uppercase tracking-widest rounded-full">
-                      FITUR UTAMA BARU
+
+                {/* Gradasi Hitam Halus di Bagian Bawah untuk Kejelasan Teks */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent flex flex-col justify-end p-6 sm:p-8 space-y-3 z-20">
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-[#9f1521] text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg">
+                      INFORMASI PEMBARUAN V2.5
                     </span>
-                    <h3 className="text-lg font-black text-white leading-snug">
-                      Pembaruan & Optimalisasi Modul AMPERA
-                    </h3>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 sm:p-8 space-y-6">
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-                  Selamat datang kembali! Berikut adalah ringkasan peningkatan
-                  fitur operasional terbaru yang telah diintegrasikan untuk
-                  mendukung kelancaran administrasi di lingkungan OJK Provinsi
-                  Sumatera Selatan:
-                </p>
-
-                <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 max-h-[35vh] overflow-y-auto custom-scrollbar">
-                  <div className="flex items-start gap-3">
-                    <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                      <Check size={12} />
-                    </div>
-                    <div>
-                      <strong className="text-slate-900 dark:text-white">
-                        Modul Rekapitulasi Kendaraan KOPG:
-                      </strong>{" "}
-                      Fitur yang diranvang untuk setiap pengguna kendaraan dinas
-                      untuk wajib melaporkan penggunaan kendaraan sebagai data
-                      untuk admin.
-                    </div>
+                    <span className="text-xs text-slate-300 font-semibold">
+                      ✨ OJK Sumsel
+                    </span>
                   </div>
 
-                  <div className="flex items-start gap-3">
-                    <div className="p-1 rounded-full bg-emerald-100 text-emerald-700 mt-0.5 shrink-0">
-                      <Check size={12} />
-                    </div>
-                    <div>
-                      <strong className="text-slate-900 dark:text-white">
-                        Aksi Pembatalan Mandiri:
-                      </strong>{" "}
-                      Kemudahan bagi pegawai internal untuk mengelola atau
-                      membatalkan status agenda langsung dari sistem.
-                    </div>
-                  </div>
-                </div>
+                  <h3 className="text-xl sm:text-2xl font-black text-white leading-tight tracking-tight">
+                    Optimalisasi & Pembaruan Sistem AMPERA
+                  </h3>
 
-                <div>
-                  <button
-                    type="button"
-                    onClick={handleCloseUpdateModal}
-                    className="w-full py-3.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-xl transition-all shadow-lg shadow-rose-900/20 cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    Mengerti, Lanjutkan ke Dashboard <ArrowRight size={16} />
-                  </button>
+                  <p className="text-xs sm:text-sm text-slate-200 font-medium leading-relaxed line-clamp-3">
+                    Pembaruan modul rekapitulasi kendaraan KOPG, validasi ruang
+                    komunal otomatis, serta peningkatan fitur pembatalan mandiri
+                    agenda kini telah aktif untuk mendukung efisiensi
+                    operasional.
+                  </p>
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={handleCloseUpdateModal}
+                      className="w-full py-3.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-2xl transition-all shadow-xl shadow-rose-950/50 cursor-pointer flex items-center justify-center gap-2 border border-rose-600/30"
+                    >
+                      Mengerti, Lanjutkan ke Dashboard <ArrowRight size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>
