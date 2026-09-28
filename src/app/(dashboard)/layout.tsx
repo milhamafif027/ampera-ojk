@@ -515,7 +515,7 @@ export default function DashboardLayout({
         </main>
       </div>
 
-      {/* MODAL PENGUMUMAN UPDATE (LEBIH BESAR & TINGGI) */}
+      {/* MODAL PENGUMUMAN UPDATE (LEBIH BESAR, BERSIH, & TANPA WARNING) */}
       <AnimatePresence>
         {showUpdateModal && (
           <motion.div
@@ -540,13 +540,18 @@ export default function DashboardLayout({
                 <X size={20} />
               </button>
 
-              {/* Kontainer Gambar Diperbesar dan Ditinggikan */}
+              {/* Kontainer Gambar Menggunakan Komponen Image Next.js */}
               <div className="relative w-full flex flex-col bg-slate-950">
-                <img
-                  src="/MenuBaru.png"
-                  alt="Pembaruan Sistem Ampera OJK"
-                  className="w-full h-auto object-contain block max-h-[82vh]"
-                />
+                <div className="relative w-full">
+                  <Image
+                    src="/MenuBaru.png"
+                    alt="Pembaruan Sistem Ampera OJK"
+                    width={1200}
+                    height={750}
+                    className="w-full h-auto object-contain block max-h-[82vh]"
+                    priority
+                  />
+                </div>
 
                 {/* Overlay Teks Informasi di Bagian Bawah Gambar */}
                 <div className="absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-24 pb-7 px-8 sm:px-10 space-y-3">
