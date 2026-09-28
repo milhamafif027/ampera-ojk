@@ -59,7 +59,7 @@ export const navItemsConfig = [
     label: "Rekap Kendaraan",
     href: "/rekap-kendaraan",
     icon: FileSpreadsheet,
-    roles: ["admin", "internal_kopg"], // Hanya bisa diakses admin dan internal_kopg
+    roles: ["admin", "internal", "internal_kopg"],
   },
   {
     key: "partner",
