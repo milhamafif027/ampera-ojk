@@ -25,7 +25,6 @@ export const metadata: Metadata = {
   },
 };
 
-// 4. Tambahkan Tipe TypeScript untuk Props (children)
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,14 +32,14 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="id" // Ubah bahasa utama ke Indonesia ('id')
-      // Masukkan variabel font jakarta ke dalam tag html
+      lang="id"
       className={`${jakarta.variable} h-full antialiased`}
-      suppressHydrationWarning // Menghindari warning hydration jika menggunakan ekstensi browser
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-slate-50 font-sans text-slate-900 antialiased">
+      <body className="min-h-full flex flex-col bg-slate-50 dark:bg-[#0B1120] font-sans text-slate-900 dark:text-slate-100 antialiased">
         {children}
       </body>
     </html>
   );
 }
+
