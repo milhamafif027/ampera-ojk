@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Maximize2,
 } from "lucide-react";
 import { Variants, motion, AnimatePresence } from "framer-motion";
 
@@ -18,19 +19,23 @@ interface LandingRoomsProps {
 }
 
 /* =========================================================
-   KOMPONEN KARTU RUANGAN (RINGAN & SUPPORT HORIZONTAL SCROLL)
+   KOMPONEN KARTU RUANGAN (DISAMAKAN DENGAN STYLE PARTNER CARD)
 ========================================================= */
 const RoomCard = ({
   room,
+  index,
   onEnlarge,
 }: {
   room: any;
-  isFeatured?: boolean; // Tambahkan tanda tanya (?) opsional di sini
+  index: number;
   onEnlarge: (imgs: string[], index: number, roomName: string) => void;
 }) => {
   const [activeIdx, setActiveIdx] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [imgError, setImgError] = useState(false);
+
+  // Kartu pertama pada kategori pertemuan/ballroom dibuat besar menonjol (Featured)
+  const isFeatured = index === 0;
 
   // Parse Images
   const defaultImage =
@@ -62,17 +67,20 @@ const RoomCard = ({
     const scrollLeft = e.currentTarget.scrollLeft;
     const width = e.currentTarget.offsetWidth;
     if (width > 0) {
-      const index = Math.round(scrollLeft / width);
-      if (index !== activeIdx) setActiveIdx(index);
+      const idx = Math.round(scrollLeft / width);
+      if (idx !== activeIdx) setActiveIdx(idx);
     }
   };
 
-  const scrollToImg = (index: number) => {
+  const scrollToImg = (targetIdx: number) => {
     if (scrollRef.current) {
       const width = scrollRef.current.offsetWidth;
-      scrollRef.current.scrollTo({ left: width * index, behavior: "smooth" });
+      scrollRef.current.scrollTo({
+        left: width * targetIdx,
+        behavior: "smooth",
+      });
     }
-    setActiveIdx(index);
+    setActiveIdx(targetIdx);
   };
 
   const nextImg = (e: React.MouseEvent) => {
@@ -89,10 +97,14 @@ const RoomCard = ({
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl bg-slate-900 group shadow-md hover:shadow-xl transition-all cursor-pointer shrink-0 w-[280px] sm:w-[320px] md:w-full h-[280px]"
+      className={`relative overflow-hidden rounded-2xl bg-slate-950 group shadow-md hover:shadow-2xl transition-all duration-500 cursor-pointer transform-gpu shrink-0 w-[280px] sm:w-auto border border-slate-200/40 dark:border-slate-800 ${
+        isFeatured
+          ? "sm:md:col-span-2 sm:md:row-span-2 h-[320px] sm:md:h-[620px]" // Kartu Utama Besar Utama
+          : "col-span-1 h-[320px]" // Kartu Standar
+      }`}
       onClick={() => onEnlarge(roomImages, activeIdx, room.name)}
     >
-      {/* Slider Gambar (Ringan & Lazy Load) */}
+      {/* Slider Gambar (Full Cover & Smooth Zoom) */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -110,38 +122,44 @@ const RoomCard = ({
               alt={`${room.name} - ${idx + 1}`}
               loading="lazy"
               onError={() => setImgError(true)}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
             />
           </div>
         ))}
       </div>
 
-      {/* Overlay Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none opacity-90" />
+      {/* Overlay Gradien Gelap Elegan dari Bawah */}
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/30 to-transparent pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity duration-300" />
 
-      {/* Tombol Swipe Internal (Jika gambar lebih dari 1) */}
+      {/* Badge Kapasitas di Pojok Kanan Atas */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/50 backdrop-blur-md text-white text-[11px] font-bold border border-white/10 shadow-md">
+        <Users size={13} className="text-rose-400" />
+        <span>{displayCapacity}</span>
+      </div>
+
+      {/* Tombol Navigasi Slider Internal (Jika gambar lebih dari 1) */}
       {roomImages.length > 1 && (
         <>
           <button
             onClick={prevImg}
-            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all z-10"
+            className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all z-20 backdrop-blur-sm"
           >
             <ChevronLeft size={16} />
           </button>
           <button
             onClick={nextImg}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all z-10"
+            className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all z-20 backdrop-blur-sm"
           >
             <ChevronRight size={16} />
           </button>
 
-          {/* Titik Indikator */}
-          <div className="absolute top-3 right-3 z-10 flex gap-1 pointer-events-none">
+          {/* Titik Indikator Slider */}
+          <div className="absolute top-4 left-4 z-20 flex gap-1.5 pointer-events-none">
             {roomImages.map((_, i) => (
               <span
                 key={i}
-                className={`h-1 rounded-full transition-all ${
-                  activeIdx === i ? "w-2.5 bg-white" : "w-1.5 bg-white/50"
+                className={`h-1.5 rounded-full transition-all ${
+                  activeIdx === i ? "w-5 bg-white" : "w-1.5 bg-white/50"
                 }`}
               />
             ))}
@@ -149,25 +167,42 @@ const RoomCard = ({
         </>
       )}
 
-      {/* Teks Bawah */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-between items-end z-20 pointer-events-none">
-        <div className="text-white min-w-0 pr-2">
-          <h4 className="font-bold drop-shadow-md text-sm sm:text-base truncate">
+      {/* Konten Titlebar Overlay di Bagian Bawah */}
+      <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6 flex items-end justify-between z-20 pointer-events-none">
+        <div className="flex flex-col text-white min-w-0 pr-4 space-y-1">
+          <span className="text-[10px] font-extrabold text-rose-400 uppercase tracking-widest block drop-shadow-sm">
+            Fasilitas Ruangan OJK
+          </span>
+          <h4
+            className={`font-black leading-tight truncate drop-shadow-md text-white ${
+              isFeatured ? "text-2xl sm:text-3xl" : "text-base sm:text-lg"
+            }`}
+          >
             {room.name}
           </h4>
-          <span className="flex items-center gap-1.5 text-white/80 drop-shadow-md mt-1 font-medium text-[11px]">
-            <Users size={13} /> {displayCapacity}
+          <span
+            className={`text-white/80 flex items-center gap-1.5 drop-shadow-md font-medium truncate ${
+              isFeatured ? "text-sm" : "text-[11px]"
+            }`}
+          >
+            <Building2
+              size={isFeatured ? 16 : 13}
+              className="shrink-0 text-slate-300"
+            />
+            {room.type ? `Kategori: ${room.type}` : "Ruangan Rapat & Pertemuan"}
           </span>
         </div>
+
+        {/* Tombol Perbesar Detail */}
         <button
-          className="text-white/70 hover:text-white pointer-events-auto p-1.5 shrink-0 transition-colors"
+          className="text-white/70 hover:text-white p-2 bg-white/10 hover:bg-[#9f1521] rounded-xl backdrop-blur-md transition-all duration-300 shrink-0 pointer-events-auto shadow-lg border border-white/10"
           onClick={(e) => {
             e.stopPropagation();
             onEnlarge(roomImages, activeIdx, room.name);
           }}
-          title="Lihat Detail & Perbesar"
+          title="Perbesar & Lihat Detail"
         >
-          <Info size={20} />
+          <Info size={isFeatured ? 26 : 20} />
         </button>
       </div>
     </div>
@@ -225,13 +260,14 @@ export default function LandingRooms({
   };
 
   return (
-    <section
+    <motion.section
       id="fasilitas"
-      className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-24 w-full space-y-12 sm:space-y-16"
+      variants={itemVariants}
+      className="bg-white border-y border-slate-200 py-16 sm:py-24 overflow-hidden"
     >
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {
-          height: 4px;
+          height: 5px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
           background: transparent;
@@ -242,166 +278,168 @@ export default function LandingRooms({
         }
       `}</style>
 
-      {/* Header Section */}
-      <motion.div
-        variants={itemVariants}
-        className="text-center max-w-2xl mx-auto space-y-3"
-      >
-        <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-          Katalog Ruang Pertemuan & Rapat
-        </h2>
-        <p className="text-xs sm:text-sm md:text-base text-slate-600 leading-relaxed font-medium">
-          Pratinjau inventaris fasilitas ruang rapat dan ballroom modern yang
-          terintegrasi langsung dengan database sistem reservasi.
-        </p>
-      </motion.div>
-
-      {/* ================= SECTION 1: RUANGAN PERTEMUAN ================= */}
-      <motion.div
-        variants={itemVariants}
-        className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-slate-200/80 shadow-xl shadow-slate-100 p-5 sm:p-8 md:p-10 space-y-6"
-      >
-        <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-            <Building2 size={22} />
-          </div>
-          <div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
-              Ruangan Pertemuan
-            </h3>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Ballroom utama dan ruang pertemuan berkapasitas besar.
-            </p>
-          </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-12 sm:space-y-16">
+        {/* Header Section */}
+        <div className="text-center max-w-2xl mx-auto space-y-3">
+          <span className="text-xs font-bold text-[#9f1521] uppercase tracking-widest">
+            Katalog Fasilitas Utama
+          </span>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mt-1">
+            Ruang Pertemuan & Rapat Modern
+          </h2>
+          <p className="text-xs sm:text-sm md:text-base text-slate-600 leading-relaxed font-medium">
+            Pratinjau inventaris fasilitas ruang rapat dan ballroom yang
+            terintegrasi langsung dengan database sistem reservasi OJK Sumsel.
+          </p>
         </div>
 
-        {/* MOBILE: HORIZONTAL SCROLL | DESKTOP: GRID */}
-        <div className="flex sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 overflow-x-auto sm:overflow-x-visible custom-scrollbar pb-3 sm:pb-0 snap-x sm:snap-none">
-          {isLoading ? (
-            [1, 2, 3, 4].map((n) => (
-              <div
-                key={n}
-                className="rounded-2xl bg-slate-100 animate-pulse h-[280px] w-[280px] sm:w-full shrink-0"
-              />
-            ))
-          ) : conferenceRooms.length > 0 ? (
-            conferenceRooms.map((room: any) => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                isFeatured={false}
-                onEnlarge={handleEnlarge}
-              />
-            ))
-          ) : (
-            <div className="col-span-full py-12 text-center text-xs text-slate-400 font-medium italic">
-              Tidak ada data ruangan pertemuan.
+        {/* ================= SECTION 1: RUANGAN PERTEMUAN ================= */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-[#9f1521] flex items-center justify-center shrink-0 border border-rose-100 shadow-sm">
+              <Building2 size={20} />
             </div>
-          )}
-        </div>
-      </motion.div>
-
-      {/* ================= SECTION 2: RUANGAN RAPAT ================= */}
-      <motion.div
-        variants={itemVariants}
-        className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-slate-200/80 shadow-xl shadow-slate-100 p-5 sm:p-8 md:p-10 space-y-6"
-      >
-        <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
-            <Building2 size={22} />
-          </div>
-          <div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-              Ruangan Rapat
-            </h3>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Ruang rapat koordinasi satker dan pimpinan.
-            </p>
-          </div>
-        </div>
-
-        {/* MOBILE: HORIZONTAL SCROLL | DESKTOP: GRID */}
-        <div className="flex sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 overflow-x-auto sm:overflow-x-visible custom-scrollbar pb-3 sm:pb-0 snap-x sm:snap-none">
-          {isLoading ? (
-            [1, 2, 3, 4, 5].map((n) => (
-              <div
-                key={n}
-                className="rounded-2xl bg-slate-100 animate-pulse h-[280px] w-[280px] sm:w-full shrink-0"
-              />
-            ))
-          ) : meetingRooms.length > 0 ? (
-            meetingRooms.map((room: any) => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                isFeatured={false}
-                onEnlarge={handleEnlarge}
-              />
-            ))
-          ) : (
-            <div className="col-span-full py-12 text-center text-xs text-slate-400 font-medium italic">
-              Tidak ada data ruangan rapat.
+            <div>
+              <h3 className="text-lg sm:text-xl font-black text-slate-900">
+                Ruangan Pertemuan & Ballroom
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Ballroom utama dan ruang pertemuan berkapasitas besar.
+              </p>
             </div>
-          )}
-        </div>
-      </motion.div>
+          </div>
 
-      {/* ================= MODAL LIGHTBOX / ZOOM ================= */}
-      <AnimatePresence>
-        {lightbox.isOpen && (
-          <div
-            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200"
-            onClick={() => setLightbox({ ...lightbox, isOpen: false })}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="relative max-w-5xl w-full max-h-[85vh] flex items-center justify-center transform-gpu"
-              onClick={(e) => e.stopPropagation()}
+          {/* MOBILE: HORIZONTAL SCROLL | DESKTOP: GRID */}
+          <div className="flex sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 overflow-x-auto sm:overflow-x-visible custom-scrollbar pb-4 sm:pb-0 snap-x sm:snap-none">
+            {isLoading ? (
+              [1, 2, 3, 4].map((n) => (
+                <div
+                  key={n}
+                  className={`rounded-2xl bg-slate-200 animate-pulse shrink-0 w-[280px] sm:w-auto ${
+                    n === 1
+                      ? "sm:md:col-span-2 sm:md:row-span-2 h-[320px] sm:md:h-[620px]"
+                      : "col-span-1 h-[320px]"
+                  }`}
+                />
+              ))
+            ) : conferenceRooms.length > 0 ? (
+              conferenceRooms.map((room: any, index: number) => (
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  index={index}
+                  onEnlarge={handleEnlarge}
+                />
+              ))
+            ) : (
+              <div className="col-span-full py-12 text-center text-xs text-slate-400 font-medium italic bg-slate-50 rounded-2xl border border-slate-200">
+                Tidak ada data ruangan pertemuan.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ================= SECTION 2: RUANGAN RAPAT ================= */}
+        <div className="space-y-6 pt-6 border-t border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 border border-blue-100 shadow-sm">
+              <Building2 size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg sm:text-xl font-black text-slate-900">
+                Ruangan Rapat Koordinasi
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Ruang rapat satker dan pimpinan berkapasitas standar.
+              </p>
+            </div>
+          </div>
+
+          {/* MOBILE: HORIZONTAL SCROLL | DESKTOP: GRID */}
+          <div className="flex sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 overflow-x-auto sm:overflow-x-visible custom-scrollbar pb-4 sm:pb-0 snap-x sm:snap-none">
+            {isLoading ? (
+              [1, 2, 3, 4, 5].map((n) => (
+                <div
+                  key={n}
+                  className={`rounded-2xl bg-slate-200 animate-pulse shrink-0 w-[280px] sm:w-auto ${
+                    n === 1
+                      ? "sm:md:col-span-2 sm:md:row-span-2 h-[320px] sm:md:h-[620px]"
+                      : "col-span-1 h-[320px]"
+                  }`}
+                />
+              ))
+            ) : meetingRooms.length > 0 ? (
+              meetingRooms.map((room: any, index: number) => (
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  index={index}
+                  onEnlarge={handleEnlarge}
+                />
+              ))
+            ) : (
+              <div className="col-span-full py-12 text-center text-xs text-slate-400 font-medium italic bg-slate-50 rounded-2xl border border-slate-200">
+                Tidak ada data ruangan rapat.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ================= MODAL LIGHTBOX / ZOOM ================= */}
+        <AnimatePresence>
+          {lightbox.isOpen && (
+            <div
+              className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200"
+              onClick={() => setLightbox({ ...lightbox, isOpen: false })}
             >
-              <span className="absolute -top-10 left-0 text-white font-bold tracking-wide text-xs sm:text-sm">
-                {lightbox.title} ({lightbox.index + 1} /{" "}
-                {lightbox.images.length})
-              </span>
-
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={lightbox.images[lightbox.index]}
-                alt="Enlarged Room"
-                className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-slate-800"
-              />
-
-              {lightbox.images.length > 1 && (
-                <>
-                  <button
-                    onClick={prevLightbox}
-                    className="absolute left-2 sm:-left-12 p-3 bg-white/10 hover:bg-white/30 text-white rounded-full transition-colors shadow-lg"
-                  >
-                    <ChevronLeft size={24} />
-                  </button>
-                  <button
-                    onClick={nextLightbox}
-                    className="absolute right-2 sm:-right-12 p-3 bg-white/10 hover:bg-white/30 text-white rounded-full transition-colors shadow-lg"
-                  >
-                    <ChevronRight size={24} />
-                  </button>
-                </>
-              )}
-
-              <button
-                onClick={() => setLightbox({ ...lightbox, isOpen: false })}
-                className="absolute top-2 right-2 sm:-top-10 sm:-right-6 p-2 text-white/60 hover:text-white transition-colors"
-                title="Tutup"
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="relative max-w-5xl w-full max-h-[85vh] flex items-center justify-center transform-gpu"
+                onClick={(e) => e.stopPropagation()}
               >
-                <X size={24} />
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </section>
+                <span className="absolute -top-10 left-0 text-white font-bold tracking-wide text-xs sm:text-sm">
+                  {lightbox.title} ({lightbox.index + 1} /{" "}
+                  {lightbox.images.length})
+                </span>
+
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={lightbox.images[lightbox.index]}
+                  alt="Enlarged Room"
+                  className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-slate-800"
+                />
+
+                {lightbox.images.length > 1 && (
+                  <>
+                    <button
+                      onClick={prevLightbox}
+                      className="absolute left-2 sm:-left-12 p-3 bg-white/10 hover:bg-white/30 text-white rounded-full transition-colors shadow-lg cursor-pointer"
+                    >
+                      <ChevronLeft size={24} />
+                    </button>
+                    <button
+                      onClick={nextLightbox}
+                      className="absolute right-2 sm:-right-12 p-3 bg-white/10 hover:bg-white/30 text-white rounded-full transition-colors shadow-lg cursor-pointer"
+                    >
+                      <ChevronRight size={24} />
+                    </button>
+                  </>
+                )}
+
+                <button
+                  onClick={() => setLightbox({ ...lightbox, isOpen: false })}
+                  className="absolute top-2 right-2 sm:-top-10 sm:-right-6 p-2 text-white/60 hover:text-white transition-colors cursor-pointer"
+                  title="Tutup"
+                >
+                  <X size={24} />
+                </button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.section>
   );
 }
