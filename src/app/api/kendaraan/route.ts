@@ -312,7 +312,28 @@ export async function POST(request: NextRequest) {
         )
       `;
 
-      // Logika Pembagian Notifikasi Database & WhatsApp Otomatis ke PIC
+      // ==========================================
+      // 🚀 KIRIM PESAN WHATSAPP OTOMATIS KE PIC (SELALU DIJALANKAN)
+      // ==========================================
+      const picWhatsAppNumber =
+        process.env.PIC_KENDARAAN_PHONE || "62821747418";
+
+      const waMessageToPIC =
+        `🚨 *NOTIFIKASI PEMESANAN KENDARAAN BARU* 🚨\n\n` +
+        `Halo Tim PIC KOPG,\n` +
+        `Ada pengajuan peminjaman kendaraan dinas baru yang perlu diproses:\n\n` +
+        `👤 *Pemohon:* ${peminjam}\n` +
+        `🏢 *Satker:* ${satker}\n` +
+        `📞 *No. HP Pemohon:* ${phone || "-"}\n` +
+        `📍 *Tujuan:* ${tujuan}\n` +
+        `👥 *Jumlah Penumpang:* ${total_passengers || 1}\n` +
+        `📅 *Tanggal:* ${tanggal_mulai} s.d ${tanggal_selesai}\n` +
+        `🚗 *Kendaraan:* ${nama_kendaraan}\n\n` +
+        `Silakan login ke portal AMPERA OJK Sumsel untuk melakukan plotting/verifikasi. Terima kasih!`;
+
+      await sendWhatsAppNotification(picWhatsAppNumber, waMessageToPIC);
+
+      // Logika Pembagian Notifikasi Database ke Admin / Pemohon
       if (cleanRole === "admin") {
         const adminNotifTitle = "Peminjaman Kendaraan Otomatis (Admin)";
         const adminNotifInfo = `Peminjaman ${nama_kendaraan} oleh ${peminjam} (${satker}) menuju ${tujuan} (${tanggal_mulai} s.d ${tanggal_selesai}). Status: Disetujui`;
@@ -322,7 +343,7 @@ export async function POST(request: NextRequest) {
           VALUES (${adminNotifTitle}, 'vehicle', 'Disetujui', ${adminNotifInfo}, 0, NOW())
         `;
       } else {
-        // 1. Notifikasi untuk Admin
+        // 1. Notifikasi untuk Admin (Database)
         const adminNotifTitle = "Request Plotting Kendaraan Baru";
         const adminNotifInfo = `Tujuan: ${tujuan} (${total_passengers} Penumpang) oleh ${peminjam} (No. HP: ${phone || "-"})`;
 
@@ -331,29 +352,7 @@ export async function POST(request: NextRequest) {
           VALUES (${adminNotifTitle}, 'vehicle', ${bookingStatus}, ${adminNotifInfo}, 0, NOW())
         `;
 
-        // ==========================================
-        // 🚀 KIRIM PESAN WHATSAPP OTOMATIS KE PIC
-        // ==========================================
-        // Ganti nomor di bawah dengan nomor WhatsApp PIC tujuan (bisa dipisah koma untuk banyak nomor, misal: "0812...,0813...")
-        const picWhatsAppNumber =
-          process.env.PIC_KENDARAAN_PHONE || "081234567890";
-
-        const waMessageToPIC =
-          `🚨 *NOTIFIKASI PEMESANAN KENDARAAN BARU* 🚨\n\n` +
-          `Halo Tim PIC KOPG,\n` +
-          `Ada pengajuan peminjaman kendaraan dinas baru yang perlu diproses:\n\n` +
-          `👤 *Pemohon:* ${peminjam}\n` +
-          `🏢 *Satker:* ${satker}\n` +
-          `📞 *No. HP Pemohon:* ${phone || "-"}\n` +
-          `📍 *Tujuan:* ${tujuan}\n` +
-          `👥 *Jumlah Penumpang:* ${total_passengers || 1}\n` +
-          `📅 *Tanggal:* ${tanggal_mulai} s.d ${tanggal_selesai}\n` +
-          `🚗 *Kendaraan:* ${nama_kendaraan}\n\n` +
-          `Silakan login ke portal AMPERA OJK Sumsel untuk melakukan plotting/verifikasi. Terima kasih!`;
-
-        await sendWhatsAppNotification(picWhatsAppNumber, waMessageToPIC);
-
-        // 2. Notifikasi untuk Pemohon
+        // 2. Notifikasi untuk Pemohon (Database)
         if (user_id) {
           const targetTable = getUserNotificationTable(cleanRole);
           const userNotifTitle =
