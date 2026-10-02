@@ -18,6 +18,16 @@ async function sendWhatsAppNotification(
 ) {
   try {
     const token = process.env.WHATSAPP_API_TOKEN;
+
+    // --- TAMBAHKAN LOG INI ---
+    console.log("=== DEBUG FONNTE ===");
+    console.log(
+      "Token terdeteksi:",
+      token ? "ADA (Panjang: " + token.length + ")" : "KOSONG/UNDEFINED",
+    );
+    console.log("Nomor Tujuan:", targetPhone);
+    // -------------------------
+
     if (!token || !targetPhone) return;
 
     const response = await fetch("https://api.fonnte.com/send", {
@@ -34,6 +44,8 @@ async function sendWhatsAppNotification(
     });
 
     const result = await response.json();
+    console.log("Respon Fonnte:", result); // <--- Lihat apa balasan dari server Fonnte
+
     if (!result.status) {
       console.error("Gagal mengirim WA via Fonnte:", result.reason);
     }
