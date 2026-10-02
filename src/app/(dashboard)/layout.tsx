@@ -15,6 +15,7 @@ import {
   Loader2,
   Menu,
   X,
+  Sparkles,
 } from "lucide-react";
 import { getFilteredNavItems } from "@/lib/auth";
 import NotificationDropdown, {
@@ -514,7 +515,7 @@ export default function DashboardLayout({
         </main>
       </div>
 
-      {/* MODAL PENGUMUMAN UPDATE (MINIMALIS, BERSIH, & RAPI MENYESUAIKAN HALAMAN) */}
+      {/* MODAL PENGUMUMAN UPDATE (ELEGAN, TANPA BENTROK RADIUS, DENGAN INFO REKAP KENDARAAN) */}
       <AnimatePresence>
         {showUpdateModal && (
           <motion.div
@@ -529,30 +530,59 @@ export default function DashboardLayout({
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.96, opacity: 0, y: 10 }}
               transition={{ type: "spring", stiffness: 350, damping: 25 }}
-              className="relative w-full max-w-4xl overflow-hidden rounded-[2rem] shadow-2xl bg-slate-900 border border-slate-800"
+              className="relative w-full max-w-4xl overflow-hidden rounded-3xl shadow-2xl bg-slate-900 border border-slate-800 flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Tombol Close Silang di Pojok Kanan Atas */}
               <button
                 onClick={handleCloseUpdateModal}
-                className="absolute top-4 right-4 z-50 p-2.5 rounded-full bg-slate-950/60 hover:bg-slate-950 text-white backdrop-blur-md transition-all cursor-pointer shadow-lg border border-white/10"
+                className="absolute top-4 right-4 z-50 p-2.5 rounded-full bg-slate-950/70 hover:bg-slate-950 text-white backdrop-blur-md transition-all cursor-pointer shadow-lg border border-white/10"
                 title="Tutup"
               >
                 <X size={18} />
               </button>
 
-              {/* Kontainer Gambar Bersih Tanpa Teks Berlebih */}
-              <div className="relative w-full flex flex-col bg-slate-950">
-                <div className="relative w-full overflow-hidden">
-                  <Image
-                    src="/MenuBaru.png"
-                    alt="Pembaruan Sistem Ampera OJK"
-                    width={1200}
-                    height={700}
-                    className="w-full h-auto object-contain block max-h-[80vh]"
-                    priority
-                  />
+              {/* Kontainer Gambar Poster */}
+              <div className="relative w-full overflow-hidden bg-slate-950">
+                <Image
+                  src="/MenuBaru.png"
+                  alt="Pembaruan Sistem Ampera OJK"
+                  width={1200}
+                  height={700}
+                  className="w-full h-auto object-contain block max-h-[70vh]"
+                  priority
+                />
+              </div>
+
+              {/* Panel Informasi Singkat Fitur Rekap Kendaraan di Bawah Gambar */}
+              <div className="bg-slate-900 px-6 py-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center shrink-0 border border-rose-500/20 mt-0.5">
+                    <Sparkles size={18} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-white text-xs sm:text-sm">
+                      Pembaruan Fitur: Rekapitulasi Kendaraan Dinas
+                    </h4>
+                    <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5 leading-relaxed">
+                      Kini telah ditambahkan menu{" "}
+                      <strong className="text-slate-200">
+                        Rekap Kendaraan
+                      </strong>{" "}
+                      sebagai pusat pencatatan dan pemantauan seluruh riwayat
+                      peminjaman kendaraan operasional pengguna secara
+                      terstruktur.
+                    </p>
+                  </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleCloseUpdateModal}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-bold rounded-xl transition-all shadow-md cursor-pointer shrink-0"
+                >
+                  Mengerti
+                </button>
               </div>
             </motion.div>
           </motion.div>
