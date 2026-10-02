@@ -11,6 +11,37 @@ function getUserNotificationTable(role?: string): string {
   return "notifikasi_eksternal";
 }
 
+// Helper untuk mengirim WhatsApp otomatis via Fonnte
+async function sendWhatsAppNotification(
+  targetPhone: string,
+  messageText: string,
+) {
+  try {
+    const token = process.env.WHATSAPP_API_TOKEN;
+    if (!token || !targetPhone) return;
+
+    const response = await fetch("https://api.fonnte.com/send", {
+      method: "POST",
+      headers: {
+        Authorization: token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        target: targetPhone,
+        message: messageText,
+        countryCode: "62",
+      }),
+    });
+
+    const result = await response.json();
+    if (!result.status) {
+      console.error("Gagal mengirim WA via Fonnte:", result.reason);
+    }
+  } catch (err) {
+    console.error("Error Fonnte API Request:", err);
+  }
+}
+
 // 1. GET: Mengambil data kendaraan & riwayat booking
 export async function GET(request: NextRequest) {
   try {
@@ -57,7 +88,7 @@ export async function PUT(request: NextRequest) {
       driver_name,
       status,
       id,
-      nama_kendaraan, // <-- Ditambahkan untuk menangkap nama kendaraan hasil plotting admin
+      nama_kendaraan,
       total_passengers,
       approval_notes,
     } = body;
@@ -79,7 +110,6 @@ export async function PUT(request: NextRequest) {
     if (action === "approve_booking") {
       const finalStatus = status || "Disetujui";
 
-      // UPDATE database dengan menyertakan vehicle_name (mengganti tulisan "Menunggu Plotting Admin")
       await db.$executeRaw`
         UPDATE vehicle_bookings 
         SET status = ${finalStatus}, 
@@ -139,6 +169,21 @@ export async function PUT(request: NextRequest) {
           INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
           VALUES (${notifTitle}, 'vehicle', ${finalStatus}, ${notifInfoAdmin}, 0, NOW())
         `;
+
+        // 3. (Opsional) Kirim WA ke pemohon jika nomor HP-nya tersedia saat booking disetujui/ditolak
+        if (booking.phone) {
+          const waMessageUser =
+            `📢 *INFO STATUS PEMESANAN KENDARAAN*\n\n` +
+            `Halo ${booking.borrower},\n` +
+            `Status pengajuan kendaraan Anda untuk tujuan *${booking.destination}* telah: *${finalStatus.toUpperCase()}*.\n` +
+            (booking.vehicle_name
+              ? `🚗 Armada: ${booking.vehicle_name}\n`
+              : "") +
+            (approval_notes ? `📝 Catatan: ${approval_notes}\n\n` : "\n") +
+            `Terima kasih telah menggunakan portal AMPERA OJK Sumsel.`;
+
+          await sendWhatsAppNotification(booking.phone, waMessageUser);
+        }
       }
 
       return NextResponse.json({
@@ -205,7 +250,7 @@ export async function POST(request: NextRequest) {
         tanggal_mulai,
         tanggal_selesai,
         total_passengers,
-        phone, // <-- TANGKAP FIELD PHONE DARI FRONTEND
+        phone,
         status,
         user_id,
         role,
@@ -229,7 +274,7 @@ export async function POST(request: NextRequest) {
           ? "Disetujui"
           : "Pending");
 
-      // Logika Pengaman Bentrok Tanggal (Di-Bypass jika sedang "Menunggu Plotting Admin")
+      // Logika Pengaman Bentrok Tanggal
       if (nama_kendaraan !== "Menunggu Plotting Admin") {
         const vehicleConflicts: any = await db.$queryRaw`
           SELECT id FROM vehicle_bookings 
@@ -267,7 +312,7 @@ export async function POST(request: NextRequest) {
         )
       `;
 
-      // Logika Pembagian Notifikasi Agar Tidak Dobel
+      // Logika Pembagian Notifikasi Database & WhatsApp Otomatis ke PIC
       if (cleanRole === "admin") {
         const adminNotifTitle = "Peminjaman Kendaraan Otomatis (Admin)";
         const adminNotifInfo = `Peminjaman ${nama_kendaraan} oleh ${peminjam} (${satker}) menuju ${tujuan} (${tanggal_mulai} s.d ${tanggal_selesai}). Status: Disetujui`;
@@ -285,6 +330,28 @@ export async function POST(request: NextRequest) {
           INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
           VALUES (${adminNotifTitle}, 'vehicle', ${bookingStatus}, ${adminNotifInfo}, 0, NOW())
         `;
+
+        // ==========================================
+        // 🚀 KIRIM PESAN WHATSAPP OTOMATIS KE PIC
+        // ==========================================
+        // Ganti nomor di bawah dengan nomor WhatsApp PIC tujuan (bisa dipisah koma untuk banyak nomor, misal: "0812...,0813...")
+        const picWhatsAppNumber =
+          process.env.PIC_KENDARAAN_PHONE || "081234567890";
+
+        const waMessageToPIC =
+          `🚨 *NOTIFIKASI PEMESANAN KENDARAAN BARU* 🚨\n\n` +
+          `Halo Tim PIC KOPG,\n` +
+          `Ada pengajuan peminjaman kendaraan dinas baru yang perlu diproses:\n\n` +
+          `👤 *Pemohon:* ${peminjam}\n` +
+          `🏢 *Satker:* ${satker}\n` +
+          `📞 *No. HP Pemohon:* ${phone || "-"}\n` +
+          `📍 *Tujuan:* ${tujuan}\n` +
+          `👥 *Jumlah Penumpang:* ${total_passengers || 1}\n` +
+          `📅 *Tanggal:* ${tanggal_mulai} s.d ${tanggal_selesai}\n` +
+          `🚗 *Kendaraan:* ${nama_kendaraan}\n\n` +
+          `Silakan login ke portal AMPERA OJK Sumsel untuk melakukan plotting/verifikasi. Terima kasih!`;
+
+        await sendWhatsAppNotification(picWhatsAppNumber, waMessageToPIC);
 
         // 2. Notifikasi untuk Pemohon
         if (user_id) {
@@ -314,7 +381,8 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: "Pengajuan peminjaman berhasil disimpan",
+        message:
+          "Pengajuan peminjaman berhasil disimpan dan notifikasi WA dikirim ke PIC",
         status: bookingStatus,
       });
     }

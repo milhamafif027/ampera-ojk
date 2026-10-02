@@ -15,7 +15,6 @@ import {
   Loader2,
   Menu,
   X,
-  ArrowRight,
 } from "lucide-react";
 import { getFilteredNavItems } from "@/lib/auth";
 import NotificationDropdown, {
@@ -515,70 +514,44 @@ export default function DashboardLayout({
         </main>
       </div>
 
-      {/* MODAL PENGUMUMAN UPDATE (LEBIH BESAR, BERSIH, & TANPA WARNING) */}
+      {/* MODAL PENGUMUMAN UPDATE (MINIMALIS, BERSIH, & RAPI MENYESUAIKAN HALAMAN) */}
       <AnimatePresence>
         {showUpdateModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[300] flex items-center justify-center p-4 sm:p-6 bg-slate-950/85 backdrop-blur-md"
+            className="fixed inset-0 z-[300] flex items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-sm"
+            onClick={handleCloseUpdateModal}
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 15 }}
+              initial={{ scale: 0.96, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 15 }}
+              exit={{ scale: 0.96, opacity: 0, y: 10 }}
               transition={{ type: "spring", stiffness: 350, damping: 25 }}
-              className="relative w-full max-w-5xl overflow-hidden rounded-[2.5rem] shadow-2xl bg-slate-950"
+              className="relative w-full max-w-4xl overflow-hidden rounded-[2rem] shadow-2xl bg-slate-900 border border-slate-800"
+              onClick={(e) => e.stopPropagation()}
             >
               {/* Tombol Close Silang di Pojok Kanan Atas */}
               <button
                 onClick={handleCloseUpdateModal}
-                className="absolute top-5 right-5 z-50 p-3 rounded-full bg-black/70 hover:bg-black text-white backdrop-blur-md transition-all cursor-pointer shadow-xl"
+                className="absolute top-4 right-4 z-50 p-2.5 rounded-full bg-slate-950/60 hover:bg-slate-950 text-white backdrop-blur-md transition-all cursor-pointer shadow-lg border border-white/10"
                 title="Tutup"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
 
-              {/* Kontainer Gambar Menggunakan Komponen Image Next.js */}
+              {/* Kontainer Gambar Bersih Tanpa Teks Berlebih */}
               <div className="relative w-full flex flex-col bg-slate-950">
-                <div className="relative w-full">
+                <div className="relative w-full overflow-hidden">
                   <Image
                     src="/MenuBaru.png"
                     alt="Pembaruan Sistem Ampera OJK"
                     width={1200}
-                    height={750}
-                    className="w-full h-auto object-contain block max-h-[82vh]"
+                    height={700}
+                    className="w-full h-auto object-contain block max-h-[80vh]"
                     priority
                   />
-                </div>
-
-                {/* Overlay Teks Informasi di Bagian Bawah Gambar */}
-                <div className="absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-24 pb-7 px-8 sm:px-10 space-y-3">
-                  <div className="space-y-1.5">
-                    <span className="text-[11px] font-black text-rose-400 uppercase tracking-widest bg-rose-950/80 px-3 py-1 rounded-md border border-rose-800/40">
-                      INFORMASI PEMBARUAN V2.5
-                    </span>
-                    <h3 className="text-lg sm:text-2xl font-black text-white tracking-tight leading-snug pt-1">
-                      Optimalisasi & Pembaruan Sistem AMPERA
-                    </h3>
-                    <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed max-w-3xl">
-                      Pembaruan modul rekapitulasi kendaraan KOPG dan fitur
-                      pembatalan mandiri agenda kini telah aktif untuk mendukung
-                      efisiensi operasional.
-                    </p>
-                  </div>
-
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={handleCloseUpdateModal}
-                      className="w-full sm:w-auto px-8 py-3.5 bg-[#9f1521] hover:bg-[#7a1019] text-white text-xs font-extrabold rounded-xl transition-all shadow-xl cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      <span>Mengerti, Lanjutkan ke Dashboard</span>{" "}
-                      <ArrowRight size={16} />
-                    </button>
-                  </div>
                 </div>
               </div>
             </motion.div>
