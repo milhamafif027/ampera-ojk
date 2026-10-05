@@ -14,11 +14,13 @@ import {
   User,
   Car,
   MapPin,
+  Users, // <-- Ditambahkan ikon untuk peserta
 } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface ExtendedAgenda extends Agenda {
   endDate?: string;
+  totalParticipants?: number | string; // <-- Ditambahkan properti jumlah peserta
 }
 
 interface VehicleBookingItem {
@@ -116,6 +118,11 @@ export default function KalenderPage() {
               pic: item.pic || "Pegawai OJK",
               dept: item.dept || "OJK Sumsel",
               status: item.status || "Pending",
+              totalParticipants:
+                item.total_participants ||
+                item.participants ||
+                item.jumlah_peserta ||
+                "-", // <-- Mengambil data jumlah peserta dari database
             };
 
             return {
@@ -232,6 +239,11 @@ export default function KalenderPage() {
                 pic: item.pic || "Pegawai OJK",
                 dept: item.dept || "OJK Sumsel",
                 status: item.status || "Pending",
+                totalParticipants:
+                  item.total_participants ||
+                  item.participants ||
+                  item.jumlah_peserta ||
+                  "-", // <-- Mengambil data jumlah peserta
               };
 
               return {
@@ -499,13 +511,13 @@ export default function KalenderPage() {
                   <div className="space-y-1 overflow-y-auto max-h-[80px] custom-scrollbar">
                     {dayAgendas.map((a) => {
                       let shapeColorClass =
-                        "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200"; // Disetujui
+                        "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200";
                       if (a.smartStatus === "Sedang Berlangsung") {
                         shapeColorClass =
                           "bg-blue-100 text-blue-900 dark:bg-blue-900/60 dark:text-blue-200";
                       } else if (a.smartStatus === "Selesai") {
                         shapeColorClass =
-                          "bg-indigo-100 text-indigo-900 dark:bg-indigo-900/60 dark:text-indigo-200"; // Ungu/Indigo untuk Selesai
+                          "bg-indigo-100 text-indigo-900 dark:bg-indigo-900/60 dark:text-indigo-200";
                       } else if (
                         a.smartStatus === "Pending" ||
                         a.status === "Pending"
@@ -556,7 +568,6 @@ export default function KalenderPage() {
                   INFORMASI JADWAL TERPADU
                 </span>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
-                  {/* PERBAIKAN: Format Tanggal Indonesia */}
                   Tanggal:{" "}
                   {selectedDateModal.dateStr
                     ? (() => {
@@ -607,7 +618,7 @@ export default function KalenderPage() {
                         "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400";
                     } else if (agenda.smartStatus === "Selesai") {
                       badgeColorClass =
-                        "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400"; // Ungu/Indigo untuk Selesai di Modal Detail
+                        "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400";
                     } else if (
                       agenda.smartStatus === "Pending" ||
                       agenda.status === "Pending"
@@ -646,12 +657,20 @@ export default function KalenderPage() {
                             />{" "}
                             {agenda.room}
                           </span>
-                          <span className="flex items-center gap-1.5 sm:col-span-2">
+                          <span className="flex items-center gap-1.5">
                             <User
                               size={14}
                               className="text-[#9f1521] shrink-0"
                             />{" "}
                             PIC: {agenda.pic} ({agenda.dept || "OJK Sumsel"})
+                          </span>
+                          {/* PENAMBAHAN INFORMASI JUMLAH PESERTA DI SINI */}
+                          <span className="flex items-center gap-1.5">
+                            <Users
+                              size={14}
+                              className="text-[#9f1521] shrink-0"
+                            />{" "}
+                            Jumlah Peserta: {agenda.totalParticipants} Orang
                           </span>
                         </div>
                       </div>

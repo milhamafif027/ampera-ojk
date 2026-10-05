@@ -388,6 +388,20 @@ export default function RekapKendaraanPage() {
     }
   };
 
+  // Helper untuk mengubah string angka mentah menjadi format ribuan dengan titik (contoh: 154442 -> 154.442)
+  const formatNumberInput = (value: string) => {
+    // Hanya ambil angka
+    const numbers = value.replace(/\D/g, "");
+    if (!numbers) return "";
+    // Format dengan pemisah titik
+    return Number(numbers).toLocaleString("id-ID");
+  };
+
+  // Helper untuk membersihkan titik sebelum disimpan ke state/database
+  const parseNumberInput = (value: string) => {
+    return value.replace(/\./g, "");
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -596,7 +610,7 @@ export default function RekapKendaraanPage() {
                     className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none cursor-pointer font-bold"
                     required
                   >
-                    <option value="">-- Pilih Kendaraan --</option>
+                    <option value="">-- Jenis Kendaraan --</option>
                     {vehicles.map((v) => (
                       <option key={v.id} value={`${v.plateNumber} (${v.name})`}>
                         {v.plateNumber} - {v.name}
@@ -643,13 +657,15 @@ export default function RekapKendaraanPage() {
                     Km Awal <span className="text-rose-500">*</span>
                   </label>
                   <input
-                    type="number"
-                    value={formData.km_awal}
-                    onChange={(e) =>
-                      setFormData({ ...formData, km_awal: e.target.value })
-                    }
+                    type="text" // Diubah ke text agar bisa menampilkan titik pemisah ribuan
+                    inputMode="numeric" // Memunculkan keyboard angka di HP
+                    value={formatNumberInput(String(formData.km_awal || ""))}
+                    onChange={(e) => {
+                      const rawValue = parseNumberInput(e.target.value);
+                      setFormData({ ...formData, km_awal: rawValue });
+                    }}
                     className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
-                    placeholder="Contoh: 154442"
+                    placeholder="Contoh: 154.442"
                     required
                   />
                 </div>
@@ -658,13 +674,15 @@ export default function RekapKendaraanPage() {
                     Km Akhir <span className="text-rose-500">*</span>
                   </label>
                   <input
-                    type="number"
-                    value={formData.km_akhir}
-                    onChange={(e) =>
-                      setFormData({ ...formData, km_akhir: e.target.value })
-                    }
+                    type="text" // Diubah ke text agar bisa menampilkan titik pemisah ribuan
+                    inputMode="numeric" // Memunculkan keyboard angka di HP
+                    value={formatNumberInput(String(formData.km_akhir || ""))}
+                    onChange={(e) => {
+                      const rawValue = parseNumberInput(e.target.value);
+                      setFormData({ ...formData, km_akhir: rawValue });
+                    }}
                     className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
-                    placeholder="Contoh: 154465"
+                    placeholder="Contoh: 154.465"
                     required
                   />
                 </div>
@@ -690,12 +708,15 @@ export default function RekapKendaraanPage() {
                     🚗 Total Jarak:{" "}
                     <strong>
                       {
-                        calculateDerivedValues(
-                          formData.jam_awal,
-                          formData.jam_selesai,
-                          formData.km_awal,
-                          formData.km_akhir,
-                        ).total_km
+                        // Memformat hasil total jarak agar memiliki titik ribuan (misal: 1.250 Km)
+                        Number(
+                          calculateDerivedValues(
+                            formData.jam_awal,
+                            formData.jam_selesai,
+                            formData.km_awal,
+                            formData.km_akhir,
+                          ).total_km || 0,
+                        ).toLocaleString("id-ID")
                       }{" "}
                       Km
                     </strong>
@@ -721,7 +742,7 @@ export default function RekapKendaraanPage() {
 
               <div>
                 <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                  Keperluan Dinas <span className="text-rose-500">*</span>
+                  Keperluan <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -747,7 +768,7 @@ export default function RekapKendaraanPage() {
                       setFormData({ ...formData, pengguna: e.target.value })
                     }
                     className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
-                    placeholder="Contoh: Bang Jeff"
+                    placeholder="Contoh: Galan"
                     required
                   />
                 </div>
@@ -762,7 +783,7 @@ export default function RekapKendaraanPage() {
                       setFormData({ ...formData, driver: e.target.value })
                     }
                     className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
-                    placeholder="Contoh: Rio"
+                    placeholder="Contoh: NAMA PENGEMUDI"
                     required
                   />
                 </div>
