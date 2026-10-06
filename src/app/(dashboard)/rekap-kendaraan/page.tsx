@@ -232,7 +232,7 @@ export default function RekapKendaraanPage() {
       if (!res.ok) throw new Error("Gagal menyimpan rekap");
 
       setIsModalOpen(false);
-      setSuccessMsg("Rekap kegiatan dinas kendaraan KOPG berhasil disimpan!");
+      setSuccessMsg("Rekap kegiatan dinas kendaraan berhasil disimpan!");
       fetchData();
     } catch (error) {
       console.error(error);
@@ -330,7 +330,7 @@ export default function RekapKendaraanPage() {
       doc.setFontSize(12);
       doc.text("OTORITAS JASA KEUANGAN PROVINSI SUMATERA SELATAN", 14, 15);
       doc.setFontSize(10);
-      doc.text("Laporan Rekapitulasi Kegiatan Dinas Kendaraan KOPG", 14, 22);
+      doc.text("Laporan Rekapitulasi Kegiatan Dinas Kendaraan", 14, 22);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.text(`Tanggal Cetak: ${currentDate}`, 14, 28);
@@ -449,7 +449,7 @@ export default function RekapKendaraanPage() {
       </div>
 
       {/* TABEL DATA REKAP KEGIATAN */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-slate-900 bordr border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
           <h2 className="font-bold text-slate-800 dark:text-white text-base flex items-center gap-2">
             <Calendar size={18} className="text-[#9f1521]" /> Tabel Rekapitulasi
@@ -569,7 +569,7 @@ export default function RekapKendaraanPage() {
           >
             <div className="px-6 py-5 bg-[#9f1521] text-white flex justify-between items-center">
               <h3 className="font-bold text-base">
-                Form Rekap Kegiatan Dinas KOPG
+                Form Rekap Penggunaan Kendaraan Dinas
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
