@@ -270,7 +270,7 @@ export default function RekapKendaraanPage() {
       const exportData: any[][] = [];
 
       exportData.push(["KANTOR OJK PROVINSI SUMATERA SELATAN"]);
-      exportData.push(["REKAPITULASI KEGIATAN DINAS KENDARAAN KOPG"]);
+      exportData.push(["Rekapitulasi Penggunaan Kendaraan Dinas"]);
       exportData.push([`Tanggal Cetak: ${currentDate}`]);
       exportData.push([]);
 
@@ -442,7 +442,7 @@ export default function RekapKendaraanPage() {
               onClick={() => setIsModalOpen(true)}
               className="px-4 py-2.5 bg-[#9f1521] hover:bg-[#7a1019] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-rose-900/10 cursor-pointer"
             >
-              <Plus size={16} /> Rekap Kegiatan Baru
+              <Plus size={16} /> Penggunaan Kendaraan Dinas
             </button>
           </div>
         </div>
