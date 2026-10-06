@@ -600,7 +600,7 @@ export default function RekapKendaraanPage() {
                 </div>
                 <div>
                   <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                    No. Polisi & Mobil <span className="text-rose-500">*</span>
+                    Jenis Kendaraan <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={formData.no_pol}
@@ -610,7 +610,7 @@ export default function RekapKendaraanPage() {
                     className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none cursor-pointer font-bold"
                     required
                   >
-                    <option value="">-- Jenis Kendaraan --</option>
+                    <option value="">-- Pilih Kendaraan --</option>
                     {vehicles.map((v) => (
                       <option key={v.id} value={`${v.plateNumber} (${v.name})`}>
                         {v.plateNumber} - {v.name}
@@ -783,7 +783,7 @@ export default function RekapKendaraanPage() {
                       setFormData({ ...formData, driver: e.target.value })
                     }
                     className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
-                    placeholder="Contoh: NAMA PENGEMUDI"
+                    placeholder="Contoh: Samsul"
                     required
                   />
                 </div>
