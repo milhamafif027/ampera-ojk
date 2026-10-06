@@ -774,7 +774,7 @@ export default function RekapKendaraanPage() {
                 </div>
                 <div>
                   <label className="text-[10px] font-extrabold uppercase text-slate-500 mb-1 block">
-                    Driver <span className="text-rose-500">*</span>
+                    Nama Pengemudi <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -783,7 +783,7 @@ export default function RekapKendaraanPage() {
                       setFormData({ ...formData, driver: e.target.value })
                     }
                     className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none"
-                    placeholder="Contoh: Samsul"
+                    placeholder="Contoh: Rio"
                     required
                   />
                 </div>
