@@ -330,7 +330,7 @@ export default function RekapKendaraanPage() {
       doc.setFontSize(12);
       doc.text("OTORITAS JASA KEUANGAN PROVINSI SUMATERA SELATAN", 14, 15);
       doc.setFontSize(10);
-      doc.text("Laporan Rekapitulasi Kegiatan Dinas Kendaraan", 14, 22);
+      doc.text("Laporan Rekapitulasi Penggunaan Kendaraan Dinas", 14, 22);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.text(`Tanggal Cetak: ${currentDate}`, 14, 28);
@@ -415,7 +415,7 @@ export default function RekapKendaraanPage() {
           <div>
             <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Car className="text-[#9f1521] shrink-0" size={22} /> Rekapitulasi
-              Kegiatan Dinas Kendaraan
+              Penggunaan Kendaraan Dinas
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
               Catat dan pantau seluruh aktivitas operasional kedinasan kendaraan
@@ -554,7 +554,7 @@ export default function RekapKendaraanPage() {
           </div>
         ) : (
           <p className="text-xs text-slate-400 italic py-8 text-center border-t border-dashed border-slate-200 dark:border-slate-800">
-            Belum ada data rekap kegiatan dinas KOPG tercatat.
+            Belum ada data rekap kegiatan dinas tercatat.
           </p>
         )}
       </div>
