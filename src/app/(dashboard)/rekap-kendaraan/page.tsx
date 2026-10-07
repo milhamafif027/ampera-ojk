@@ -27,12 +27,12 @@ interface RekapItem {
   hari_tanggal: string;
   no_pol: string;
   jam_awal: string;
-  km_awal: number;
+  km_awal: number | string;
   tujuan: string;
   keperluan: string;
   pengguna: string;
   driver: string;
-  km_akhir: number;
+  km_akhir: number | string;
   jam_selesai: string;
   durasi: string;
   total_km: number;
@@ -93,6 +93,13 @@ export default function RekapKendaraanPage() {
     } catch {
       return dateStr;
     }
+  };
+
+  // Helper untuk format angka dengan titik ribuan
+  const formatKm = (val: number | string) => {
+    const num = Number(val);
+    if (isNaN(num)) return val;
+    return num.toLocaleString("id-ID");
   };
 
   // Helper untuk menghitung selisih waktu & jarak secara otomatis
@@ -224,7 +231,7 @@ export default function RekapKendaraanPage() {
     };
   }, []);
 
-  // Filter Data (Tampilan di Website tetap terbaru/teratas)
+  // Filter Data (Tampilan website terbaru di atas)
   const filteredData = useMemo(() => {
     return rekapList.filter((item) => {
       return (
@@ -308,7 +315,6 @@ export default function RekapKendaraanPage() {
         "Driver",
       ]);
 
-      // Urutkan data secara kronologis (dari bulan/tanggal pertama ke terakhir) khusus untuk laporan
       const sortedForReport = [...filteredData].sort(
         (a, b) =>
           new Date(a.hari_tanggal).getTime() -
@@ -323,9 +329,9 @@ export default function RekapKendaraanPage() {
           item.jam_awal,
           item.jam_selesai,
           item.durasi,
-          item.km_awal,
-          item.km_akhir,
-          `${item.total_km} Km`,
+          formatKm(item.km_awal),
+          formatKm(item.km_akhir),
+          `${formatKm(item.total_km)} Km`,
           item.tujuan,
           item.keperluan,
           item.pengguna,
@@ -376,7 +382,6 @@ export default function RekapKendaraanPage() {
         "Driver",
       ];
 
-      // Urutkan data secara kronologis khusus untuk laporan PDF
       const sortedForReport = [...filteredData].sort(
         (a, b) =>
           new Date(a.hari_tanggal).getTime() -
@@ -389,8 +394,8 @@ export default function RekapKendaraanPage() {
         item.no_pol,
         `${item.jam_awal} - ${item.jam_selesai}`,
         item.durasi,
-        `${item.km_awal} - ${item.km_akhir}`,
-        `${item.total_km} Km`,
+        `${formatKm(item.km_awal)} - ${formatKm(item.km_akhir)}`,
+        `${formatKm(item.total_km)} Km`,
         item.tujuan,
         item.keperluan,
         item.pengguna,
@@ -540,10 +545,11 @@ export default function RekapKendaraanPage() {
                     <td className="p-3 whitespace-nowrap">
                       <div className="flex flex-col text-slate-600 dark:text-slate-300">
                         <span className="flex items-center gap-1">
-                          <Gauge size={12} /> {item.km_awal} ➔ {item.km_akhir}
+                          <Gauge size={12} /> {formatKm(item.km_awal)} ➔{" "}
+                          {formatKm(item.km_akhir)}
                         </span>
                         <span className="font-bold text-indigo-600">
-                          🚗 Total: {item.total_km} Km
+                          🚗 Total: {formatKm(item.total_km)} Km
                         </span>
                       </div>
                     </td>
@@ -733,14 +739,14 @@ export default function RekapKendaraanPage() {
                   <span>
                     🚗 Total Jarak:{" "}
                     <strong>
-                      {Number(
+                      {formatKm(
                         calculateDerivedValues(
                           formData.jam_awal,
                           formData.jam_selesai,
                           formData.km_awal,
                           formData.km_akhir,
                         ).total_km || 0,
-                      ).toLocaleString("id-ID")}{" "}
+                      )}{" "}
                       Km
                     </strong>
                   </span>
