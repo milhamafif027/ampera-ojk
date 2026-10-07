@@ -76,6 +76,25 @@ export default function RekapKendaraanPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
+  // Helper untuk memformat tanggal ke format Indonesia (DD-MM-YYYY)
+  const formatDateToID = (dateStr: string) => {
+    if (!dateStr) return "-";
+    try {
+      const parts = dateStr.split("T")[0].split("-");
+      if (parts.length === 3) {
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
   // Helper untuk menghitung selisih waktu & jarak secara otomatis
   const calculateDerivedValues = (
     jAwal: string,
@@ -150,7 +169,6 @@ export default function RekapKendaraanPage() {
     }
   }, []);
 
-  // useEffect yang bersih dari linter error cascading render
   useEffect(() => {
     let isCancelled = false;
 
@@ -206,7 +224,7 @@ export default function RekapKendaraanPage() {
     };
   }, []);
 
-  // Filter Data
+  // Filter Data (Tampilan di Website tetap terbaru/teratas)
   const filteredData = useMemo(() => {
     return rekapList.filter((item) => {
       return (
@@ -262,7 +280,7 @@ export default function RekapKendaraanPage() {
     }
   };
 
-  // --- EKSPOR EXCEL ---
+  // --- EKSPOR EXCEL (Urutan dari Tanggal Pertama / Terlama ke Terbaru) ---
   const handleExportExcel = () => {
     setIsExporting(true);
     try {
@@ -290,10 +308,17 @@ export default function RekapKendaraanPage() {
         "Driver",
       ]);
 
-      filteredData.forEach((item, idx) => {
+      // Urutkan data secara kronologis (dari bulan/tanggal pertama ke terakhir) khusus untuk laporan
+      const sortedForReport = [...filteredData].sort(
+        (a, b) =>
+          new Date(a.hari_tanggal).getTime() -
+          new Date(b.hari_tanggal).getTime(),
+      );
+
+      sortedForReport.forEach((item, idx) => {
         exportData.push([
           idx + 1,
-          item.hari_tanggal,
+          formatDateToID(item.hari_tanggal),
           item.no_pol,
           item.jam_awal,
           item.jam_selesai,
@@ -319,7 +344,7 @@ export default function RekapKendaraanPage() {
     }
   };
 
-  // --- CETAK PDF ---
+  // --- CETAK PDF (Urutan dari Tanggal Pertama / Terlama ke Terbaru) ---
   const handleDownloadPDF = () => {
     setIsExporting(true);
     try {
@@ -351,10 +376,16 @@ export default function RekapKendaraanPage() {
         "Driver",
       ];
 
-      // Memetakan data dari filteredData agar baris tabel tidak kosong
-      const tableRows = filteredData.map((item, idx) => [
+      // Urutkan data secara kronologis khusus untuk laporan PDF
+      const sortedForReport = [...filteredData].sort(
+        (a, b) =>
+          new Date(a.hari_tanggal).getTime() -
+          new Date(b.hari_tanggal).getTime(),
+      );
+
+      const tableRows = sortedForReport.map((item, idx) => [
         idx + 1,
-        item.hari_tanggal,
+        formatDateToID(item.hari_tanggal),
         item.no_pol,
         `${item.jam_awal} - ${item.jam_selesai}`,
         item.durasi,
@@ -388,16 +419,12 @@ export default function RekapKendaraanPage() {
     }
   };
 
-  // Helper untuk mengubah string angka mentah menjadi format ribuan dengan titik (contoh: 154442 -> 154.442)
   const formatNumberInput = (value: string) => {
-    // Hanya ambil angka
     const numbers = value.replace(/\D/g, "");
     if (!numbers) return "";
-    // Format dengan pemisah titik
     return Number(numbers).toLocaleString("id-ID");
   };
 
-  // Helper untuk membersihkan titik sebelum disimpan ke state/database
   const parseNumberInput = (value: string) => {
     return value.replace(/\./g, "");
   };
@@ -409,7 +436,7 @@ export default function RekapKendaraanPage() {
       transition={{ duration: 0.4, ease: "easeOut" }}
       className="space-y-6 px-2 sm:px-4 lg:px-6 max-w-7xl mx-auto w-full pb-12"
     >
-      {/* HEADER BAR & ACTION BUTTONS */}
+      {/* HEADER BAR */}
       <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -449,7 +476,7 @@ export default function RekapKendaraanPage() {
       </div>
 
       {/* TABEL DATA REKAP KEGIATAN */}
-      <div className="bg-white dark:bg-slate-900 bordr border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
           <h2 className="font-bold text-slate-800 dark:text-white text-base flex items-center gap-2">
             <Calendar size={18} className="text-[#9f1521]" /> Tabel Rekapitulasi
@@ -494,7 +521,7 @@ export default function RekapKendaraanPage() {
                     className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors"
                   >
                     <td className="p-3 whitespace-nowrap font-bold text-slate-900 dark:text-white">
-                      {item.hari_tanggal}
+                      {formatDateToID(item.hari_tanggal)}
                     </td>
                     <td className="p-3 whitespace-nowrap font-mono font-bold text-[#9f1521]">
                       {item.no_pol}
@@ -559,7 +586,7 @@ export default function RekapKendaraanPage() {
         )}
       </div>
 
-      {/* MODAL INPUT FORM REKAP KOPG */}
+      {/* MODAL INPUT FORM */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
@@ -657,8 +684,8 @@ export default function RekapKendaraanPage() {
                     Km Awal <span className="text-rose-500">*</span>
                   </label>
                   <input
-                    type="text" // Diubah ke text agar bisa menampilkan titik pemisah ribuan
-                    inputMode="numeric" // Memunculkan keyboard angka di HP
+                    type="text"
+                    inputMode="numeric"
                     value={formatNumberInput(String(formData.km_awal || ""))}
                     onChange={(e) => {
                       const rawValue = parseNumberInput(e.target.value);
@@ -674,8 +701,8 @@ export default function RekapKendaraanPage() {
                     Km Akhir <span className="text-rose-500">*</span>
                   </label>
                   <input
-                    type="text" // Diubah ke text agar bisa menampilkan titik pemisah ribuan
-                    inputMode="numeric" // Memunculkan keyboard angka di HP
+                    type="text"
+                    inputMode="numeric"
                     value={formatNumberInput(String(formData.km_akhir || ""))}
                     onChange={(e) => {
                       const rawValue = parseNumberInput(e.target.value);
@@ -688,7 +715,6 @@ export default function RekapKendaraanPage() {
                 </div>
               </div>
 
-              {/* Info Preview Kalkulasi Otomatis */}
               {formData.jam_awal && formData.jam_selesai && (
                 <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/50 rounded-xl flex items-center justify-between text-[11px] text-rose-800 dark:text-rose-300">
                   <span>
@@ -707,17 +733,14 @@ export default function RekapKendaraanPage() {
                   <span>
                     🚗 Total Jarak:{" "}
                     <strong>
-                      {
-                        // Memformat hasil total jarak agar memiliki titik ribuan (misal: 1.250 Km)
-                        Number(
-                          calculateDerivedValues(
-                            formData.jam_awal,
-                            formData.jam_selesai,
-                            formData.km_awal,
-                            formData.km_akhir,
-                          ).total_km || 0,
-                        ).toLocaleString("id-ID")
-                      }{" "}
+                      {Number(
+                        calculateDerivedValues(
+                          formData.jam_awal,
+                          formData.jam_selesai,
+                          formData.km_awal,
+                          formData.km_akhir,
+                        ).total_km || 0,
+                      ).toLocaleString("id-ID")}{" "}
                       Km
                     </strong>
                   </span>
