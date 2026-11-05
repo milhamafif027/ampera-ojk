@@ -16,6 +16,8 @@ import {
   CheckCircle2,
   Clock,
   Gauge,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import jsPDF from "jspdf";
@@ -51,8 +53,10 @@ export default function RekapKendaraanPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  // State Filter
+  // State Filter & Pagination
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; // Batasan 10 data per halaman
 
   // State Form Input
   const [formData, setFormData] = useState({
@@ -231,7 +235,7 @@ export default function RekapKendaraanPage() {
     };
   }, []);
 
-  // Filter Data (Tampilan website terbaru di atas)
+  // Filter Data
   const filteredData = useMemo(() => {
     return rekapList.filter((item) => {
       return (
@@ -243,6 +247,13 @@ export default function RekapKendaraanPage() {
       );
     });
   }, [rekapList, searchTerm]);
+
+  // Logika Pagination (Potong data sesuai halaman aktif)
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(start, start + itemsPerPage);
+  }, [filteredData, currentPage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -287,7 +298,7 @@ export default function RekapKendaraanPage() {
     }
   };
 
-  // --- EKSPOR EXCEL (Urutan dari Tanggal Pertama / Terlama ke Terbaru) ---
+  // --- EKSPOR EXCEL (Mencetak seluruh data hasil filter secara kronologis) ---
   const handleExportExcel = () => {
     setIsExporting(true);
     try {
@@ -350,7 +361,7 @@ export default function RekapKendaraanPage() {
     }
   };
 
-  // --- CETAK PDF (Urutan dari Tanggal Pertama / Terlama ke Terbaru) ---
+  // --- CETAK PDF (Mencetak seluruh data hasil filter secara kronologis) ---
   const handleDownloadPDF = () => {
     setIsExporting(true);
     try {
@@ -497,93 +508,139 @@ export default function RekapKendaraanPage() {
               type="text"
               placeholder="Cari tujuan, pengguna, driver..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium outline-none"
             />
           </div>
         </div>
 
         {filteredData.length > 0 ? (
-          <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase font-black tracking-wider">
-                  <th className="p-3">Tanggal</th>
-                  <th className="p-3">No. Polisi / Mobil</th>
-                  <th className="p-3">Waktu & Durasi</th>
-                  <th className="p-3">Kilometer (Awal - Akhir)</th>
-                  <th className="p-3">Tujuan</th>
-                  <th className="p-3">Keperluan</th>
-                  <th className="p-3">Pengguna</th>
-                  <th className="p-3">Driver</th>
-                  <th className="p-3 text-center">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
-                {filteredData.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors"
-                  >
-                    <td className="p-3 whitespace-nowrap font-bold text-slate-900 dark:text-white">
-                      {formatDateToID(item.hari_tanggal)}
-                    </td>
-                    <td className="p-3 whitespace-nowrap font-mono font-bold text-[#9f1521]">
-                      {item.no_pol}
-                    </td>
-                    <td className="p-3 whitespace-nowrap">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="flex items-center gap-1 text-slate-600">
-                          <Clock size={12} /> {item.jam_awal} -{" "}
-                          {item.jam_selesai}
-                        </span>
-                        <span className="font-bold text-emerald-600">
-                          ⏱️ {item.durasi}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="p-3 whitespace-nowrap">
-                      <div className="flex flex-col text-slate-600 dark:text-slate-300">
-                        <span className="flex items-center gap-1">
-                          <Gauge size={12} /> {formatKm(item.km_awal)} ➔{" "}
-                          {formatKm(item.km_akhir)}
-                        </span>
-                        <span className="font-bold text-indigo-600">
-                          🚗 Total: {formatKm(item.total_km)} Km
-                        </span>
-                      </div>
-                    </td>
-                    <td className="p-3 whitespace-nowrap font-bold text-slate-900 dark:text-white">
-                      📍 {item.tujuan}
-                    </td>
-                    <td className="p-3 text-slate-500 italic">
-                      💡 {item.keperluan}
-                    </td>
-                    <td className="p-3 whitespace-nowrap font-bold">
-                      👤 {item.pengguna}
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-slate-600 dark:text-slate-300 font-medium">
-                      🚗 {item.driver}
-                    </td>
-                    <td className="p-3 text-center whitespace-nowrap">
-                      <button
-                        onClick={() =>
-                          setDeleteModal({
-                            isOpen: true,
-                            id: String(item.id),
-                            title: `${item.tujuan} (${item.pengguna})`,
-                          })
-                        }
-                        className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors cursor-pointer"
-                        title="Hapus Rekap"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </td>
+          <div className="space-y-4">
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase font-black tracking-wider">
+                    <th className="p-3">Tanggal</th>
+                    <th className="p-3">No. Polisi / Mobil</th>
+                    <th className="p-3">Waktu & Durasi</th>
+                    <th className="p-3">Kilometer (Awal - Akhir)</th>
+                    <th className="p-3">Tujuan</th>
+                    <th className="p-3">Keperluan</th>
+                    <th className="p-3">Pengguna</th>
+                    <th className="p-3">Driver</th>
+                    <th className="p-3 text-center">Aksi</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
+                  {paginatedData.map((item) => (
+                    <tr
+                      key={item.id}
+                      className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors"
+                    >
+                      <td className="p-3 whitespace-nowrap font-bold text-slate-900 dark:text-white">
+                        {formatDateToID(item.hari_tanggal)}
+                      </td>
+                      <td className="p-3 whitespace-nowrap font-mono font-bold text-[#9f1521]">
+                        {item.no_pol}
+                      </td>
+                      <td className="p-3 whitespace-nowrap">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="flex items-center gap-1 text-slate-600">
+                            <Clock size={12} /> {item.jam_awal} -{" "}
+                            {item.jam_selesai}
+                          </span>
+                          <span className="font-bold text-emerald-600">
+                            ⏱️ {item.durasi}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-3 whitespace-nowrap">
+                        <div className="flex flex-col text-slate-600 dark:text-slate-300">
+                          <span className="flex items-center gap-1">
+                            <Gauge size={12} /> {formatKm(item.km_awal)} ➔{" "}
+                            {formatKm(item.km_akhir)}
+                          </span>
+                          <span className="font-bold text-indigo-600">
+                            🚗 Total: {formatKm(item.total_km)} Km
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-3 whitespace-nowrap font-bold text-slate-900 dark:text-white">
+                        📍 {item.tujuan}
+                      </td>
+                      <td className="p-3 text-slate-500 italic">
+                        💡 {item.keperluan}
+                      </td>
+                      <td className="p-3 whitespace-nowrap font-bold">
+                        👤 {item.pengguna}
+                      </td>
+                      <td className="p-3 whitespace-nowrap text-slate-600 dark:text-slate-300 font-medium">
+                        🚗 {item.driver}
+                      </td>
+                      <td className="p-3 text-center whitespace-nowrap">
+                        <button
+                          onClick={() =>
+                            setDeleteModal({
+                              isOpen: true,
+                              id: String(item.id),
+                              title: `${item.tujuan} (${item.pengguna})`,
+                            })
+                          }
+                          className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors cursor-pointer"
+                          title="Hapus Rekap"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* KOMPONEN PAGINATION */}
+            <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 gap-3">
+              <span className="text-xs text-slate-500 font-medium">
+                Menampilkan halaman{" "}
+                <strong className="text-slate-800 dark:text-white">
+                  {currentPage}
+                </strong>{" "}
+                dari{" "}
+                <strong className="text-slate-800 dark:text-white">
+                  {totalPages}
+                </strong>{" "}
+                (Total {filteredData.length} Data)
+              </span>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <ChevronLeft size={14} /> Sebelumnya
+                </button>
+
+                <div className="px-3 py-1.5 bg-rose-50 dark:bg-rose-950/40 text-[#9f1521] dark:text-rose-300 rounded-xl text-xs font-bold">
+                  {currentPage} / {totalPages}
+                </div>
+
+                <button
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  Berikutnya <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
           </div>
         ) : (
           <p className="text-xs text-slate-400 italic py-8 text-center border-t border-dashed border-slate-200 dark:border-slate-800">
