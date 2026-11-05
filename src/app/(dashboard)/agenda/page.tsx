@@ -6,7 +6,7 @@ import { getSmartStatus, formatAgendaDate } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx"; // <-- Tambahan Library Excel
+import * as XLSX from "xlsx";
 import {
   ClipboardList,
   Search,
@@ -26,6 +26,8 @@ import {
   Save,
   Eye,
   XCircle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -60,9 +62,9 @@ interface RawAgendaResponse {
   layout?: string;
   status?: string;
   notes?: string;
-  phone?: string; // TAMBAHAN: Tarik No WhatsApp
-  total_participants?: number; // TAMBAHAN: Tarik Jumlah Peserta
-  meeting_leader?: string; // TAMBAHAN: Tarik Pimpinan Rapat
+  phone?: string;
+  total_participants?: number;
+  meeting_leader?: string;
 }
 
 interface AgendaFormData {
@@ -145,9 +147,9 @@ function mapAgendaRecord(item: RawAgendaResponse): ExtendedAgenda {
     layout: item.layout || "-",
     status: (item.status as StatusPengajuan) || "Pending",
     notes: item.notes || "",
-    phone: item.phone || "-", // MEMASUKKAN KE STATE
-    total_participants: item.total_participants || 0, // MEMASUKKAN KE STATE
-    meeting_leader: item.meeting_leader || "-", // MEMASUKKAN KE STATE
+    phone: item.phone || "-",
+    total_participants: item.total_participants || 0,
+    meeting_leader: item.meeting_leader || "-",
   };
 
   return {
@@ -177,10 +179,13 @@ export default function AgendaPage() {
   const [monthFilter, setMonthFilter] = useState<string>("Semua Bulan");
   const [yearFilter, setYearFilter] = useState<string>("Semua Tahun");
 
+  // State untuk Pagination (10 data per halaman)
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const [isExporting, setIsExporting] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-  // State Modal Konfirmasi Pembatalan
   const [cancelModal, setCancelModal] = useState<{
     isOpen: boolean;
     agendaId: string | null;
@@ -363,24 +368,26 @@ export default function AgendaPage() {
       });
   }, [agendas, searchTerm, statusFilter, roomFilter, monthFilter, yearFilter]);
 
-  // =============== FUNGSI EXPORT EXCEL BARU (XLSX) ===============
+  // Logika Pagination untuk memotong data per 10 item
+  const totalPages = Math.ceil(filteredAgendas.length / itemsPerPage) || 1;
+  const paginatedAgendas = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredAgendas.slice(start, start + itemsPerPage);
+  }, [filteredAgendas, currentPage]);
+
   const handleExportExcel = () => {
     setIsExporting(true);
     try {
       const currentDate = new Date().toISOString().split("T")[0];
-
-      // 1. Siapkan kerangka data (Array of Arrays) agar header laporan tetap ada
       const exportData: any[][] = [];
 
-      // Baris Header Judul Laporan
       exportData.push(["KANTOR OJK PROVINSI SUMATERA SELATAN"]);
       exportData.push(["LAPORAN REKAPITULASI AGENDA & KEGIATAN RUANGAN"]);
       exportData.push([
         `Tanggal Cetak: ${currentDate} | Filter Status: ${statusFilter} | Filter Ruangan: ${roomFilter} | Filter Tahun: ${yearFilter} | Filter Bulan: ${monthFilter}`,
       ]);
-      exportData.push([]); // Baris Kosong sebagai pemisah
+      exportData.push([]);
 
-      // Header Kolom Tabel
       exportData.push([
         "No",
         "Tanggal Pelaksanaan",
@@ -394,7 +401,6 @@ export default function AgendaPage() {
         "Catatan",
       ]);
 
-      // 2. Masukkan isi data dari tabel
       filteredAgendas.forEach((a, index) => {
         const dateFormatted = formatAgendaDate(a.date, a.endDate);
         exportData.push([
@@ -411,28 +417,22 @@ export default function AgendaPage() {
         ]);
       });
 
-      // 3. Konversi array ke worksheet Excel
       const ws = XLSX.utils.aoa_to_sheet(exportData);
-
-      // 4. Atur lebar kolom (Column Widths) agar tulisan rapi dan tidak terpotong
       ws["!cols"] = [
-        { wch: 5 }, // No
-        { wch: 25 }, // Tanggal Pelaksanaan
-        { wch: 15 }, // Waktu
-        { wch: 45 }, // Nama Kegiatan (Lebar)
-        { wch: 25 }, // PIC
-        { wch: 25 }, // Satker
-        { wch: 30 }, // Ruangan
-        { wch: 18 }, // Tata Letak
-        { wch: 20 }, // Status Pengajuan
-        { wch: 40 }, // Catatan (Lebar)
+        { wch: 5 },
+        { wch: 25 },
+        { wch: 15 },
+        { wch: 45 },
+        { wch: 25 },
+        { wch: 25 },
+        { wch: 30 },
+        { wch: 18 },
+        { wch: 20 },
+        { wch: 40 },
       ];
 
-      // 5. Buat file Excel dan simpan
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Rekap Agenda");
-
-      // Mengunduh langsung sebagai file .xlsx
       XLSX.writeFile(wb, `Laporan_Agenda_OJK_Sumsel_${currentDate}.xlsx`);
     } catch (error) {
       console.error("Gagal mengekspor Excel:", error);
@@ -559,7 +559,6 @@ export default function AgendaPage() {
   const handleApprove = async (id: string) => {
     setActionLoadingId(id);
     try {
-      // Ambil data agenda aslinya agar notes tidak hilang tertimpa
       const selectedAgenda = agendas.find((a) => a.id === id);
 
       const res = await fetch("/api/agendas", {
@@ -568,7 +567,7 @@ export default function AgendaPage() {
         body: JSON.stringify({
           id,
           status: "Disetujui",
-          notes: selectedAgenda?.notes || "", // PERTAHANKAN CATATAN ASLI
+          notes: selectedAgenda?.notes || "",
         }),
       });
       const result = await res.json().catch(() => ({}));
@@ -783,7 +782,10 @@ export default function AgendaPage() {
             type="text"
             placeholder="Cari acara, PIC, satker, ruangan..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1); // Reset halaman ke 1 saat mengetik pencarian
+            }}
             className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:outline-none focus:border-[#9f1521] text-slate-800 dark:text-slate-100 shadow-sm"
           />
         </div>
@@ -794,6 +796,7 @@ export default function AgendaPage() {
             onChange={(e) => {
               setYearFilter(e.target.value);
               setMonthFilter("Semua Bulan");
+              setCurrentPage(1);
             }}
             className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer shadow-sm"
           >
@@ -809,7 +812,10 @@ export default function AgendaPage() {
         <div>
           <select
             value={monthFilter}
-            onChange={(e) => setMonthFilter(e.target.value)}
+            onChange={(e) => {
+              setMonthFilter(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer shadow-sm"
           >
             <option value="Semua Bulan">Semua Bulan</option>
@@ -824,7 +830,10 @@ export default function AgendaPage() {
         <div>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer shadow-sm"
           >
             <option value="Semua Status">Semua Status</option>
@@ -838,7 +847,10 @@ export default function AgendaPage() {
         <div>
           <select
             value={roomFilter}
-            onChange={(e) => setRoomFilter(e.target.value)}
+            onChange={(e) => {
+              setRoomFilter(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer shadow-sm"
           >
             <option value="Semua Ruangan">Semua Ruangan</option>
@@ -851,8 +863,8 @@ export default function AgendaPage() {
         </div>
       </div>
 
-      {/* 3. TABEL DATA AGENDA */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
+      {/* 3. TABEL DATA AGENDA DENGAN PAGINATION */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
@@ -866,15 +878,14 @@ export default function AgendaPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
-              {filteredAgendas.length > 0 ? (
-                filteredAgendas.map((item) => (
+              {paginatedAgendas.length > 0 ? (
+                paginatedAgendas.map((item) => (
                   <tr
                     key={item.id}
                     className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors"
                   >
                     <td className="p-4 whitespace-nowrap">
                       <div className="flex flex-col gap-0.5">
-                        {/* Format Tanggal Indonesia: Hari, Tanggal Bulan Tahun */}
                         <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                           <Calendar size={13} className="text-[#9f1521]" />{" "}
                           {formatAgendaDate(item.date, item.endDate)}
@@ -1009,9 +1020,50 @@ export default function AgendaPage() {
             </tbody>
           </table>
         </div>
+
+        {/* KOMPONEN PAGINATION */}
+        {filteredAgendas.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 gap-3">
+            <span className="text-xs text-slate-500 font-medium">
+              Menampilkan halaman{" "}
+              <strong className="text-slate-800 dark:text-white">
+                {currentPage}
+              </strong>{" "}
+              dari{" "}
+              <strong className="text-slate-800 dark:text-white">
+                {totalPages}
+              </strong>{" "}
+              (Total {filteredAgendas.length} Data)
+            </span>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <ChevronLeft size={14} /> Sebelumnya
+              </button>
+
+              <div className="px-3 py-1.5 bg-rose-50 dark:bg-rose-950/40 text-[#9f1521] dark:text-rose-300 rounded-xl text-xs font-bold">
+                {currentPage} / {totalPages}
+              </div>
+
+              <button
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                }
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                Berikutnya <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 4. MODAL DETAIL AGENDA (SUDAH DIPERBARUI DENGAN FULL DATABASE) */}
+      {/* 4. MODAL DETAIL AGENDA */}
       {detailModal.isOpen && detailModal.data && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
@@ -1037,7 +1089,6 @@ export default function AgendaPage() {
             </div>
 
             <div className="space-y-4 max-h-[65vh] overflow-y-auto custom-scrollbar pr-1 text-xs">
-              {/* SECTION 1: INFORMASI UTAMA */}
               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
                 <div className="flex justify-between items-start gap-4">
                   <span className="text-slate-500 font-medium whitespace-nowrap">
@@ -1079,7 +1130,6 @@ export default function AgendaPage() {
                 </div>
               </div>
 
-              {/* SECTION 2: FASILITAS & RUANGAN */}
               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
                 <div className="flex justify-between items-start gap-4">
                   <span className="text-slate-500 font-medium whitespace-nowrap">
@@ -1111,7 +1161,6 @@ export default function AgendaPage() {
                 </div>
               </div>
 
-              {/* SECTION 3: KONTAK & STATUS */}
               <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl space-y-3 border border-slate-200/60 dark:border-slate-700/50">
                 <div className="flex justify-between items-center gap-4">
                   <span className="text-slate-500 font-medium whitespace-nowrap">
@@ -1158,7 +1207,6 @@ export default function AgendaPage() {
                 </div>
               </div>
 
-              {/* SECTION 4: CATATAN TAMBAHAN (BUG FIXED) */}
               <div className="p-4 bg-amber-50/50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-900/30">
                 <div className="flex flex-col space-y-1.5">
                   <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-500">
@@ -1178,7 +1226,7 @@ export default function AgendaPage() {
         </div>
       )}
 
-      {/* 5. MODAL KONFIRMASI PEMBATALAN KEGIATAN */}
+      {/* 5. MODAL KONFIRMASI PEMBATALAN */}
       {cancelModal.isOpen && (
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <motion.div
@@ -1226,7 +1274,7 @@ export default function AgendaPage() {
         </div>
       )}
 
-      {/* 6. MODAL EDIT AGENDA (KHUSUS ADMIN) */}
+      {/* 6. MODAL EDIT AGENDA */}
       {editModal.isOpen && editModal.data && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
           <motion.div
