@@ -210,7 +210,6 @@ function BookingFormContent({
     return getRoomCapacity(currentRoom, formData.layout);
   }, [currentRoom, formData.layout]);
 
-  // Ekstrak maksimal angka kapasitas untuk validasi
   const maxAllowedCapacity = useMemo(() => {
     if (!currentRoom) return 1000;
     const rawVal = getRoomCapacity(currentRoom, formData.layout);
@@ -268,7 +267,6 @@ function BookingFormContent({
         layout: newLayout,
       }));
 
-      // Re-validasi kapasitas ketika ruangan berganti
       const rawCap = getRoomCapacity(selected, newLayout);
       const newMaxCap =
         rawCap === "-"
@@ -285,7 +283,6 @@ function BookingFormContent({
         setCapacityError("");
       }
     } else if (name === "phone") {
-      // VALIDASI NOMOR HP (HANYA ANGKA)
       const numericValue = String(value).replace(/\D/g, "");
       setFormData((prev) => ({ ...prev, phone: numericValue }));
 
@@ -300,7 +297,6 @@ function BookingFormContent({
         setPhoneError("");
       }
     } else if (name === "total_participants") {
-      // VALIDASI JUMLAH PESERTA
       const participantVal = parseInt(String(value), 10) || 0;
       setFormData((prev) => ({ ...prev, total_participants: String(value) }));
 
@@ -316,7 +312,6 @@ function BookingFormContent({
     } else if (name === "layout") {
       setFormData((prev) => ({ ...prev, layout: String(value) }));
 
-      // Re-validasi kapasitas ketika layout berubah
       const rawCap = getRoomCapacity(currentRoom, String(value));
       const newMaxCap =
         rawCap === "-"
@@ -466,6 +461,7 @@ function BookingFormContent({
     formData.meeting_leader.trim(),
   );
 
+  // Validasi Step 2: Mendukung jam 24 jam bebas tanpa batasan jam kantor
   const isStep2Valid = Boolean(
     (formData.room_id || formData.roomName.trim()) &&
     formData.date &&
@@ -736,7 +732,7 @@ function BookingFormContent({
                       {String(r.capacity || "-")
                         .replace(/orang/gi, "")
                         .trim()}{" "}
-                      Orang
+                      Orang[cite: 4]
                     </option>
                   ))}
                 </select>
@@ -786,7 +782,7 @@ function BookingFormContent({
                   />
                 </div>
                 <div>
-                  <label className={labelClassName}>Jam Mulai</label>
+                  <label className={labelClassName}>Jam Mulai (24 Jam)</label>
                   <input
                     type="time"
                     name="startTime"
@@ -798,7 +794,7 @@ function BookingFormContent({
                   />
                 </div>
                 <div>
-                  <label className={labelClassName}>Jam Selesai</label>
+                  <label className={labelClassName}>Jam Selesai (24 Jam)</label>
                   <input
                     type="time"
                     name="endTime"
@@ -841,7 +837,7 @@ function BookingFormContent({
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={labelClassName}>Jam Mulai</label>
+                    <label className={labelClassName}>Jam Mulai (24 Jam)</label>
                     <input
                       type="time"
                       name="startTime"
@@ -853,7 +849,9 @@ function BookingFormContent({
                     />
                   </div>
                   <div>
-                    <label className={labelClassName}>Jam Selesai</label>
+                    <label className={labelClassName}>
+                      Jam Selesai (24 Jam)
+                    </label>
                     <input
                       type="time"
                       name="endTime"

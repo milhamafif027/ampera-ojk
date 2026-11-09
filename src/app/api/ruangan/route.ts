@@ -48,7 +48,7 @@ async function handleImageUploads(formData: FormData): Promise<string[]> {
   return savedImageUrls;
 }
 
-// 1. GET: Mengambil daftar ruangan (Diamankan)
+// 1. GET: Mengambil daftar ruangan dengan dukungan Pagination (10 data/halaman) & Mode Export
 export async function GET(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("session_token")?.value;
@@ -62,10 +62,44 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const rows = await db.$queryRaw`
-      SELECT * FROM ruangan ORDER BY id DESC
+    const { searchParams } = new URL(req.url);
+    const isExport = searchParams.get("export") === "true";
+
+    // Jika untuk keperluan export (PDF/Excel), ambil semua data secara kronologis (Ascending)
+    if (isExport) {
+      const rows = await db.$queryRaw`
+        SELECT * FROM ruangan ORDER BY id ASC
+      `;
+      return NextResponse.json({ success: true, data: rows });
+    }
+
+    // Parameter Pagination standar (10 data per halaman)
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "10", 10);
+    const offset = (page - 1) * limit;
+
+    // Mengambil total keseluruhan data untuk informasi total page di frontend
+    const countResult: any = await db.$queryRaw`
+      SELECT COUNT(*) as total FROM ruangan
     `;
-    return NextResponse.json({ success: true, data: rows });
+    const totalData = Number(countResult[0]?.total || 0);
+    const totalPages = Math.ceil(totalData / limit) || 1;
+
+    // Mengambil data dengan limit & offset, diurutkan terbaru di atas untuk website
+    const rows = await db.$queryRaw`
+      SELECT * FROM ruangan ORDER BY id DESC LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    return NextResponse.json({
+      success: true,
+      data: rows,
+      pagination: {
+        currentPage: page,
+        itemsPerPage: limit,
+        totalData,
+        totalPages,
+      },
+    });
   } catch (error: any) {
     console.error("GET Ruangan Error:", error);
     return NextResponse.json(

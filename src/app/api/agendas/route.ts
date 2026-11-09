@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
     const finalStatus = isAutoApprove ? "Disetujui" : "Pending";
 
     // =========================================================================
-    // PENGECEKAN BENTROK JADWAL
+    // PENGECEKAN BENTROK JADWAL (Mendukung Operasional 24 Jam Penuh)
     // =========================================================================
     let conflictQuery;
 
@@ -238,8 +238,8 @@ export async function POST(request: NextRequest) {
         ? "Reservasi Ruangan Baru (Disetujui Otomatis)"
         : "Pengajuan Ruangan Baru (Menunggu Verifikasi)";
       const adminNotifInfo = isAutoApprove
-        ? `Reservasi ${targetRoomName} oleh ${pic || authUser?.name} (${dept || authUser?.dept}) untuk ${dateInfoStr} (${start_time} - ${end_time}) telah disetujui otomatis.`
-        : `Request ruangan oleh ${pic || authUser?.name} (${dept || authUser?.dept}) untuk ${dateInfoStr} (${start_time} - ${end_time}).`;
+        ? `Reservasi ${targetRoomName} oleh ${pic || authUser?.name} (${dept || authUser?.dept}) untuk ${dateInfoStr} pukul (${start_time} - ${end_time} WIB) telah disetujui otomatis.`
+        : `Request ruangan oleh ${pic || authUser?.name} (${dept || authUser?.dept}) untuk ${dateInfoStr} pukul (${start_time} - ${end_time} WIB).`;
 
       await tx.$executeRaw`
         INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
@@ -257,8 +257,8 @@ export async function POST(request: NextRequest) {
           ? "Reservasi Ruangan Disetujui"
           : "Pengajuan Berhasil Dikirim";
         const userNotifInfo = isAutoApprove
-          ? `Reservasi ruangan ${targetRoomName} (${dateInfoStr}) berhasil dan langsung disetujui.`
-          : `Pengajuan ruangan (${dateInfoStr}) berhasil dikirim dan menunggu verifikasi Admin.`;
+          ? `Reservasi ruangan ${targetRoomName} (${dateInfoStr} pukul ${start_time} - ${end_time} WIB) berhasil dan langsung disetujui.`
+          : `Pengajuan ruangan (${dateInfoStr} pukul ${start_time} - ${end_time} WIB) berhasil dikirim dan menunggu verifikasi Admin.`;
 
         if (targetTable === "notifikasi_internal") {
           await tx.$executeRaw`
@@ -441,7 +441,7 @@ export async function DELETE(request: NextRequest) {
     `;
 
     return NextResponse.json({
-      success: true, // Hanya satu saja yang bernilai true
+      success: true,
       message: "Agenda berhasil dihapus.",
     });
   } catch (error: any) {
