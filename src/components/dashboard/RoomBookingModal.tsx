@@ -340,7 +340,7 @@ function BookingFormContent({
     }
   };
 
-  // Logika Pengecekan Bentrok Waktu yang Disempurnakan untuk 24 Jam
+  // Logika Pengecekan Bentrok Waktu yang Akurat (24 Jam & Lintas Ruangan)
   const conflictDetails = (() => {
     if (
       !formData.date ||
@@ -356,15 +356,15 @@ function BookingFormContent({
     const targetRoomNameLower = cleanText(formData.roomName).toLowerCase();
     const targetLayoutLower = cleanText(formData.layout).toLowerCase();
 
-    // Helper untuk mengubah "HH:mm" menjadi total menit (integer) agar perbandingan akurat
-    const timeToMinutes = (timeStr: string) => {
+    // Fungsi konversi jam "HH:mm" ke Menit untuk komparasi matematika murni
+    const timeToMins = (timeStr: string) => {
       if (!timeStr || !timeStr.includes(":")) return 0;
-      const [hours, minutes] = timeStr.split(":").map(Number);
-      return hours * 60 + (minutes || 0);
+      const [h, m] = timeStr.split(":").map(Number);
+      return h * 60 + (m || 0);
     };
 
-    const targetStartMins = timeToMinutes(formData.startTime);
-    const targetEndMins = timeToMinutes(formData.endTime);
+    const targetStartMins = timeToMins(formData.startTime);
+    const targetEndMins = timeToMins(formData.endTime);
 
     const parseNum = (val: any) => {
       if (typeof val === "number") return val;
@@ -382,6 +382,7 @@ function BookingFormContent({
       targetRoomId === "12" || targetRoomNameLower.includes("komunal");
     const isTargetRoundTable = targetLayoutLower.includes("round table");
 
+    // 1. Validasi Batas Kapasitas Mutlak
     if (isTargetBallroom && isTargetRoundTable && targetParticipants > 250) {
       return {
         hasConflict: true,
@@ -390,27 +391,56 @@ function BookingFormContent({
       };
     }
 
+    // 2. Loop Pengecekan Bentrok Jadwal per Ruangan
     for (const booking of existingBookings) {
-      const rawBooking = booking as unknown as Record<string, unknown>;
+      const rawBooking = booking as any;
       const bookingDate = String(rawBooking.date || "").slice(0, 10);
+      const bookingEndDate = String(rawBooking.end_date || bookingDate).slice(
+        0,
+        10,
+      );
 
-      // Hanya bandingkan jadwal di tanggal yang sama
-      if (bookingDate !== targetDate) continue;
+      // Jika pemesanan baru tidak berada di tanggal yang sama dengan jadwal ini, lewati.
+      if (targetDate < bookingDate || targetDate > bookingEndDate) continue;
 
-      const existingStartStr = String(rawBooking.start_time || "").slice(0, 5);
-      const existingEndStr = String(rawBooking.end_time || "").slice(0, 5);
+      // Persiapkan jam jadwal lama
+      let exStartStr = String(rawBooking.start_time || "").slice(0, 5);
+      let exEndStr = String(rawBooking.end_time || "").slice(0, 5);
 
-      if (!existingStartStr || !existingEndStr) continue;
+      if (
+        !exStartStr ||
+        !exEndStr ||
+        exStartStr === "undef" ||
+        exEndStr === "undef"
+      ) {
+        if (
+          rawBooking.time &&
+          typeof rawBooking.time === "string" &&
+          rawBooking.time.includes("-")
+        ) {
+          const parts = rawBooking.time.split("-");
+          exStartStr = parts[0].trim().slice(0, 5);
+          exEndStr = parts[1].trim().slice(0, 5);
+        } else {
+          continue;
+        }
+      }
 
-      const existingStartMins = timeToMinutes(existingStartStr);
-      const existingEndMins = timeToMinutes(existingEndStr);
+      const exStartMins = timeToMins(exStartStr);
+      const exEndMins = timeToMins(exEndStr);
 
-      // LOGIKA BENTROK MURNI: Waktu Awal Baru < Waktu Akhir Lama DAN Waktu Akhir Baru > Waktu Awal Lama
+      // KUNCI: Cek apakah jam pemesanan BARU bertabrakan dengan LAMA?
+      // Awal Baru < Akhir Lama  AND  Akhir Baru > Awal Lama
       const isTimeOverlap =
-        targetStartMins < existingEndMins && targetEndMins > existingStartMins;
+        targetStartMins < exEndMins && targetEndMins > exStartMins;
 
-      if (!isTimeOverlap) continue; // Lanjut cek jadwal lain jika jamnya aman (tidak bentrok)
+      // Jika jam pemesanannya AMAN (tidak bentrok waktu sama sekali), abaikan jadwal ini!
+      if (!isTimeOverlap) continue;
 
+      // ---------------------------------------------------------
+      // MULAI DARI SINI, WAKTU SUDAH PASTI BENTROK.
+      // SEKARANG KITA CEK APAKAH RUANGANNYA SAMA ATAU TERKAIT.
+      // ---------------------------------------------------------
       const bookedRoomId = String(rawBooking.room_id || "");
       const bookedRoomName = cleanText(
         rawBooking.room_name || rawBooking.room || "",
@@ -426,19 +456,18 @@ function BookingFormContent({
         bookedRoomId === "12" || bookedRoomName.includes("komunal");
       const isBookedRoundTable = bookedLayoutLower.includes("round table");
 
+      // Cek A: Apakah pesan ruangan yang persis sama?
       if (
         bookedRoomId === targetRoomId ||
-        bookedRoomName === targetRoomNameLower ||
-        (isTargetBallroom && isBookedBallroom) ||
-        (isTargetKomunal && isBookedKomunal)
+        bookedRoomName === targetRoomNameLower
       ) {
         return {
           hasConflict: true,
-          message:
-            "Ruangan sudah terisi/dipesan pada rentang jam tersebut di tanggal ini.",
+          message: `Ruangan ini sudah terisi/dipesan pada rentang jam tersebut (${exStartStr} - ${exEndStr}).`,
         };
       }
 
+      // Cek B: Aturan Khusus Komunal vs Ballroom (HANYA JIKA WAKTUNYA BERSAMAAN)
       if (
         isTargetKomunal &&
         isTargetRoundTable &&
@@ -463,7 +492,7 @@ function BookingFormContent({
         return {
           hasConflict: true,
           message:
-            "Ballroom dengan layout 'Round Table' (200 - 250 orang) tidak dapat dipesan karena Ruangan Komunal sudah terisi layout 'Round Table'.",
+            "Ballroom dengan layout 'Round Table' (200 - 250 orang) tidak dapat dipesan karena Ruangan Komunal sudah terisi layout 'Round Table' pada jam tersebut.",
         };
       }
     }
