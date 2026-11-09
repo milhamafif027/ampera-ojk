@@ -183,7 +183,8 @@ function BookingFormContent({
       title: cleanText(editData?.title) || "",
       pic: cleanText(editData?.pic) || "",
       dept: defaultDept,
-      phone: cleanText(agendaRecord?.phone || agendaRecord?.phone_pemohon) || "",
+      phone:
+        cleanText(agendaRecord?.phone || agendaRecord?.phone_pemohon) || "",
       total_participants: String(agendaRecord?.total_participants || "1"),
       meeting_leader: cleanText(agendaRecord?.meeting_leader) || "",
       room_id: activeRoom ? String(activeRoom.id) : "",
@@ -351,11 +352,19 @@ function BookingFormContent({
     }
 
     const targetDate = formData.date.slice(0, 10);
-    const targetStartTime = formData.startTime; // e.g. "18:30"
-    const targetEndTime = formData.endTime;     // e.g. "20:00"
     const targetRoomId = String(formData.room_id || "");
     const targetRoomNameLower = cleanText(formData.roomName).toLowerCase();
     const targetLayoutLower = cleanText(formData.layout).toLowerCase();
+
+    // Helper untuk mengubah "HH:mm" menjadi total menit (integer) agar perbandingan akurat
+    const timeToMinutes = (timeStr: string) => {
+      if (!timeStr || !timeStr.includes(":")) return 0;
+      const [hours, minutes] = timeStr.split(":").map(Number);
+      return hours * 60 + (minutes || 0);
+    };
+
+    const targetStartMins = timeToMinutes(formData.startTime);
+    const targetEndMins = timeToMinutes(formData.endTime);
 
     const parseNum = (val: any) => {
       if (typeof val === "number") return val;
@@ -385,19 +394,22 @@ function BookingFormContent({
       const rawBooking = booking as unknown as Record<string, unknown>;
       const bookingDate = String(rawBooking.date || "").slice(0, 10);
 
+      // Hanya bandingkan jadwal di tanggal yang sama
       if (bookingDate !== targetDate) continue;
 
-      const existingStart = String(rawBooking.start_time || "").slice(0, 5); // e.g. "08:00"
-      const existingEnd = String(rawBooking.end_time || "").slice(0, 5);     // e.g. "17:00"
+      const existingStartStr = String(rawBooking.start_time || "").slice(0, 5);
+      const existingEndStr = String(rawBooking.end_time || "").slice(0, 5);
 
-      if (!existingStart || !existingEnd) continue;
+      if (!existingStartStr || !existingEndStr) continue;
 
-      // Perbaikan Rumus Overlap:
-      // Kegiatan bentrok HANYA JIKA jam mulai baru < jam selesai lama DAN jam selesai baru > jam mulai lama.
-      // Contoh: 18:30 < 17:00 (False) DAN 20:00 > 08:00 (True) -> False (Tidak Bentrok, aman untuk sesi malam).
+      const existingStartMins = timeToMinutes(existingStartStr);
+      const existingEndMins = timeToMinutes(existingEndStr);
+
+      // LOGIKA BENTROK MURNI: Waktu Awal Baru < Waktu Akhir Lama DAN Waktu Akhir Baru > Waktu Awal Lama
       const isTimeOverlap =
-        targetStartTime < existingEnd && targetEndTime > existingStart;
-      if (!isTimeOverlap) continue;
+        targetStartMins < existingEndMins && targetEndMins > existingStartMins;
+
+      if (!isTimeOverlap) continue; // Lanjut cek jadwal lain jika jamnya aman (tidak bentrok)
 
       const bookedRoomId = String(rawBooking.room_id || "");
       const bookedRoomName = cleanText(
