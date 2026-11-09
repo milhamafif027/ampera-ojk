@@ -10,6 +10,16 @@ const supabaseKey =
   "";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Helper untuk membersihkan teks dari artefak sitasi/cite
+const cleanInputText = (text: any): string => {
+  if (!text) return "";
+  const str = String(text);
+  if (str.includes("[cite")) {
+    return str.split("[cite")[0].trim();
+  }
+  return str.trim();
+};
+
 async function handleImageUploads(formData: FormData): Promise<string[]> {
   const files = formData.getAll("images") as File[];
   const savedImageUrls: string[] = [];
@@ -109,7 +119,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// 2. POST: Menambah ruangan baru (Diamankan)
+// 2. POST: Menambah ruangan baru (Diamankan & Dibersihkan dari artefak teks)
 export async function POST(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("session_token")?.value;
@@ -124,13 +134,13 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData();
-    const name = String(formData.get("name") || "");
-    const capacity = String(formData.get("capacity") || "30 Orang");
-    const description = String(formData.get("description") || "");
-    const type = String(formData.get("type") || "rapat");
-    const floor = String(formData.get("floor") || "2");
-    const status = String(formData.get("status") || "Tersedia");
-    const layout = String(formData.get("layout") || "Theater");
+    const name = cleanInputText(formData.get("name"));
+    const capacity = cleanInputText(formData.get("capacity") || "30 Orang");
+    const description = cleanInputText(formData.get("description"));
+    const type = cleanInputText(formData.get("type") || "rapat");
+    const floor = cleanInputText(formData.get("floor") || "2");
+    const status = cleanInputText(formData.get("status") || "Tersedia");
+    const layout = cleanInputText(formData.get("layout") || "Theater");
 
     const newImageUrls = await handleImageUploads(formData);
 
@@ -163,7 +173,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// 3. PUT: Memperbarui data ruangan (Diamankan)
+// 3. PUT: Memperbarui data ruangan (Diamankan & Dibersihkan dari artefak teks)
 export async function PUT(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("session_token")?.value;
@@ -191,13 +201,13 @@ export async function PUT(req: NextRequest) {
     }
 
     const roomId = Number(id);
-    const name = String(formData.get("name") || "");
-    const capacity = String(formData.get("capacity") || "30 Orang");
-    const description = String(formData.get("description") || "");
-    const type = String(formData.get("type") || "rapat");
-    const floor = String(formData.get("floor") || "2");
-    const status = String(formData.get("status") || "Tersedia");
-    const layout = String(formData.get("layout") || "Theater");
+    const name = cleanInputText(formData.get("name"));
+    const capacity = cleanInputText(formData.get("capacity") || "30 Orang");
+    const description = cleanInputText(formData.get("description"));
+    const type = cleanInputText(formData.get("type") || "rapat");
+    const floor = cleanInputText(formData.get("floor") || "2");
+    const status = cleanInputText(formData.get("status") || "Tersedia");
+    const layout = cleanInputText(formData.get("layout") || "Theater");
 
     const existingImgsRaw = formData.get("existingImgs");
     let savedImageUrls: string[] = [];

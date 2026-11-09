@@ -26,6 +26,17 @@ interface RawRoomConfig {
   capacity?: string | number;
 }
 
+// Helper untuk membersihkan teks sisipan / cite dari string secara tuntas tanpa regex
+const cleanText = (text: any): string => {
+  if (!text) return "";
+  const str = String(text);
+  // Memotong teks jika mendeteksi kata "[cite"
+  if (str.includes("[cite")) {
+    return str.split("[cite")[0].trim();
+  }
+  return str.trim();
+};
+
 const getRoomLayouts = (room: RawRoomConfig | null | undefined): string[] => {
   if (!room) return ["Ruang Rapat"];
 
@@ -42,7 +53,7 @@ const getRoomLayouts = (room: RawRoomConfig | null | undefined): string[] => {
     }
   }
 
-  const name = (room.name || "").trim().toLowerCase();
+  const name = cleanText(room.name).toLowerCase();
   if (name.includes("ballroom") || name.includes("komunal")) {
     return ["Theater", "Klasikal", "U-Shape", "Round Table"];
   }
@@ -80,7 +91,7 @@ const getRoomCapacity = (
     capacityVal = room.capacity ? String(room.capacity) : "-";
   }
 
-  const cleanCapacity = capacityVal.replace(/orang/gi, "").trim();
+  const cleanCapacity = cleanText(capacityVal).replace(/orang/gi, "").trim();
   return cleanCapacity !== "-" && cleanCapacity !== ""
     ? `${cleanCapacity} Orang`
     : "-";
@@ -134,7 +145,7 @@ function BookingFormContent({
     const defaultDept =
       currentUserRole === "internal" || currentUserRole === "admin"
         ? "OJK Sumsel"
-        : (agendaRecord?.dept as string) || "";
+        : cleanText(agendaRecord?.dept) || "";
 
     const activeRoom =
       selectedRoom ||
@@ -143,7 +154,7 @@ function BookingFormContent({
       (rooms.length > 0 ? rooms[0] : null);
 
     const validLayouts = getRoomLayouts(activeRoom);
-    const existingLayout = agendaRecord?.layout as string | undefined;
+    const existingLayout = cleanText(agendaRecord?.layout);
     const initialLayout =
       existingLayout && validLayouts.includes(existingLayout)
         ? existingLayout
@@ -169,25 +180,21 @@ function BookingFormContent({
     }
 
     return {
-      title: editData?.title || "",
-      pic: editData?.pic || "",
+      title: cleanText(editData?.title) || "",
+      pic: cleanText(editData?.pic) || "",
       dept: defaultDept,
-      phone:
-        (agendaRecord?.phone as string) ||
-        (agendaRecord?.phone_pemohon as string) ||
-        "",
+      phone: cleanText(agendaRecord?.phone || agendaRecord?.phone_pemohon) || "",
       total_participants: String(agendaRecord?.total_participants || "1"),
-      meeting_leader: (agendaRecord?.meeting_leader as string) || "",
+      meeting_leader: cleanText(agendaRecord?.meeting_leader) || "",
       room_id: activeRoom ? String(activeRoom.id) : "",
-      roomName: activeRoom?.name || "",
+      roomName: cleanText(activeRoom?.name) || "",
       isMultiDay: isMultiDayDetected,
       date: initialDate,
       endDate: isMultiDayDetected ? initialEndDate : "",
       startTime: parsedStartTime,
       endTime: parsedEndTime,
       layout: initialLayout,
-      notes:
-        (agendaRecord?.notes as string) || (agendaRecord?.note as string) || "",
+      notes: cleanText(agendaRecord?.notes || agendaRecord?.note) || "",
     };
   });
 
@@ -196,8 +203,8 @@ function BookingFormContent({
       rooms.find(
         (r) =>
           String(r.id) === String(formData.room_id) ||
-          r.name.trim().toLowerCase() ===
-            formData.roomName.trim().toLowerCase(),
+          cleanText(r.name).toLowerCase() ===
+            cleanText(formData.roomName).toLowerCase(),
       ) || null
     );
   }, [rooms, formData.room_id, formData.roomName]);
@@ -263,7 +270,7 @@ function BookingFormContent({
       setFormData((prev) => ({
         ...prev,
         room_id: String(value),
-        roomName: selected ? selected.name : prev.roomName,
+        roomName: selected ? cleanText(selected.name) : prev.roomName,
         layout: newLayout,
       }));
 
@@ -332,6 +339,7 @@ function BookingFormContent({
     }
   };
 
+  // Logika Pengecekan Bentrok Waktu yang Disempurnakan untuk 24 Jam
   const conflictDetails = (() => {
     if (
       !formData.date ||
@@ -343,11 +351,11 @@ function BookingFormContent({
     }
 
     const targetDate = formData.date.slice(0, 10);
-    const targetStartTime = formData.startTime;
-    const targetEndTime = formData.endTime;
+    const targetStartTime = formData.startTime; // e.g. "18:30"
+    const targetEndTime = formData.endTime;     // e.g. "20:00"
     const targetRoomId = String(formData.room_id || "");
-    const targetRoomNameLower = (formData.roomName || "").toLowerCase();
-    const targetLayoutLower = (formData.layout || "").toLowerCase();
+    const targetRoomNameLower = cleanText(formData.roomName).toLowerCase();
+    const targetLayoutLower = cleanText(formData.layout).toLowerCase();
 
     const parseNum = (val: any) => {
       if (typeof val === "number") return val;
@@ -379,21 +387,24 @@ function BookingFormContent({
 
       if (bookingDate !== targetDate) continue;
 
-      const existingStart = String(rawBooking.start_time || "").slice(0, 5);
-      const existingEnd = String(rawBooking.end_time || "").slice(0, 5);
+      const existingStart = String(rawBooking.start_time || "").slice(0, 5); // e.g. "08:00"
+      const existingEnd = String(rawBooking.end_time || "").slice(0, 5);     // e.g. "17:00"
 
       if (!existingStart || !existingEnd) continue;
 
+      // Perbaikan Rumus Overlap:
+      // Kegiatan bentrok HANYA JIKA jam mulai baru < jam selesai lama DAN jam selesai baru > jam mulai lama.
+      // Contoh: 18:30 < 17:00 (False) DAN 20:00 > 08:00 (True) -> False (Tidak Bentrok, aman untuk sesi malam).
       const isTimeOverlap =
         targetStartTime < existingEnd && targetEndTime > existingStart;
       if (!isTimeOverlap) continue;
 
       const bookedRoomId = String(rawBooking.room_id || "");
-      const bookedRoomName = String(
+      const bookedRoomName = cleanText(
         rawBooking.room_name || rawBooking.room || "",
       ).toLowerCase();
       const bookedParticipants = parseNum(rawBooking.total_participants);
-      const bookedLayoutLower = String(rawBooking.layout || "").toLowerCase();
+      const bookedLayoutLower = cleanText(rawBooking.layout).toLowerCase();
 
       const isBookedBallroom =
         bookedRoomId === "11" ||
@@ -461,7 +472,6 @@ function BookingFormContent({
     formData.meeting_leader.trim(),
   );
 
-  // Validasi Step 2: Mendukung jam 24 jam bebas tanpa batasan jam kantor
   const isStep2Valid = Boolean(
     (formData.room_id || formData.roomName.trim()) &&
     formData.date &&
@@ -726,15 +736,17 @@ function BookingFormContent({
                   required
                 >
                   <option value="">-- Pilih Ruangan --</option>
-                  {rooms.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name} - Kapasitas:{" "}
-                      {String(r.capacity || "-")
-                        .replace(/orang/gi, "")
-                        .trim()}{" "}
-                      Orang[cite: 4]
-                    </option>
-                  ))}
+                  {rooms.map((r) => {
+                    const cleanName = cleanText(r.name);
+                    const cleanCap = String(r.capacity || "-")
+                      .replace(/orang/gi, "")
+                      .trim();
+                    return (
+                      <option key={r.id} value={r.id}>
+                        {cleanName} - Kapasitas: {cleanCap} Orang
+                      </option>
+                    );
+                  })}
                 </select>
               ) : (
                 <input

@@ -197,8 +197,8 @@ function RoomCard({
   });
 
   const getAvailableSlotsForDate = (targetDateStr: string) => {
-    const operationalStart = "08:00";
-    const operationalEnd = "17:00";
+    const operationalStart = "00:00";
+    const operationalEnd = "23:59";
 
     const agendasOnDate = roomAgendas
       .filter((a) => a.date === targetDateStr && a.time)
@@ -573,7 +573,7 @@ function RoomCard({
                 <div className="space-y-2.5">
                   <span className="font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-2 text-sm">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>{" "}
-                    Saran Slot Kosong (08:00 - 17:00)
+                    Saran Slot Kosong (24 Jam)
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div className="p-4 bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/80 rounded-2xl space-y-2.5">

@@ -28,6 +28,16 @@ interface LocalUser {
   nip?: string;
 }
 
+// Helper lokal untuk membersihkan teks artefak cite dari respons API
+const cleanText = (text: any): string => {
+  if (!text) return "";
+  const str = String(text);
+  if (str.includes("[cite")) {
+    return str.split("[cite")[0].trim();
+  }
+  return str.trim();
+};
+
 export default function RuanganPage() {
   const [user, setUser] = useState<LocalUser | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -76,20 +86,24 @@ export default function RuanganPage() {
             parsedImgs = [];
           }
 
+          const rawName = cleanText(r.name);
+          const rawCapacity = cleanText(r.capacity || "30 Orang");
+
           return {
             id: String(r.id),
-            name: r.name,
-            capacity: r.capacity || "30 Orang",
+            name: rawName,
+            capacity: rawCapacity,
             type:
               r.type ||
-              (r.name.toLowerCase().includes("ballroom")
+              (rawName.toLowerCase().includes("ballroom")
                 ? "pertemuan"
                 : "rapat"),
             imgs: parsedImgs.filter(Boolean),
             description:
-              r.description || "Perlengkapan: Proyektor | Sound System | AC",
-            layout: r.layout || "Theater",
-            floor: r.floor || "2",
+              cleanText(r.description) ||
+              "Perlengkapan: Proyektor | Sound System | AC",
+            layout: cleanText(r.layout) || "Theater",
+            floor: cleanText(r.floor) || "2",
           };
         });
         setRooms(mappedRooms);
@@ -122,12 +136,12 @@ export default function RuanganPage() {
 
             const agendaItem = {
               id: String(item.id),
-              title: item.title,
+              title: cleanText(item.title),
               date: formattedDate,
               time: formattedTime,
-              room: item.room_name || item.room || "Ruang Rapat OJK",
-              pic: item.pic || "Pegawai OJK",
-              dept: item.dept || "OJK Sumsel",
+              room: cleanText(item.room_name || item.room || "Ruang Rapat OJK"),
+              pic: cleanText(item.pic || "Pegawai OJK"),
+              dept: cleanText(item.dept || "OJK Sumsel"),
               status: item.status || "Pending",
               user_id: item.user_id || null,
             };
@@ -243,8 +257,11 @@ export default function RuanganPage() {
   const handleOpenEditModal = (room: any) => {
     setEditingRoom({
       ...room,
-      floor: room.floor || "2",
-      layout: room.layout || "Theater",
+      name: cleanText(room.name),
+      capacity: cleanText(room.capacity),
+      description: cleanText(room.description),
+      floor: cleanText(room.floor) || "2",
+      layout: cleanText(room.layout) || "Theater",
       imgs:
         room.imgs && room.imgs.length > 0 ? [...room.imgs].filter(Boolean) : [],
       newFiles: [],
@@ -311,13 +328,13 @@ export default function RuanganPage() {
 
     const formData = new FormData();
     if (editingRoom.id) formData.append("id", String(editingRoom.id));
-    formData.append("name", editingRoom.name || "");
-    formData.append("capacity", editingRoom.capacity || "");
-    formData.append("description", editingRoom.description || "");
-    formData.append("type", editingRoom.type || "rapat");
-    formData.append("floor", editingRoom.floor || "2");
-    formData.append("layout", editingRoom.layout || "Theater");
-    formData.append("status", editingRoom.status || "Tersedia");
+    formData.append("name", cleanText(editingRoom.name));
+    formData.append("capacity", cleanText(editingRoom.capacity));
+    formData.append("description", cleanText(editingRoom.description));
+    formData.append("type", cleanText(editingRoom.type || "rapat"));
+    formData.append("floor", cleanText(editingRoom.floor || "2"));
+    formData.append("layout", cleanText(editingRoom.layout || "Theater"));
+    formData.append("status", cleanText(editingRoom.status || "Tersedia"));
 
     formData.append("existingImgs", JSON.stringify(existingImgs));
 

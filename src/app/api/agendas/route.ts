@@ -101,6 +101,10 @@ export async function POST(request: NextRequest) {
         ? end_date.slice(0, 10)
         : cleanStartDate;
 
+    // Pastikan format jam bersih 5 karakter (HH:mm)
+    const cleanStartTime = start_time ? start_time.slice(0, 5) : "08:00";
+    const cleanEndTime = end_time ? end_time.slice(0, 5) : "17:00";
+
     const participantsNum = Number(total_participants) || 1;
     const targetRoomName = room_name || "Ruang Rapat OJK";
     const targetRoomLower = targetRoomName.toLowerCase();
@@ -149,7 +153,7 @@ export async function POST(request: NextRequest) {
         SELECT id FROM agendas 
         WHERE status != 'Ditolak'
           AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
-          AND (start_time < ${end_time} AND end_time > ${start_time})
+          AND (start_time < ${cleanEndTime} AND end_time > ${cleanStartTime})
           AND LOWER(room_name) LIKE '%ballroom%'
           AND LOWER(layout) LIKE '%round table%'
           AND total_participants >= 200
@@ -165,7 +169,7 @@ export async function POST(request: NextRequest) {
         SELECT id FROM agendas 
         WHERE status != 'Ditolak'
           AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
-          AND (start_time < ${end_time} AND end_time > ${start_time})
+          AND (start_time < ${cleanEndTime} AND end_time > ${cleanStartTime})
           AND LOWER(room_name) LIKE '%komunal%'
           AND LOWER(layout) LIKE '%round table%'
         LIMIT 1
@@ -176,7 +180,7 @@ export async function POST(request: NextRequest) {
         WHERE room_name = ${targetRoomName} 
           AND status != 'Ditolak'
           AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${cleanStartDate}::date)
-          AND (start_time < ${end_time} AND end_time > ${start_time})
+          AND (start_time < ${cleanEndTime} AND end_time > ${cleanStartTime})
         LIMIT 1
       `;
     }
@@ -221,8 +225,8 @@ export async function POST(request: NextRequest) {
           ${targetRoomName}, 
           ${cleanStartDate}::date, 
           ${finalEndDate}::date, 
-          ${start_time}, 
-          ${end_time}, 
+          ${cleanStartTime}, 
+          ${cleanEndTime}, 
           ${layout || "-"}, 
           ${notes || ""}, 
           ${finalStatus}, 
@@ -233,13 +237,14 @@ export async function POST(request: NextRequest) {
 
       const id = insertResult[0]?.id;
 
-      // Notifikasi Admin & Pemohon Berdasarkan Status (Disetujui Otomatis vs Pending)
+      // Notifikasi Admin & Pemohon Berdasarkan Status
       const adminNotifTitle = isAutoApprove
         ? "Reservasi Ruangan Baru (Disetujui Otomatis)"
         : "Pengajuan Ruangan Baru (Menunggu Verifikasi)";
+
       const adminNotifInfo = isAutoApprove
-        ? `Reservasi ${targetRoomName} oleh ${pic || authUser?.name} (${dept || authUser?.dept}) untuk ${dateInfoStr} pukul (${start_time} - ${end_time} WIB) telah disetujui otomatis.`
-        : `Request ruangan oleh ${pic || authUser?.name} (${dept || authUser?.dept}) untuk ${dateInfoStr} pukul (${start_time} - ${end_time} WIB).`;
+        ? `Reservasi ${targetRoomName} oleh ${pic || authUser?.name} (${dept || authUser?.dept}) untuk ${dateInfoStr} pukul (${cleanStartTime} - ${cleanEndTime} WIB) telah disetujui otomatis.`
+        : `Request ruangan oleh ${pic || authUser?.name} (${dept || authUser?.dept}) untuk ${dateInfoStr} pukul (${cleanStartTime} - ${cleanEndTime} WIB).`;
 
       await tx.$executeRaw`
         INSERT INTO notifikasi_admin (title, type, status, info, is_read, created_at) 
@@ -256,9 +261,10 @@ export async function POST(request: NextRequest) {
         const userNotifTitle = isAutoApprove
           ? "Reservasi Ruangan Disetujui"
           : "Pengajuan Berhasil Dikirim";
+
         const userNotifInfo = isAutoApprove
-          ? `Reservasi ruangan ${targetRoomName} (${dateInfoStr} pukul ${start_time} - ${end_time} WIB) berhasil dan langsung disetujui.`
-          : `Pengajuan ruangan (${dateInfoStr} pukul ${start_time} - ${end_time} WIB) berhasil dikirim dan menunggu verifikasi Admin.`;
+          ? `Reservasi ruangan ${targetRoomName} (${dateInfoStr} pukul ${cleanStartTime} - ${cleanEndTime} WIB) berhasil dan langsung disetujui.`
+          : `Pengajuan ruangan (${dateInfoStr} pukul ${cleanStartTime} - ${cleanEndTime} WIB) berhasil dikirim dan menunggu verifikasi Admin.`;
 
         if (targetTable === "notifikasi_internal") {
           await tx.$executeRaw`
@@ -334,13 +340,15 @@ export async function PUT(request: NextRequest) {
     const finalStatus = status ? String(status) : targetAgenda.status;
     const finalEndDate = end_date ? end_date : date;
     const targetRoom = room || room_name || targetAgenda.room_name;
+    const cleanStartTime = start_time ? start_time.slice(0, 5) : "08:00";
+    const cleanEndTime = end_time ? end_time.slice(0, 5) : "17:00";
 
     await db.$transaction(async (tx) => {
       if (
         title &&
         date &&
-        start_time &&
-        end_time &&
+        cleanStartTime &&
+        cleanEndTime &&
         targetRoom &&
         targetRoom !== "Menunggu Plotting Admin"
       ) {
@@ -350,7 +358,7 @@ export async function PUT(request: NextRequest) {
             AND id != ${agendaId}
             AND status != 'Ditolak'
             AND (date <= ${finalEndDate}::date AND COALESCE(end_date, date) >= ${date}::date)
-            AND (start_time < ${end_time} AND end_time > ${start_time})
+            AND (start_time < ${cleanEndTime} AND end_time > ${cleanStartTime})
           LIMIT 1
         `;
 
@@ -365,8 +373,8 @@ export async function PUT(request: NextRequest) {
           SET title = ${title},
               date = ${date}::date,
               end_date = ${finalEndDate}::date,
-              start_time = ${start_time},
-              end_time = ${end_time},
+              start_time = ${cleanStartTime},
+              end_time = ${cleanEndTime},
               room_name = ${targetRoom},
               pic = ${pic || "-"},
               dept = ${dept || "-"},
